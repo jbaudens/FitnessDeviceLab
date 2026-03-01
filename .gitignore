@@ -1,0 +1,34 @@
+# --- Xcode ---
+# User-specific files (Window positions, open files, etc.)
+**/xcuserdata/
+
+# Build artifacts and intermediate files
+**/DerivedData/
+**/Build/
+**/Index/
+**/*.xcuserstate
+
+# --- Swift Package Manager ---
+# Ignore the working directory for SPM
+.swiftpm/xcode/package.xcresult
+.swiftpm/xcode/xcuserdata/
+# Note: Keep Package.resolved if you want to lock versions across the team
+
+# --- CocoaPods ---
+# Ignore the Pods directory unless you want to check in your dependencies
+# (Checking them in is rare nowadays, but some teams prefer it)
+Pods/
+
+# --- Fastlane ---
+# Ignore screenshots and distribution artifacts
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# --- Miscellaneous ---
+# macOS system files
+.DS_Store
+
+# Crash logs and diagnostic reports
+*.crash
