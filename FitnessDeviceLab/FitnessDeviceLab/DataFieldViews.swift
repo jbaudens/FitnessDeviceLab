@@ -5,6 +5,10 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     case avgHR = "Avg HR"
     case maxHR = "Max HR"
     case dfaAlpha1 = "DFA-a1"
+    case avnn = "AVNN"
+    case sdnn = "SDNN"
+    case rmssd = "rMSSD"
+    case pnn50 = "pNN50"
     
     case currentPower = "Power"
     case power3s = "3s Power"
@@ -27,7 +31,7 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     
     var isHR: Bool {
         switch self {
-        case .currentHR, .avgHR, .maxHR, .dfaAlpha1: return true
+        case .currentHR, .avgHR, .maxHR, .dfaAlpha1, .avnn, .sdnn, .rmssd, .pnn50: return true
         default: return false
         }
     }
@@ -37,7 +41,11 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         case .currentHR: return peripheral.heartRate.map { Double($0) }
         case .avgHR: return peripheral.metrics.avgHeartRate
         case .maxHR: return peripheral.metrics.maxHeartRate.map { Double($0) }
-        case .dfaAlpha1: return peripheral.dfaAlpha1
+        case .dfaAlpha1: return peripheral.metrics.dfaAlpha1
+        case .avnn: return peripheral.metrics.avnn
+        case .sdnn: return peripheral.metrics.sdnn
+        case .rmssd: return peripheral.metrics.rmssd
+        case .pnn50: return peripheral.metrics.pnn50
         
         case .currentPower: return peripheral.cyclingPower.map { Double($0) }
         case .power3s: return peripheral.metrics.power3s.map { Double($0) }
@@ -128,6 +136,8 @@ struct EmptyTile: View {
         switch type {
         case .currentHR, .avgHR, .maxHR: return "BPM"
         case .dfaAlpha1: return "INDEX"
+        case .avnn, .sdnn, .rmssd: return "ms"
+        case .pnn50: return "%"
         case .currentPower, .power3s, .power10s, .power30s, .avgPower, .maxPower, .normalizedPower, .aapAcclimated, .aapNonAcclimated: return "W"
         case .intensityFactor: return "IF"
         case .tss: return "TSS"
@@ -139,7 +149,7 @@ struct EmptyTile: View {
     var color: Color {
         switch type {
         case .currentHR, .avgHR, .maxHR: return .red
-        case .dfaAlpha1: return .purple
+        case .dfaAlpha1, .avnn, .sdnn, .rmssd, .pnn50: return .purple
         case .currentPower, .power3s, .power10s, .power30s, .avgPower, .maxPower, .normalizedPower, .aapAcclimated, .aapNonAcclimated: return .yellow
         case .intensityFactor, .tss: return .orange
         case .cadence, .avgCadence, .maxCadence: return .blue
@@ -190,6 +200,8 @@ struct DataFieldTile: View {
         switch type {
         case .currentHR, .avgHR, .maxHR: return "BPM"
         case .dfaAlpha1: return "INDEX"
+        case .avnn, .sdnn, .rmssd: return "ms"
+        case .pnn50: return "%"
         case .currentPower, .power3s, .power10s, .power30s, .avgPower, .maxPower, .normalizedPower, .aapAcclimated, .aapNonAcclimated: return "W"
         case .intensityFactor: return "IF"
         case .tss: return "TSS"
@@ -201,7 +213,7 @@ struct DataFieldTile: View {
     var color: Color {
         switch type {
         case .currentHR, .avgHR, .maxHR: return .red
-        case .dfaAlpha1: return .purple
+        case .dfaAlpha1, .avnn, .sdnn, .rmssd, .pnn50: return .purple
         case .currentPower, .power3s, .power10s, .power30s, .avgPower, .maxPower, .normalizedPower, .aapAcclimated, .aapNonAcclimated: return .yellow
         case .intensityFactor, .tss: return .orange
         case .cadence, .avgCadence, .maxCadence: return .blue

@@ -186,7 +186,7 @@ struct DeviceDetailView: View {
                         }
                     }
                     
-                    if let dfa = peripheral.dfaAlpha1 {
+                    if let dfa = peripheral.metrics.dfaAlpha1 {
                         HStack {
                             Label("DFA-a1", systemImage: "waveform.path.ecg")
                                 .foregroundColor(.purple)
