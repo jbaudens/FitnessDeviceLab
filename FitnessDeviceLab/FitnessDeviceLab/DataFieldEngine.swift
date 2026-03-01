@@ -22,6 +22,21 @@ public class DataFieldEngine: ObservableObject {
     @Published public var avgCadence: Double?
     @Published public var maxCadence: Int?
     
+    // HRV
+    @Published public var avnn: Double?
+    @Published public var sdnn: Double?
+    @Published public var rmssd: Double?
+    @Published public var pnn50: Double?
+    @Published public var dfaAlpha1: Double?
+    
+    private var hrvEngine = HRVEngine()
+    private var cancellables = Set<AnyCancellable>()
+    
+    // Time Series History for Charts (last 2 minutes)
+    @Published public var hrHistory: [TimeSeriesDataPoint] = []
+    @Published public var powerHistory: [TimeSeriesDataPoint] = []
+    @Published public var balanceHistory: [TimeSeriesDataPoint] = []
+    
     private var powerSamples: [Int] = []
     private var rolling30sPower: [Double] = []
     private var hrSamples: [Int] = []
@@ -31,13 +46,38 @@ public class DataFieldEngine: ObservableObject {
     
     public var userFTP: Double = 250.0 // Default FTP
     
-    public init() {}
+    public init() {
+        hrvEngine.$dfaAlpha1
+            .receive(on: RunLoop.main)
+            .sink { [weak self] val in self?.dfaAlpha1 = val }
+            .store(in: &cancellables)
+            
+        hrvEngine.$avnn
+            .receive(on: RunLoop.main)
+            .sink { [weak self] val in self?.avnn = val }
+            .store(in: &cancellables)
+            
+        hrvEngine.$sdnn
+            .receive(on: RunLoop.main)
+            .sink { [weak self] val in self?.sdnn = val }
+            .store(in: &cancellables)
+            
+        hrvEngine.$rmssd
+            .receive(on: RunLoop.main)
+            .sink { [weak self] val in self?.rmssd = val }
+            .store(in: &cancellables)
+            
+        hrvEngine.$pnn50
+            .receive(on: RunLoop.main)
+            .sink { [weak self] val in self?.pnn50 = val }
+            .store(in: &cancellables)
+    }
     
-    public func start(getPower: @escaping () -> Int?, getHR: @escaping () -> Int?, getCadence: @escaping () -> Int?, getAltitude: @escaping () -> Double?) {
+    public func start(getPower: @escaping () -> Int?, getHR: @escaping () -> Int?, getCadence: @escaping () -> Int?, getBalance: @escaping () -> Double?, getAltitude: @escaping () -> Double?) {
         timerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
-                self?.tick(power: getPower(), hr: getHR(), cadence: getCadence(), altitude: getAltitude())
+                self?.tick(power: getPower(), hr: getHR(), cadence: getCadence(), balance: getBalance(), altitude: getAltitude())
             }
     }
     
@@ -46,8 +86,16 @@ public class DataFieldEngine: ObservableObject {
         timerCancellable = nil
     }
     
-    private func tick(power: Int?, hr: Int?, cadence: Int?, altitude: Double?) {
+    private func appendHistory<T>(_ value: T, to array: inout [TimeSeriesDataPoint], convert: (T) -> Double) {
+        array.append(TimeSeriesDataPoint(value: convert(value)))
+        if array.count > 120 { // Keep last ~2 mins at 1Hz
+            array.removeFirst(array.count - 120)
+        }
+    }
+    
+    private func tick(power: Int?, hr: Int?, cadence: Int?, balance: Double?, altitude: Double?) {
         if let p = power {
+            appendHistory(p, to: &powerHistory) { Double($0) }
             powerSamples.append(p)
             maxPower = max(maxPower ?? 0, p)
             avgPower = Double(powerSamples.reduce(0, +)) / Double(powerSamples.count)
@@ -98,6 +146,7 @@ public class DataFieldEngine: ObservableObject {
         }
         
         if let h = hr {
+            appendHistory(h, to: &hrHistory) { Double($0) }
             hrSamples.append(h)
             maxHeartRate = max(maxHeartRate ?? 0, h)
             avgHeartRate = Double(hrSamples.reduce(0, +)) / Double(hrSamples.count)
@@ -108,6 +157,14 @@ public class DataFieldEngine: ObservableObject {
             maxCadence = max(maxCadence ?? 0, c)
             avgCadence = Double(cadenceSamples.reduce(0, +)) / Double(cadenceSamples.count)
         }
+        
+        if let b = balance {
+            appendHistory(b, to: &balanceHistory) { $0 }
+        }
+    }
+    
+    public func addRRIntervals(_ intervals: [Double]) {
+        hrvEngine.addRRIntervals(intervals)
     }
     
     public func reset() {
@@ -125,9 +182,19 @@ public class DataFieldEngine: ObservableObject {
         maxHeartRate = nil
         avgCadence = nil
         maxCadence = nil
+        dfaAlpha1 = nil
+        avnn = nil
+        sdnn = nil
+        rmssd = nil
+        pnn50 = nil
+        
         powerSamples.removeAll()
         rolling30sPower.removeAll()
         hrSamples.removeAll()
         cadenceSamples.removeAll()
+        hrHistory.removeAll()
+        powerHistory.removeAll()
+        balanceHistory.removeAll()
+        hrvEngine.reset()
     }
 }

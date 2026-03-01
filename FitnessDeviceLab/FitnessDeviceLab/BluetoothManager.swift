@@ -11,10 +11,14 @@ enum DeviceCapability: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-struct TimeSeriesDataPoint: Identifiable, Equatable {
-    let id = UUID()
-    let timestamp = Date()
-    let value: Double
+public struct TimeSeriesDataPoint: Identifiable, Equatable {
+    public let id = UUID()
+    public let timestamp = Date()
+    public let value: Double
+    
+    public init(value: Double) {
+        self.value = value
+    }
 }
 
 class DiscoveredPeripheral: NSObject, Identifiable, ObservableObject {
@@ -36,12 +40,6 @@ class DiscoveredPeripheral: NSObject, Identifiable, ObservableObject {
     @Published var cadence: Int?
     @Published var batteryLevel: Int?
     
-    // Time Series History for Charts
-    @Published var hrHistory: [TimeSeriesDataPoint] = []
-    @Published var powerHistory: [TimeSeriesDataPoint] = []
-    @Published var dfaHistory: [TimeSeriesDataPoint] = []
-    @Published var balanceHistory: [TimeSeriesDataPoint] = []
-    
     // Advanced Metrics
     @Published var rrIntervalsHistory: [Double] = []
     
@@ -59,10 +57,6 @@ class DiscoveredPeripheral: NSObject, Identifiable, ObservableObject {
     // Debug Data
     @Published var rawDataHex: String?
     
-    // DFA Alpha 1 Engine
-    var dfaCalculator = DFAAlpha1Calculator()
-    @Published var dfaAlpha1: Double?
-    
     // Data Field Engine
     @Published var metrics = DataFieldEngine()
     
@@ -75,22 +69,12 @@ class DiscoveredPeripheral: NSObject, Identifiable, ObservableObject {
         self.rssi = rssi
         super.init()
         self.peripheral.delegate = self
-        
-        // Subscribe to DFA updates
-        dfaCalculator.$currentAlpha1
-            .receive(on: RunLoop.main)
-            .sink { [weak self] dfa in
-                self?.dfaAlpha1 = dfa
-                if let dfa = dfa {
-                    self?.appendHistory(dfa, to: &self!.dfaHistory, convert: { $0 })
-                }
-            }
-            .store(in: &cancellables)
             
         self.metrics.start(
             getPower: { [weak self] in self?.cyclingPower },
             getHR: { [weak self] in self?.heartRate },
             getCadence: { [weak self] in self?.cadence },
+            getBalance: { [weak self] in self?.powerBalance },
             getAltitude: { LocationManager.shared.currentAltitude }
         )
     }
@@ -161,13 +145,6 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
         }
     }
     
-    private func appendHistory<T>(_ value: T, to array: inout [TimeSeriesDataPoint], convert: (T) -> Double) {
-        array.append(TimeSeriesDataPoint(value: convert(value)))
-        if array.count > 120 { // Keep last ~2 mins at 1Hz
-            array.removeFirst(array.count - 120)
-        }
-    }
-    
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         guard let data = characteristic.value else { return }
         
@@ -178,31 +155,21 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
             case Self.heartRateMeasurementUUID:
                 let (hr, rr) = self.parseHeartRate(data: data)
                 self.heartRate = hr
-                if let hr = hr { self.appendHistory(hr, to: &self.hrHistory) { Double($0) } }
                 if !rr.isEmpty {
                     self.rrIntervalsHistory.append(contentsOf: rr)
                     if self.rrIntervalsHistory.count > 100 {
                         self.rrIntervalsHistory.removeFirst(self.rrIntervalsHistory.count - 100)
                     }
-                    self.dfaCalculator.addRRIntervals(rr)
+                    self.metrics.addRRIntervals(rr)
                 }
             case Self.cyclingPowerMeasurementUUID:
                 let (power, cadence, balance) = self.parseCyclingPower(data: data)
-                if let power = power { 
-                    self.cyclingPower = power
-                    self.appendHistory(power, to: &self.powerHistory) { Double($0) } 
-                }
+                if let power = power { self.cyclingPower = power }
                 if let cadence = cadence { self.cadence = cadence }
-                if let balance = balance { 
-                    self.powerBalance = balance
-                    self.appendHistory(balance, to: &self.balanceHistory) { $0 } 
-                }
+                if let balance = balance { self.powerBalance = balance }
             case Self.indoorBikeDataUUID:
                 let (power, cadence) = self.parseIndoorBikeData(data: data)
-                if let power = power { 
-                    self.cyclingPower = power
-                    self.appendHistory(power, to: &self.powerHistory) { Double($0) } 
-                }
+                if let power = power { self.cyclingPower = power }
                 if let cadence = cadence { self.cadence = cadence }
             case Self.manufacturerNameUUID:
                 self.manufacturerName = String(data: data, encoding: .utf8)
@@ -460,7 +427,6 @@ extension BluetoothManager: CBCentralManagerDelegate {
                 discovered.cyclingPower = nil
                 discovered.cadence = nil
                 discovered.rrIntervalsHistory.removeAll()
-                discovered.dfaCalculator.reset()
                 discovered.metrics.reset()
                 
                 if wasConnected {
