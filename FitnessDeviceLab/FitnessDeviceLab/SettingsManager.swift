@@ -14,11 +14,17 @@ class SettingsManager: ObservableObject {
         didSet { defaults.set(maxHR, forKey: "maxHeartRate") }
     }
     
+    @Published var altitudeOverride: Double {
+        didSet { defaults.set(altitudeOverride, forKey: "altitudeOverride") }
+    }
+    
     private init() {
         let savedFTP = defaults.double(forKey: "userFTP")
         self.userFTP = savedFTP > 0 ? savedFTP : 250.0
         
         let savedHR = defaults.integer(forKey: "maxHeartRate")
         self.maxHR = savedHR > 0 ? savedHR : 190
+        
+        self.altitudeOverride = defaults.double(forKey: "altitudeOverride")
     }
 }

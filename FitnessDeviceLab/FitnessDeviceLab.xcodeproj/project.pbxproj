@@ -403,7 +403,7 @@
 				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
 				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
 				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
-				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = YES;
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -411,6 +411,7 @@
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "We need Bluetooth to connect to your heart rate monitors and power meters.";
 				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "We need Bluetooth to connect to your heart rate monitors and power meters.";
 				INFOPLIST_KEY_NSBluetoothWhileInUseUsageDescription = "We need Bluetooth to connect to your heart rate monitors and power meters.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need your location to determine altitude for power normalization and analysis.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -460,7 +461,7 @@
 				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
 				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
 				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
-				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = YES;
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -468,6 +469,7 @@
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "We need Bluetooth to connect to your heart rate monitors and power meters.";
 				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "We need Bluetooth to connect to your heart rate monitors and power meters.";
 				INFOPLIST_KEY_NSBluetoothWhileInUseUsageDescription = "We need Bluetooth to connect to your heart rate monitors and power meters.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need your location to determine altitude for power normalization and analysis.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;

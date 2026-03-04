@@ -29,6 +29,8 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     case avgCadence = "Avg Cad"
     case maxCadence = "Max Cad"
     
+    case altitude = "Altitude"
+    
     var id: String { rawValue }
     
     var isHR: Bool {
@@ -68,6 +70,8 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         case .cadence: return recorder.powerDevice?.cadence.map { Double($0) }
         case .avgCadence: return metrics.avgCadence
         case .maxCadence: return metrics.maxCadence.map { Double($0) }
+        
+        case .altitude: return recorder.trackpoints.last?.altitude
         }
     }
     
@@ -82,6 +86,7 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         case .tss: return "TSS"
         case .cadence, .avgCadence, .maxCadence: return "rpm"
         case .powerBalance: return "%L"
+        case .altitude: return "m"
         }
     }
     
@@ -93,6 +98,7 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         case .intensityFactor, .tss: return .orange
         case .cadence, .avgCadence, .maxCadence: return .blue
         case .powerBalance: return .orange
+        case .altitude: return .green
         }
     }
 }
@@ -156,6 +162,7 @@ struct DataFieldTile: View {
         switch type {
         case .dfaAlpha1, .intensityFactor: return String(format: "%.2f", val)
         case .tss: return String(format: "%.1f", val)
+        case .altitude: return String(format: "%.0f", val)
         default: return String(format: "%.0f", val)
         }
     }
