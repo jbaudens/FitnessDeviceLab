@@ -6,87 +6,97 @@ struct ContentView: View {
 
     var body: some View {
         TabView {
+            // Tab 1: Devices
             NavigationStack {
-                VStack {
-                    if bluetoothManager.isScanning {
-                        ProgressView("Scanning for devices...")
-                            .padding()
-                    } else {
-                        Button("Scan for Devices") {
-                            bluetoothManager.startScanning()
-                        }
-                        .padding()
-                        .buttonStyle(.borderedProminent)
-                    }
-
-                    List {
-                        let hrDevices = bluetoothManager.peripherals.filter { $0.capabilities.contains(.heartRate) }
-                        let powerDevices = bluetoothManager.peripherals.filter { $0.capabilities.contains(.cyclingPower) }
-                        let trainerDevices = bluetoothManager.peripherals.filter { $0.capabilities.contains(.fitnessMachine) }
-                        let otherDevices = bluetoothManager.peripherals.filter { $0.capabilities.isEmpty }
-                        
-                        if !hrDevices.isEmpty {
-                            Section("Heart Rate Monitors") {
-                                ForEach(hrDevices) { peripheral in
-                                    DeviceRowView(peripheral: peripheral)
-                                }
-                            }
-                        }
-                        
-                        if !powerDevices.isEmpty {
-                            Section("Power Meters") {
-                                ForEach(powerDevices) { peripheral in
-                                    DeviceRowView(peripheral: peripheral)
-                                }
-                            }
-                        }
-                        
-                        if !trainerDevices.isEmpty {
-                            Section("Smart Trainers") {
-                                ForEach(trainerDevices) { peripheral in
-                                    DeviceRowView(peripheral: peripheral)
-                                }
-                            }
-                        }
-                        
-                        if !otherDevices.isEmpty {
-                            Section("Other Devices") {
-                                ForEach(otherDevices) { peripheral in
-                                    DeviceRowView(peripheral: peripheral)
-                                }
-                            }
-                        }
-                    }
-                }
-                .navigationTitle("Devices")
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        if bluetoothManager.isScanning {
-                            Button("Stop") {
-                                bluetoothManager.stopScanning()
-                            }
-                        }
-                    }
-                }
+                DevicesTabView()
             }
             .tabItem {
                 Label("Devices", systemImage: "antenna.radiowaves.left.and.right")
             }
             
-            WorkoutPlayerView()
-                .tabItem {
-                    Label("Workout", systemImage: "play.circle")
-                }
+            // Tab 2: Workout
+            NavigationStack {
+                WorkoutPlayerView()
+            }
+            .tabItem {
+                Label("Workout", systemImage: "play.circle")
+            }
             
-            HRComparisonView()
-                .tabItem {
-                    Label("HR Compare", systemImage: "heart.square")
+            // Tab 3: Settings
+            NavigationStack {
+                SettingsView()
+            }
+            .tabItem {
+                Label("Settings", systemImage: "gear")
+            }
+        }
+    }
+}
+
+struct DevicesTabView: View {
+    @EnvironmentObject var bluetoothManager: BluetoothManager
+    
+    var body: some View {
+        VStack {
+            if bluetoothManager.isScanning {
+                ProgressView("Scanning for devices...")
+                    .padding()
+            } else {
+                Button("Scan for Devices") {
+                    bluetoothManager.startScanning()
+                }
+                .padding()
+                .buttonStyle(.borderedProminent)
+            }
+
+            List {
+                let hrDevices = bluetoothManager.peripherals.filter { $0.capabilities.contains(.heartRate) }
+                let powerDevices = bluetoothManager.peripherals.filter { $0.capabilities.contains(.cyclingPower) }
+                let trainerDevices = bluetoothManager.peripherals.filter { $0.capabilities.contains(.fitnessMachine) }
+                let otherDevices = bluetoothManager.peripherals.filter { $0.capabilities.isEmpty }
+                
+                if !hrDevices.isEmpty {
+                    Section("Heart Rate Monitors") {
+                        ForEach(hrDevices) { peripheral in
+                            DeviceRowView(peripheral: peripheral)
+                        }
+                    }
                 }
                 
-            PowerComparisonView()
-                .tabItem {
-                    Label("Power Compare", systemImage: "bolt.square")
+                if !powerDevices.isEmpty {
+                    Section("Power Meters") {
+                        ForEach(powerDevices) { peripheral in
+                            DeviceRowView(peripheral: peripheral)
+                        }
+                    }
                 }
+                
+                if !trainerDevices.isEmpty {
+                    Section("Smart Trainers") {
+                        ForEach(trainerDevices) { peripheral in
+                            DeviceRowView(peripheral: peripheral)
+                        }
+                    }
+                }
+                
+                if !otherDevices.isEmpty {
+                    Section("Other Devices") {
+                        ForEach(otherDevices) { peripheral in
+                            DeviceRowView(peripheral: peripheral)
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("Devices")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                if bluetoothManager.isScanning {
+                    Button("Stop") {
+                        bluetoothManager.stopScanning()
+                    }
+                }
+            }
         }
     }
 }
@@ -113,7 +123,6 @@ struct DeviceRowView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(.red)
-                    // Prevent button click from triggering NavigationLink
                     .buttonStyle(PlainButtonStyle())
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -140,7 +149,6 @@ struct DeviceRowView: View {
 
 struct DeviceDetailView: View {
     @EnvironmentObject var bluetoothManager: BluetoothManager
-    @EnvironmentObject var workoutManager: WorkoutSessionManager
     @ObservedObject var peripheral: DiscoveredPeripheral
     @State private var showDebug = false
 
@@ -183,17 +191,6 @@ struct DeviceDetailView: View {
                             Text("\(hr) BPM")
                                 .font(.title3)
                                 .bold()
-                        }
-                    }
-                    
-                    if let dfa = peripheral.metrics.dfaAlpha1 {
-                        HStack {
-                            Label("DFA-a1", systemImage: "waveform.path.ecg")
-                                .foregroundColor(.purple)
-                            Spacer()
-                            Text(String(format: "%.2f", dfa))
-                                .font(.headline)
-                                .foregroundColor(dfa > 0.75 ? .green : .orange)
                         }
                     }
                     
@@ -278,25 +275,6 @@ struct DeviceDetailView: View {
                                     .foregroundColor(.secondary)
                                 Text(hex)
                                     .font(.system(.caption, design: .monospaced))
-                            }
-                        }
-                        
-                        if !peripheral.rrIntervalsHistory.isEmpty {
-                            VStack(alignment: .leading) {
-                                Text("Recent RR Intervals (s) (Total: \(peripheral.rrIntervalsHistory.count)):")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack {
-                                        ForEach(Array(peripheral.rrIntervalsHistory.suffix(20).enumerated()), id: \.offset) { _, rr in
-                                            Text(String(format: "%.3f", rr))
-                                                .padding(4)
-                                                .background(Color.blue.opacity(0.1))
-                                                .cornerRadius(4)
-                                        }
-                                    }
-                                }
-                                .font(.system(.caption, design: .monospaced))
                             }
                         }
                     }

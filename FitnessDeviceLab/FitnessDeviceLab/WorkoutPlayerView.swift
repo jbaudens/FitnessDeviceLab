@@ -19,20 +19,70 @@ struct WorkoutPlayerView: View {
     var hrB: DiscoveredPeripheral? { hrDevices.first { $0.id == workoutManager.hrDeviceBId } }
     var powerB: DiscoveredPeripheral? { powerDevices.first { $0.id == workoutManager.powerDeviceBId } }
     
+    func deviceNames(hr: DiscoveredPeripheral?, pwr: DiscoveredPeripheral?) -> String {
+        let names = [hr?.name, pwr?.name].compactMap { $0 }
+        let uniqueNames = Array(Set(names))
+        return uniqueNames.isEmpty ? "No Sensors" : uniqueNames.joined(separator: " + ")
+    }
+    
     var body: some View {
-        NavigationStack {
+        Group {
             if workoutManager.isRecording {
-                // Recording View (Garmin-style Pages)
-                VStack {
+                // Recording View
+                VStack(spacing: 0) {
                     TabView {
                         ForEach(workoutManager.activeProfile.pages) { page in
                             ScrollView {
-                                DataFieldGrid(
-                                    hrPeripheral: hrA,
-                                    powerPeripheral: powerA,
-                                    fields: page.fields
-                                )
-                                .padding()
+                                VStack(spacing: 24) {
+                                    // Primary Sensor Set
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        HStack {
+                                            Label("SET A", systemImage: "1.circle.fill")
+                                            Spacer()
+                                            Text(deviceNames(hr: hrA, pwr: powerA))
+                                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                        }
+                                        .font(.caption)
+                                        .fontWeight(.black)
+                                        .foregroundColor(.blue)
+                                        .padding(.horizontal)
+                                        
+                                        MetricGraphView(recorder: workoutManager.recorderA)
+                                            .padding(.horizontal)
+                                        
+                                        DataFieldGrid(
+                                            recorder: workoutManager.recorderA,
+                                            fields: page.fields
+                                        )
+                                        .padding(.horizontal)
+                                    }
+                                    
+                                    Divider().padding(.horizontal)
+                                    
+                                    // Secondary Sensor Set
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        HStack {
+                                            Label("SET B", systemImage: "2.circle.fill")
+                                            Spacer()
+                                            Text(deviceNames(hr: hrB, pwr: powerB))
+                                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                        }
+                                        .font(.caption)
+                                        .fontWeight(.black)
+                                        .foregroundColor(.purple)
+                                        .padding(.horizontal)
+                                        
+                                        MetricGraphView(recorder: workoutManager.recorderB)
+                                            .padding(.horizontal)
+                                        
+                                        DataFieldGrid(
+                                            recorder: workoutManager.recorderB,
+                                            fields: page.fields
+                                        )
+                                        .padding(.horizontal)
+                                    }
+                                }
+                                .padding(.vertical)
                             }
                         }
                     }
@@ -74,95 +124,72 @@ struct WorkoutPlayerView: View {
                                     .padding()
                             }
                         } else {
-                            // Profile Setup
-                            VStack(alignment: .leading, spacing: 12) {
-                                HStack {
-                                    Text("Activity Profile")
-                                        .font(.headline)
-                                    Spacer()
-                                    // Could add a navigation link to a profile editor here
+                            // Profile Header
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text("Workout Setup")
+                                        .font(.title2)
+                                        .fontWeight(.bold)
                                     Text(workoutManager.activeProfile.name)
+                                        .font(.subheadline)
                                         .foregroundColor(.secondary)
                                 }
-                                Divider()
-                                
-                                Text("Primary Sensors (Recorded & Displayed)")
-                                    .font(.subheadline)
-                                    .foregroundColor(.blue)
-                                
-                                HStack {
-                                    Image(systemName: "heart.fill").foregroundColor(.red)
-                                    Picker("HR", selection: $workoutManager.hrDeviceAId) {
-                                        Text("None").tag(UUID?.none)
-                                        ForEach(hrDevices) { device in Text(device.name).tag(UUID?.some(device.id)) }
-                                    }
-                                    .pickerStyle(.menu)
+                                Spacer()
+                                Button("Clear All") {
+                                    workoutManager.hrDeviceAId = nil
+                                    workoutManager.powerDeviceAId = nil
+                                    workoutManager.hrDeviceBId = nil
+                                    workoutManager.powerDeviceBId = nil
                                 }
-                                
-                                HStack {
-                                    Image(systemName: "bolt.fill").foregroundColor(.yellow)
-                                    Picker("Power", selection: $workoutManager.powerDeviceAId) {
-                                        Text("None").tag(UUID?.none)
-                                        ForEach(powerDevices) { device in Text(device.name).tag(UUID?.some(device.id)) }
-                                    }
-                                    .pickerStyle(.menu)
-                                }
+                                .font(.caption)
+                                .buttonStyle(.bordered)
                             }
-                            .padding()
-                            .background(Color.secondary.opacity(0.1))
-                            .cornerRadius(12)
+                            .padding(.bottom, 8)
+
+                            // Sensor Selection Cards
+                            SensorSetCard(
+                                title: "PRIMARY RECORDER (A)",
+                                subtitle: "Used for primary display & stats",
+                                color: .blue,
+                                hrId: $workoutManager.hrDeviceAId,
+                                powerId: $workoutManager.powerDeviceAId,
+                                hrDevices: hrDevices,
+                                powerDevices: powerDevices
+                            )
                             
-                            // Secondary Profile Setup
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Secondary Sensors (Background Recording)")
-                                    .font(.subheadline)
-                                    .foregroundColor(.purple)
-                                
-                                HStack {
-                                    Image(systemName: "heart.fill").foregroundColor(.red)
-                                    Picker("HR", selection: $workoutManager.hrDeviceBId) {
-                                        Text("None").tag(UUID?.none)
-                                        ForEach(hrDevices) { device in Text(device.name).tag(UUID?.some(device.id)) }
-                                    }
-                                    .pickerStyle(.menu)
-                                }
-                                
-                                HStack {
-                                    Image(systemName: "bolt.fill").foregroundColor(.yellow)
-                                    Picker("Power", selection: $workoutManager.powerDeviceBId) {
-                                        Text("None").tag(UUID?.none)
-                                        ForEach(powerDevices) { device in Text(device.name).tag(UUID?.some(device.id)) }
-                                    }
-                                    .pickerStyle(.menu)
-                                }
-                            }
-                            .padding()
-                            .background(Color.secondary.opacity(0.1))
-                            .cornerRadius(12)
+                            SensorSetCard(
+                                title: "SECONDARY RECORDER (B)",
+                                subtitle: "Background comparison recording",
+                                color: .purple,
+                                hrId: $workoutManager.hrDeviceBId,
+                                powerId: $workoutManager.powerDeviceBId,
+                                hrDevices: hrDevices,
+                                powerDevices: powerDevices
+                            )
                             
                             // Recording Controls
-                            VStack {
+                            VStack(spacing: 12) {
                                 Button(action: {
                                     workoutManager.startWorkout(devices: bluetoothManager.peripherals)
                                 }) {
-                                    Label("Start Workout", systemImage: "play.fill")
+                                    Label("Start Recording", systemImage: "play.fill")
                                         .font(.headline)
                                         .frame(maxWidth: .infinity)
                                         .padding()
                                 }
                                 .buttonStyle(.borderedProminent)
                                 .tint(.green)
+                                .disabled(workoutManager.hrDeviceAId == nil && workoutManager.powerDeviceAId == nil && workoutManager.hrDeviceBId == nil && workoutManager.powerDeviceBId == nil)
                                 
                                 if !workoutManager.exportedFiles.isEmpty {
                                     ShareLink(items: workoutManager.exportedFiles) {
                                         Label("Export Last Workout (.TCX)", systemImage: "square.and.arrow.up")
-                                            .font(.headline)
+                                            .font(.subheadline)
                                             .frame(maxWidth: .infinity)
                                             .padding()
                                     }
-                                    .buttonStyle(.borderedProminent)
+                                    .buttonStyle(.bordered)
                                     .tint(.blue)
-                                    .padding(.top, 8)
                                 }
                             }
                             .padding(.top)
@@ -170,38 +197,87 @@ struct WorkoutPlayerView: View {
                     }
                     .padding()
                 }
-                .navigationTitle("Workout Setup")
+                .navigationTitle("New Session")
             }
         }
     }
 }
 
-struct MetricTile: View {
-    let label: String
-    let value: String
-    let unit: String
-    let icon: String
+struct SensorSetCard: View {
+    let title: String
+    let subtitle: String
     let color: Color
+    @Binding var hrId: UUID?
+    @Binding var powerId: UUID?
+    let hrDevices: [DiscoveredPeripheral]
+    let powerDevices: [DiscoveredPeripheral]
     
     var body: some View {
-        VStack {
-            HStack {
-                Image(systemName: icon)
-                Text(label)
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.black)
+                    .foregroundColor(color)
+                Text(subtitle)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
             }
-            .font(.caption)
-            .foregroundColor(.secondary)
             
-            Text(value)
-                .font(.system(size: 32, weight: .bold, design: .rounded))
+            Divider()
             
-            Text(unit)
-                .font(.caption2)
-                .foregroundColor(.secondary)
+            VStack(spacing: 12) {
+                // HR Picker
+                HStack {
+                    Label {
+                        Text("Heart Rate")
+                            .font(.subheadline)
+                    } icon: {
+                        Image(systemName: "heart.fill")
+                            .foregroundColor(.red)
+                    }
+                    
+                    Spacer()
+                    
+                    Picker("HR", selection: $hrId) {
+                        Text("Unassigned").tag(UUID?.none)
+                        ForEach(hrDevices) { device in
+                            Text(device.name).tag(UUID?.some(device.id))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                }
+                
+                // Power Picker
+                HStack {
+                    Label {
+                        Text("Power Meter")
+                            .font(.subheadline)
+                    } icon: {
+                        Image(systemName: "bolt.fill")
+                            .foregroundColor(.yellow)
+                    }
+                    
+                    Spacer()
+                    
+                    Picker("Power", selection: $powerId) {
+                        Text("Unassigned").tag(UUID?.none)
+                        ForEach(powerDevices) { device in
+                            Text(device.name).tag(UUID?.some(device.id))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                }
+            }
         }
-        .frame(maxWidth: .infinity)
         .padding()
-        .background(color.opacity(0.1))
-        .cornerRadius(12)
+        .background(color.opacity(0.05))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(color.opacity(0.2), lineWidth: 1)
+        )
     }
 }

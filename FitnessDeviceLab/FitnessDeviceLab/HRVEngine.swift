@@ -1,13 +1,12 @@
 import Foundation
-import Combine
 
-public enum HRVMeasurementMode {
+nonisolated public enum HRVMeasurementMode {
     case resting
     case biofeedback
     case exercise
 }
 
-public struct HRVConfig {
+nonisolated public struct HRVConfig {
     public var windowSizeSeconds: Int
     public var stepSizeSeconds: Int
     public var artifactCorrectionThreshold: Double
@@ -28,108 +27,72 @@ public struct HRVConfig {
     )
 }
 
-public class HRVEngine: ObservableObject {
-    // Time Domain Metrics
-    @Published public var avnn: Double?
-    @Published public var sdnn: Double?
-    @Published public var rmssd: Double?
-    @Published public var pnn50: Double?
+nonisolated public struct HRVMetrics {
+    public var avnn: Double?
+    public var sdnn: Double?
+    public var rmssd: Double?
+    public var pnn50: Double?
+    public var dfaAlpha1: Double?
     
-    // Non-linear Metrics
-    @Published public var dfaAlpha1: Double?
-    
-    // Frequency Domain Metrics (Placeholders for now)
-    @Published public var lf: Double?
-    @Published public var hf: Double?
-    @Published public var lf_hf_ratio: Double?
-    
-    private var rrBuffer: [Double] = []
-    private var timestamps: [Date] = []
-    public var config: HRVConfig
-    
-    public init(config: HRVConfig = .hrvLoggerExercise) {
-        self.config = config
+    public init(avnn: Double? = nil, sdnn: Double? = nil, rmssd: Double? = nil, pnn50: Double? = nil, dfaAlpha1: Double? = nil) {
+        self.avnn = avnn
+        self.sdnn = sdnn
+        self.rmssd = rmssd
+        self.pnn50 = pnn50
+        self.dfaAlpha1 = dfaAlpha1
     }
+}
+
+public struct HRVEngine {
     
-    public func addRRIntervals(_ intervals: [Double], timestamp: Date = Date()) {
-        let now = timestamp
-        
-        // Artifact removal
-        for rr in intervals {
-            // Guard against extreme values (under 30 BPM or over 200 BPM equivalent roughly)
+    nonisolated public static func calculateMetrics(rawRRIntervals: [Double], config: HRVConfig = .hrvLoggerExercise) -> HRVMetrics {
+        // Artifact removal & filtering
+        var filteredRR: [Double] = []
+        for rr in rawRRIntervals {
             if rr < 0.3 || rr > 2.0 { continue }
-            
-            if let last = rrBuffer.last {
+            if let last = filteredRR.last {
                 let diff = abs(rr - last) / last
-                if diff > config.artifactCorrectionThreshold {
-                    // In a more advanced implementation, we would interpolate here.
-                    continue 
-                }
+                if diff > config.artifactCorrectionThreshold { continue }
             }
-            rrBuffer.append(rr)
-            timestamps.append(now)
+            filteredRR.append(rr)
         }
         
-        // Keep buffer to window size
-        let windowCutoff = now.addingTimeInterval(-Double(config.windowSizeSeconds))
-        
-        while let firstTimestamp = timestamps.first, firstTimestamp < windowCutoff {
-            timestamps.removeFirst()
-            if !rrBuffer.isEmpty {
-                rrBuffer.removeFirst()
-            }
-        }
-        
-        // Need a minimum amount of data to calculate meaningful stats
-        // E.g. at least 60 intervals for exercise DFA, or more for 5-min resting
+        let N = filteredRR.count
         let minIntervals = config.mode == .resting ? 150 : 60
+        guard N >= minIntervals else { return HRVMetrics() }
         
-        if rrBuffer.count >= minIntervals {
-            calculateMetrics(rrIntervals: rrBuffer)
-        }
-    }
-    
-    private func calculateMetrics(rrIntervals: [Double]) {
-        let N = rrIntervals.count
-        guard N > 1 else { return }
+        // 1. Time Domain
+        let meanRR = filteredRR.reduce(0, +) / Double(N)
+        let variance = filteredRR.map { pow($0 - meanRR, 2) }.reduce(0, +) / Double(N - 1)
+        let sdnn = sqrt(variance)
         
-        DispatchQueue.global(qos: .userInitiated).async {
-            // 1. Time Domain
-            let meanRR = rrIntervals.reduce(0, +) / Double(N)
-            let variance = rrIntervals.map { pow($0 - meanRR, 2) }.reduce(0, +) / Double(N - 1)
-            let sdnn = sqrt(variance)
-            
-            var diffSqSum: Double = 0
-            var nn50Count: Int = 0
-            
-            for i in 1..<N {
-                let diff = abs(rrIntervals[i] - rrIntervals[i-1])
-                diffSqSum += (diff * diff)
-                if diff > 0.05 { // 50 ms
-                    nn50Count += 1
-                }
-            }
-            
-            let rmssd = sqrt(diffSqSum / Double(N - 1))
-            let pnn50 = (Double(nn50Count) / Double(N - 1)) * 100.0
-            
-            // 2. DFA Alpha 1
-            let dfa = self.calculateDFAAlpha1(rrIntervals: rrIntervals, meanRR: meanRR, N: N)
-            
-            // 3. Frequency Domain (Requires Lomb-Scargle or FFT + Interpolation)
-            // Stubs for now. Real implementation requires accelerating framework.
-            
-            DispatchQueue.main.async {
-                self.avnn = meanRR * 1000.0 // ms
-                self.sdnn = sdnn * 1000.0 // ms
-                self.rmssd = rmssd * 1000.0 // ms
-                self.pnn50 = pnn50
-                self.dfaAlpha1 = dfa
+        var diffSqSum: Double = 0
+        var nn50Count: Int = 0
+        
+        for i in 1..<N {
+            let diff = abs(filteredRR[i] - filteredRR[i-1])
+            diffSqSum += (diff * diff)
+            if diff > 0.05 { // 50 ms
+                nn50Count += 1
             }
         }
+        
+        let rmssd = sqrt(diffSqSum / Double(N - 1))
+        let pnn50 = (Double(nn50Count) / Double(N - 1)) * 100.0
+        
+        // 2. DFA Alpha 1
+        let dfa = calculateDFAAlpha1(rrIntervals: filteredRR, meanRR: meanRR, N: N)
+        
+        return HRVMetrics(
+            avnn: meanRR * 1000.0,
+            sdnn: sdnn * 1000.0,
+            rmssd: rmssd * 1000.0,
+            pnn50: pnn50,
+            dfaAlpha1: dfa
+        )
     }
     
-    private func calculateDFAAlpha1(rrIntervals: [Double], meanRR: Double, N: Int) -> Double? {
+    nonisolated private static func calculateDFAAlpha1(rrIntervals: [Double], meanRR: Double, N: Int) -> Double? {
         var y = [Double]()
         y.reserveCapacity(N)
         var sum: Double = 0
@@ -155,7 +118,7 @@ public class HRVEngine: ObservableObject {
                 let xBox = (0..<n).map { Double($0) }
                 let yBox = Array(y[start..<end])
                 
-                let (slope, intercept) = self.linearRegression(x: xBox, y: yBox)
+                let (slope, intercept) = linearRegression(x: xBox, y: yBox)
                 
                 var boxFluctuation: Double = 0
                 for i in 0..<n {
@@ -175,7 +138,7 @@ public class HRVEngine: ObservableObject {
         
         guard logN.count > 1 else { return nil }
         
-        let (alpha1, _) = self.linearRegression(x: logN, y: logF)
+        let (alpha1, _) = linearRegression(x: logN, y: logF)
         
         if alpha1.isFinite && alpha1 > 0.0 && alpha1 < 2.0 {
             return alpha1
@@ -183,7 +146,7 @@ public class HRVEngine: ObservableObject {
         return nil
     }
     
-    private func linearRegression(x: [Double], y: [Double]) -> (slope: Double, intercept: Double) {
+    nonisolated private static func linearRegression(x: [Double], y: [Double]) -> (slope: Double, intercept: Double) {
         guard x.count == y.count && x.count > 1 else { return (0, 0) }
         
         let sumX = x.reduce(0, +)
@@ -198,18 +161,5 @@ public class HRVEngine: ObservableObject {
         let slope = (n * sumXY - sumX * sumY) / denominator
         let intercept = (sumY - slope * sumX) / n
         return (slope, intercept)
-    }
-    
-    public func reset() {
-        rrBuffer.removeAll()
-        timestamps.removeAll()
-        avnn = nil
-        sdnn = nil
-        rmssd = nil
-        pnn50 = nil
-        dfaAlpha1 = nil
-        lf = nil
-        hf = nil
-        lf_hf_ratio = nil
     }
 }

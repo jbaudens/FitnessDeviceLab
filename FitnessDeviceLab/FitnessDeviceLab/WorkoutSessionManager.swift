@@ -13,8 +13,8 @@ class WorkoutSessionManager: ObservableObject {
     
     @Published var activeProfile: ActivityProfile = .defaultProfile
     
-    private var recorderA = SessionRecorder()
-    private var recorderB = SessionRecorder()
+    public var recorderA = SessionRecorder()
+    public var recorderB = SessionRecorder()
     
     @Published var exportedFiles: [URL] = []
     

@@ -1,4 +1,6 @@
 import SwiftUI
+import Charts
+import Combine
 
 enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     case currentHR = "Heart Rate"
@@ -19,13 +21,13 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     case normalizedPower = "NP®"
     case intensityFactor = "IF®"
     case tss = "TSS®"
-    case aapAcclimated = "AAP (Acclimated)"
-    case aapNonAcclimated = "AAP (Non-Accl)"
-    case powerBalance = "L/R Balance"
+    case aapAcclimated = "AAP (Acc)"
+    case aapNonAcclimated = "AAP (Non)"
+    case powerBalance = "L/R Bal"
     
     case cadence = "Cadence"
-    case avgCadence = "Avg Cadence"
-    case maxCadence = "Max Cadence"
+    case avgCadence = "Avg Cad"
+    case maxCadence = "Max Cad"
     
     var id: String { rawValue }
     
@@ -36,118 +38,55 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         }
     }
     
-    func value(for peripheral: DiscoveredPeripheral) -> Double? {
+    func value(for recorder: SessionRecorder) -> Double? {
+        let metrics = recorder.calculatedMetrics
+        let hrv = recorder.hrvMetrics
+        
         switch self {
-        case .currentHR: return peripheral.heartRate.map { Double($0) }
-        case .avgHR: return peripheral.metrics.avgHeartRate
-        case .maxHR: return peripheral.metrics.maxHeartRate.map { Double($0) }
-        case .dfaAlpha1: return peripheral.metrics.dfaAlpha1
-        case .avnn: return peripheral.metrics.avnn
-        case .sdnn: return peripheral.metrics.sdnn
-        case .rmssd: return peripheral.metrics.rmssd
-        case .pnn50: return peripheral.metrics.pnn50
+        case .currentHR: return recorder.hrDevice?.heartRate.map { Double($0) }
+        case .avgHR: return metrics.avgHeartRate
+        case .maxHR: return metrics.maxHeartRate.map { Double($0) }
+        case .dfaAlpha1: return hrv.dfaAlpha1
+        case .avnn: return hrv.avnn
+        case .sdnn: return hrv.sdnn
+        case .rmssd: return hrv.rmssd
+        case .pnn50: return hrv.pnn50
         
-        case .currentPower: return peripheral.cyclingPower.map { Double($0) }
-        case .power3s: return peripheral.metrics.power3s.map { Double($0) }
-        case .power10s: return peripheral.metrics.power10s.map { Double($0) }
-        case .power30s: return peripheral.metrics.power30s.map { Double($0) }
-        case .avgPower: return peripheral.metrics.avgPower
-        case .maxPower: return peripheral.metrics.maxPower.map { Double($0) }
-        case .normalizedPower: return peripheral.metrics.normalizedPower
-        case .intensityFactor: return peripheral.metrics.intensityFactor
-        case .tss: return peripheral.metrics.tss
-        case .aapAcclimated: return peripheral.metrics.altitudeAdjustedPowerAcclimated.map { Double($0) }
-        case .aapNonAcclimated: return peripheral.metrics.altitudeAdjustedPowerNonAcclimated.map { Double($0) }
-        case .powerBalance: return peripheral.powerBalance
+        case .currentPower: return recorder.powerDevice?.cyclingPower.map { Double($0) }
+        case .power3s: return metrics.power3s.map { Double($0) }
+        case .power10s: return metrics.power10s.map { Double($0) }
+        case .power30s: return metrics.power30s.map { Double($0) }
+        case .avgPower: return metrics.avgPower
+        case .maxPower: return metrics.maxPower.map { Double($0) }
+        case .normalizedPower: return metrics.normalizedPower
+        case .intensityFactor: return metrics.intensityFactor
+        case .tss: return metrics.tss
+        case .aapAcclimated: return metrics.altitudeAdjustedPowerAcclimated.map { Double($0) }
+        case .aapNonAcclimated: return metrics.altitudeAdjustedPowerNonAcclimated.map { Double($0) }
+        case .powerBalance: return recorder.powerDevice?.powerBalance
         
-        case .cadence: return peripheral.cadence.map { Double($0) }
-        case .avgCadence: return peripheral.metrics.avgCadence
-        case .maxCadence: return peripheral.metrics.maxCadence.map { Double($0) }
+        case .cadence: return recorder.powerDevice?.cadence.map { Double($0) }
+        case .avgCadence: return metrics.avgCadence
+        case .maxCadence: return metrics.maxCadence.map { Double($0) }
         }
-    }
-}
-
-struct DataFieldGrid: View {
-    var hrPeripheral: DiscoveredPeripheral?
-    var powerPeripheral: DiscoveredPeripheral?
-    let fields: [DataFieldType]
-    var columnsCount: Int = 2
-    
-    var body: some View {
-        let cols = Array(repeating: GridItem(.flexible()), count: columnsCount)
-        LazyVGrid(columns: cols, spacing: 12) {
-            ForEach(0..<fields.count, id: \.self) { index in
-                DataFieldTileHelper(type: fields[index], hrPeripheral: hrPeripheral, powerPeripheral: powerPeripheral)
-            }
-        }
-    }
-}
-
-struct DataFieldTileHelper: View {
-    let type: DataFieldType
-    var hrPeripheral: DiscoveredPeripheral?
-    var powerPeripheral: DiscoveredPeripheral?
-
-    var body: some View {
-        if type.isHR {
-            if let hr = hrPeripheral {
-                DataFieldTile(type: type, peripheral: hr)
-            } else {
-                EmptyTile(type: type)
-            }
-        } else {
-            if let power = powerPeripheral {
-                DataFieldTile(type: type, peripheral: power)
-            } else {
-                EmptyTile(type: type)
-            }
-        }
-    }
-}
-
-struct EmptyTile: View {
-    let type: DataFieldType
-    
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(type.rawValue)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .textCase(.uppercase)
-            
-            Text("--")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundColor(color)
-                .minimumScaleFactor(0.5)
-                .lineLimit(1)
-            
-            Text(unit)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .padding(.horizontal, 8)
-        .background(color.opacity(0.1))
-        .cornerRadius(12)
     }
     
     var unit: String {
-        switch type {
-        case .currentHR, .avgHR, .maxHR: return "BPM"
-        case .dfaAlpha1: return "INDEX"
+        switch self {
+        case .currentHR, .avgHR, .maxHR: return "bpm"
+        case .dfaAlpha1: return "idx"
         case .avnn, .sdnn, .rmssd: return "ms"
         case .pnn50: return "%"
         case .currentPower, .power3s, .power10s, .power30s, .avgPower, .maxPower, .normalizedPower, .aapAcclimated, .aapNonAcclimated: return "W"
         case .intensityFactor: return "IF"
         case .tss: return "TSS"
-        case .cadence, .avgCadence, .maxCadence: return "RPM"
-        case .powerBalance: return "% L"
+        case .cadence, .avgCadence, .maxCadence: return "rpm"
+        case .powerBalance: return "%L"
         }
     }
     
     var color: Color {
-        switch type {
+        switch self {
         case .currentHR, .avgHR, .maxHR: return .red
         case .dfaAlpha1, .avnn, .sdnn, .rmssd, .pnn50: return .purple
         case .currentPower, .power3s, .power10s, .power30s, .avgPower, .maxPower, .normalizedPower, .aapAcclimated, .aapNonAcclimated: return .yellow
@@ -158,36 +97,61 @@ struct EmptyTile: View {
     }
 }
 
-struct DataFieldTile: View {
-    let type: DataFieldType
-    @ObservedObject var peripheral: DiscoveredPeripheral
+struct DataFieldGrid: View {
+    @ObservedObject var recorder: SessionRecorder
+    let fields: [DataFieldType]
     
     var body: some View {
-        VStack(spacing: 4) {
-            Text(type.rawValue)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .textCase(.uppercase)
-            
-            Text(valueText)
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundColor(color)
-                .minimumScaleFactor(0.5)
-                .lineLimit(1)
-            
-            Text(unit)
-                .font(.caption2)
-                .foregroundColor(.secondary)
+        let columnsCount = fields.count <= 2 ? 1 : (fields.count <= 4 ? 2 : 3)
+        let cols = Array(repeating: GridItem(.flexible(), spacing: 8), count: columnsCount)
+        
+        LazyVGrid(columns: cols, spacing: 8) {
+            ForEach(fields) { field in
+                DataFieldTile(type: field, recorder: recorder)
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .padding(.horizontal, 8)
-        .background(color.opacity(0.1))
-        .cornerRadius(12)
+    }
+}
+
+struct DataFieldTile: View {
+    let type: DataFieldType
+    @ObservedObject var recorder: SessionRecorder
+    
+    var body: some View {
+        HStack(alignment: .lastTextBaseline, spacing: 4) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(type.rawValue)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.secondary)
+                    .textCase(.uppercase)
+                    .lineLimit(1)
+                
+                HStack(alignment: .lastTextBaseline, spacing: 2) {
+                    Text(valueText)
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundColor(type.color)
+                        .lineLimit(1)
+                    
+                    Text(type.unit)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .background(type.color.opacity(0.08))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(type.color.opacity(0.15), lineWidth: 0.5)
+        )
     }
     
     var valueText: String {
-        guard let val = type.value(for: peripheral) else { return "--" }
+        guard let val = type.value(for: recorder) else { return "--" }
         
         switch type {
         case .dfaAlpha1, .intensityFactor: return String(format: "%.2f", val)
@@ -195,29 +159,74 @@ struct DataFieldTile: View {
         default: return String(format: "%.0f", val)
         }
     }
+}
+
+struct MetricGraphView: View {
+    @ObservedObject var recorder: SessionRecorder
     
-    var unit: String {
-        switch type {
-        case .currentHR, .avgHR, .maxHR: return "BPM"
-        case .dfaAlpha1: return "INDEX"
-        case .avnn, .sdnn, .rmssd: return "ms"
-        case .pnn50: return "%"
-        case .currentPower, .power3s, .power10s, .power30s, .avgPower, .maxPower, .normalizedPower, .aapAcclimated, .aapNonAcclimated: return "W"
-        case .intensityFactor: return "IF"
-        case .tss: return "TSS"
-        case .cadence, .avgCadence, .maxCadence: return "RPM"
-        case .powerBalance: return "% L"
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ObservedChart(recorder: recorder)
+                .frame(height: 160)
+                .padding(8)
+                .background(Color.secondary.opacity(0.05))
+                .cornerRadius(12)
         }
     }
+}
+
+struct ObservedChart: View {
+    @ObservedObject var recorder: SessionRecorder
     
-    var color: Color {
-        switch type {
-        case .currentHR, .avgHR, .maxHR: return .red
-        case .dfaAlpha1, .avnn, .sdnn, .rmssd, .pnn50: return .purple
-        case .currentPower, .power3s, .power10s, .power30s, .avgPower, .maxPower, .normalizedPower, .aapAcclimated, .aapNonAcclimated: return .yellow
-        case .intensityFactor, .tss: return .orange
-        case .cadence, .avgCadence, .maxCadence: return .blue
-        case .powerBalance: return .orange
+    var body: some View {
+        Chart {
+            ForEach(recorder.trackpoints) { pt in
+                if let pwr = pt.power {
+                    LineMark(
+                        x: .value("Time", pt.time),
+                        y: .value("Power", min(Double(pwr), 600)),
+                        series: .value("Metric", "Power")
+                    )
+                    .foregroundStyle(by: .value("Metric", "Power"))
+                }
+                
+                if let cad = pt.cadence {
+                    LineMark(
+                        x: .value("Time", pt.time),
+                        y: .value("Cadence", Double(cad)),
+                        series: .value("Metric", "Cadence")
+                    )
+                    .foregroundStyle(by: .value("Metric", "Cadence"))
+                }
+                
+                if let hr = pt.hr {
+                    LineMark(
+                        x: .value("Time", pt.time),
+                        y: .value("HR", Double(hr)),
+                        series: .value("Metric", "HR")
+                    )
+                    .foregroundStyle(by: .value("Metric", "HR"))
+                }
+            }
         }
+        .chartForegroundStyleScale([
+            "Power": Color.yellow,
+            "HR": Color.red,
+            "Cadence": Color.blue
+        ])
+        .chartYScale(domain: 0...600)
+        .chartYAxis {
+            AxisMarks(position: .leading)
+        }
+        .chartXAxis {
+            AxisMarks(values: .stride(by: .second, count: 30)) { value in
+                if let _ = value.as(Date.self) {
+                    AxisValueLabel(format: .dateTime.minute().second())
+                }
+                AxisGridLine()
+                AxisTick()
+            }
+        }
+        .chartLegend(position: .top, alignment: .leading)
     }
 }
