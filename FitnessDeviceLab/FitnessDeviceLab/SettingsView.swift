@@ -6,6 +6,7 @@ struct SettingsView: View {
     // Use local state to avoid real-time UserDefaults writes while typing
     @State private var localFTP: Double = 250.0
     @State private var localMaxHR: Int = 190
+    @State private var localAltitude: Double = 0.0
     
     var body: some View {
         List {
@@ -45,6 +46,29 @@ struct SettingsView: View {
                 Text("FTP is used for NP®, IF®, and TSS calculations. Max HR is used for intensity analysis.")
             }
             
+            Section {
+                HStack {
+                    Text("Default Altitude")
+                    Spacer()
+                    TextField("Meters", value: $localAltitude, format: .number)
+                        #if os(iOS)
+                        .keyboardType(.numbersAndPunctuation)
+                        .multilineTextAlignment(.trailing)
+                        #endif
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 100)
+                        .onChange(of: localAltitude) { newValue in
+                            settings.altitudeOverride = newValue
+                        }
+                    Text("m")
+                        .foregroundColor(.secondary)
+                }
+            } header: {
+                Text("Environment")
+            } footer: {
+                Text("This altitude will be used when GPS data is unavailable (e.g., indoor training or Mac Mini).")
+            }
+            
             Section("App Info") {
                 HStack {
                     Text("Version")
@@ -58,6 +82,7 @@ struct SettingsView: View {
         .onAppear {
             localFTP = settings.userFTP
             localMaxHR = settings.maxHR
+            localAltitude = settings.altitudeOverride
         }
     }
 }

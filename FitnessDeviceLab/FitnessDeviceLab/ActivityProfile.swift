@@ -12,7 +12,7 @@ nonisolated struct ActivityProfile: Identifiable, Codable, Hashable {
             DataPage(fields: [
                 .currentPower, .currentHR,
                 .power3s, .cadence,
-                .aapAcclimated, .aapNonAcclimated
+                .aapAcclimated, .altitude
             ]),
             
             // Page 2: Power Focus

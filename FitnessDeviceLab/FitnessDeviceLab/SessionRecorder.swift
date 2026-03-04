@@ -7,13 +7,15 @@ nonisolated public struct Trackpoint: Identifiable {
     public let hr: Int?
     public let power: Int?
     public let cadence: Int?
+    public let altitude: Double?
     public let rrIntervals: [Double]
     
-    public init(time: Date, hr: Int? = nil, power: Int? = nil, cadence: Int? = nil, rrIntervals: [Double] = []) {
+    public init(time: Date, hr: Int? = nil, power: Int? = nil, cadence: Int? = nil, altitude: Double? = nil, rrIntervals: [Double] = []) {
         self.time = time
         self.hr = hr
         self.power = power
         self.cadence = cadence
+        self.altitude = altitude
         self.rrIntervals = rrIntervals
     }
 }
@@ -72,6 +74,11 @@ class SessionRecorder: ObservableObject {
         return generateTCX(label: label)
     }
     
+    private var effectiveAltitude: Double {
+        // Prioritize live GPS altitude, fall back to manual setting
+        return LocationManager.shared.currentAltitude ?? SettingsManager.shared.altitudeOverride
+    }
+    
     private func recordPoint() {
         let now = Date()
         
@@ -79,11 +86,14 @@ class SessionRecorder: ObservableObject {
         let rrThisSecond = pendingRRIntervals
         pendingRRIntervals.removeAll()
         
+        let altitude = effectiveAltitude
+        
         let pt = Trackpoint(
             time: now,
             hr: hrDevice?.heartRate,
             power: powerDevice?.cyclingPower,
             cadence: powerDevice?.cadence,
+            altitude: altitude,
             rrIntervals: rrThisSecond
         )
         
@@ -94,7 +104,7 @@ class SessionRecorder: ObservableObject {
             self.calculatedMetrics = DataFieldEngine.calculate(
                 from: trackpoints,
                 userFTP: SettingsManager.shared.userFTP,
-                currentAltitude: LocationManager.shared.currentAltitude
+                currentAltitude: altitude
             )
             
             // 2. Calculate HRV Metrics (Potentially Heavy)
@@ -137,6 +147,9 @@ class SessionRecorder: ObservableObject {
             }
             if let cad = pt.cadence {
                 xml += "            <Cadence>\(cad)</Cadence>\n"
+            }
+            if let alt = pt.altitude {
+                xml += "            <AltitudeMeters>\(alt)</AltitudeMeters>\n"
             }
             if let pwr = pt.power {
                 xml += "            <Extensions>\n"
