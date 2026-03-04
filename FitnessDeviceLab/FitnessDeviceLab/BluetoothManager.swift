@@ -3,7 +3,7 @@ import CoreBluetooth
 import Combine
 import AudioToolbox
 
-enum DeviceCapability: String, CaseIterable, Identifiable {
+nonisolated enum DeviceCapability: String, CaseIterable, Identifiable {
     case heartRate = "Heart Rate"
     case cyclingPower = "Power Meter"
     case fitnessMachine = "Smart Trainer"
@@ -11,7 +11,7 @@ enum DeviceCapability: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-public struct TimeSeriesDataPoint: Identifiable, Equatable {
+nonisolated public struct TimeSeriesDataPoint: Identifiable, Equatable {
     public let id = UUID()
     public let timestamp = Date()
     public let value: Double
@@ -40,9 +40,6 @@ class DiscoveredPeripheral: NSObject, Identifiable, ObservableObject {
     @Published var cadence: Int?
     @Published var batteryLevel: Int?
     
-    // Advanced Metrics
-    @Published var rrIntervalsHistory: [Double] = []
-    
     // Cadence State
     private var lastCrankRevs: Int?
     private var lastCrankTime: Int?
@@ -57,8 +54,8 @@ class DiscoveredPeripheral: NSObject, Identifiable, ObservableObject {
     // Debug Data
     @Published var rawDataHex: String?
     
-    // Data Field Engine
-    @Published var metrics = DataFieldEngine()
+    // Latest RR Intervals (for external consumption)
+    @Published var latestRRIntervals: [Double] = []
     
     private var cancellables = Set<AnyCancellable>()
     
@@ -69,14 +66,6 @@ class DiscoveredPeripheral: NSObject, Identifiable, ObservableObject {
         self.rssi = rssi
         super.init()
         self.peripheral.delegate = self
-            
-        self.metrics.start(
-            getPower: { [weak self] in self?.cyclingPower },
-            getHR: { [weak self] in self?.heartRate },
-            getCadence: { [weak self] in self?.cadence },
-            getBalance: { [weak self] in self?.powerBalance },
-            getAltitude: { LocationManager.shared.currentAltitude }
-        )
     }
 }
 
@@ -156,11 +145,7 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
                 let (hr, rr) = self.parseHeartRate(data: data)
                 self.heartRate = hr
                 if !rr.isEmpty {
-                    self.rrIntervalsHistory.append(contentsOf: rr)
-                    if self.rrIntervalsHistory.count > 100 {
-                        self.rrIntervalsHistory.removeFirst(self.rrIntervalsHistory.count - 100)
-                    }
-                    self.metrics.addRRIntervals(rr)
+                    self.latestRRIntervals = rr
                 }
             case Self.cyclingPowerMeasurementUUID:
                 let (power, cadence, balance) = self.parseCyclingPower(data: data)
@@ -255,11 +240,11 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
                 var timeDiff = crankEventTime - lastTime
                 if timeDiff < 0 { timeDiff += 65536 }
                 
-                if timeDiff > 0 {
+                if timeDiff > 0 && revDiff > 0 {
                     let rpm = (Double(revDiff) / (Double(timeDiff) / 1024.0)) * 60.0
                     cadence = Int(round(rpm))
-                } else if timeDiff == 0 && revDiff == 0 {
-                    cadence = 0 // Stopped pedaling
+                } else if timeDiff > 2048 { // More than 2 seconds since last event
+                    cadence = 0 // Actually stopped
                 }
             }
             
@@ -324,10 +309,16 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
 }
 
 class BluetoothManager: NSObject, ObservableObject {
+    static let shared = BluetoothManager()
+    private override init() {
+        super.init()
+        centralManager = CBCentralManager(delegate: self, queue: nil)
+    }
     private var centralManager: CBCentralManager!
     
     @Published var isScanning = false
     @Published var peripherals: [DiscoveredPeripheral] = []
+
     
     private var cleanupTimer: AnyCancellable?
     
@@ -336,11 +327,6 @@ class BluetoothManager: NSObject, ObservableObject {
         CBUUID(string: "1818"), // Cycling Power
         CBUUID(string: "1826")  // Fitness Machine
     ]
-
-    override init() {
-        super.init()
-        centralManager = CBCentralManager(delegate: self, queue: nil)
-    }
 
     func startScanning() {
         guard centralManager.state == .poweredOn else { return }
@@ -426,8 +412,6 @@ extension BluetoothManager: CBCentralManagerDelegate {
                 discovered.heartRate = nil
                 discovered.cyclingPower = nil
                 discovered.cadence = nil
-                discovered.rrIntervalsHistory.removeAll()
-                discovered.metrics.reset()
                 
                 if wasConnected {
                     // Play disconnect sound

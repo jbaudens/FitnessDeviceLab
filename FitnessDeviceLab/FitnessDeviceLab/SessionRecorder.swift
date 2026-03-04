@@ -1,46 +1,115 @@
 import Foundation
 import Combine
 
-struct Trackpoint {
-    let time: Date
-    let hr: Int?
-    let power: Int?
-    let cadence: Int?
+nonisolated public struct Trackpoint: Identifiable {
+    public let id = UUID()
+    public let time: Date
+    public let hr: Int?
+    public let power: Int?
+    public let cadence: Int?
+    public let rrIntervals: [Double]
+    
+    public init(time: Date, hr: Int? = nil, power: Int? = nil, cadence: Int? = nil, rrIntervals: [Double] = []) {
+        self.time = time
+        self.hr = hr
+        self.power = power
+        self.cadence = cadence
+        self.rrIntervals = rrIntervals
+    }
 }
 
-class SessionRecorder {
+@MainActor
+class SessionRecorder: ObservableObject {
     var hrDevice: DiscoveredPeripheral?
     var powerDevice: DiscoveredPeripheral?
     
-    private var trackpoints: [Trackpoint] = []
+    @Published public var trackpoints: [Trackpoint] = []
+    @Published public var lastUpdate = Date()
+    
+    // Published results of stateless calculations
+    @Published public var calculatedMetrics = CalculatedMetrics()
+    @Published public var hrvMetrics = HRVMetrics()
+    
     private var timerCancellable: AnyCancellable?
+    private var rrCancellable: AnyCancellable?
+    
+    // Internal buffer to collect RR intervals between 1Hz ticks
+    private var pendingRRIntervals: [Double] = []
     
     func start() {
         trackpoints.removeAll()
+        pendingRRIntervals.removeAll()
+        calculatedMetrics = CalculatedMetrics()
+        hrvMetrics = HRVMetrics()
+        lastUpdate = Date()
+        
+        setupRRWatcher()
+        
         timerCancellable = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
-                self?.recordPoint()
+                Task { @MainActor in
+                    self?.recordPoint()
+                }
+            }
+    }
+    
+    private func setupRRWatcher() {
+        rrCancellable = hrDevice?.$latestRRIntervals
+            .receive(on: RunLoop.main) // Explicitly ensure we append on Main Thread
+            .sink { [weak self] intervals in
+                guard let self = self, !intervals.isEmpty else { return }
+                // Collect intervals into the pending buffer
+                self.pendingRRIntervals.append(contentsOf: intervals)
             }
     }
     
     func stop(label: String) -> URL? {
         timerCancellable?.cancel()
         timerCancellable = nil
+        rrCancellable?.cancel()
+        rrCancellable = nil
         return generateTCX(label: label)
     }
     
     private func recordPoint() {
-        // Sample currently published values from the peripherals
+        let now = Date()
+        
+        // Take the collected RR intervals and clear the buffer
+        let rrThisSecond = pendingRRIntervals
+        pendingRRIntervals.removeAll()
+        
         let pt = Trackpoint(
-            time: Date(),
+            time: now,
             hr: hrDevice?.heartRate,
             power: powerDevice?.cyclingPower,
-            cadence: powerDevice?.cadence
+            cadence: powerDevice?.cadence,
+            rrIntervals: rrThisSecond
         )
-        // Only record if we actually have some data
-        if pt.hr != nil || pt.power != nil || pt.cadence != nil {
+        
+        if pt.hr != nil || pt.power != nil || pt.cadence != nil || !pt.rrIntervals.isEmpty {
             trackpoints.append(pt)
+            
+            // 1. Calculate Standard Metrics (Fast)
+            self.calculatedMetrics = DataFieldEngine.calculate(
+                from: trackpoints,
+                userFTP: SettingsManager.shared.userFTP,
+                currentAltitude: LocationManager.shared.currentAltitude
+            )
+            
+            // 2. Calculate HRV Metrics (Potentially Heavy)
+            // Perform this on a background task to keep the UI responsive
+            let allRR = trackpoints.flatMap { $0.rrIntervals }
+            let windowRR = Array(allRR.suffix(600))
+            
+            Task.detached(priority: .userInitiated) {
+                let newHRV = HRVEngine.calculateMetrics(rawRRIntervals: windowRR)
+                await MainActor.run {
+                    self.hrvMetrics = newHRV
+                }
+            }
+            
+            lastUpdate = now
         }
     }
     
