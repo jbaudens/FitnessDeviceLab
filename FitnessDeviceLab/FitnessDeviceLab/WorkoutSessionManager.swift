@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+@MainActor
 class WorkoutSessionManager: ObservableObject {
     @Published var hrDeviceAId: UUID?
     @Published var powerDeviceAId: UUID?
@@ -10,38 +11,77 @@ class WorkoutSessionManager: ObservableObject {
     
     @Published var isRecording = false
     @Published var sessionStartTime: Date?
+    @Published var workoutElapsedTime: TimeInterval = 0
     
     @Published var activeProfile: ActivityProfile = .defaultProfile
-    
     @Published var selectedWorkout: StructuredWorkout?
+    
+    @Published var currentStepIndex: Int = 0
+    @Published var timeInStep: TimeInterval = 0
     
     public var recorderA = SessionRecorder()
     public var recorderB = SessionRecorder()
     
     @Published var exportedFiles: [URL] = []
     
+    private var timerCancellable: AnyCancellable?
+    
     func startWorkout(devices: [DiscoveredPeripheral]) {
+        workoutElapsedTime = 0
+        currentStepIndex = 0
+        timeInStep = 0
+        
         recorderA.hrDevice = devices.first { $0.id == hrDeviceAId }
         recorderA.powerDevice = devices.first { $0.id == powerDeviceAId }
         
         recorderB.hrDevice = devices.first { $0.id == hrDeviceBId }
         recorderB.powerDevice = devices.first { $0.id == powerDeviceBId }
         
-        // We only start a recorder if it actually has devices selected
-        if recorderA.hrDevice != nil || recorderA.powerDevice != nil {
-            recorderA.start()
-        }
-        
-        if recorderB.hrDevice != nil || recorderB.powerDevice != nil {
-            recorderB.start()
-        }
+        // Prepare recorders (they no longer have internal timers)
+        recorderA.prepare()
+        recorderB.prepare()
         
         sessionStartTime = Date()
         isRecording = true
+        
+        // Unified 1Hz Timer
+        timerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                guard let self = self else { return }
+                self.tick()
+            }
+    }
+    
+    private func tick() {
+        workoutElapsedTime += 1
+        
+        // Update Workout Step Progress
+        if let workout = selectedWorkout {
+            timeInStep += 1
+            let currentStep = workout.steps[currentStepIndex]
+            if timeInStep >= currentStep.duration {
+                if currentStepIndex < workout.steps.count - 1 {
+                    currentStepIndex += 1
+                    timeInStep = 0
+                } else {
+                    // Workout finished? We could auto-stop or just keep recording.
+                    // For now, let's just stay on the last step.
+                }
+            }
+        }
+        
+        let now = Date()
+        let altitude = LocationManager.shared.currentAltitude ?? SettingsManager.shared.altitudeOverride
+        
+        recorderA.recordPoint(time: now, altitude: altitude)
+        recorderB.recordPoint(time: now, altitude: altitude)
     }
     
     func stopWorkout() {
         isRecording = false
+        timerCancellable?.cancel()
+        timerCancellable = nil
         
         var files: [URL] = []
         if let urlA = recorderA.stop(label: "ProfileA") { files.append(urlA) }
@@ -50,5 +90,10 @@ class WorkoutSessionManager: ObservableObject {
         if !files.isEmpty {
             exportedFiles = files
         }
+    }
+    
+    var currentWorkoutStep: WorkoutStep? {
+        guard let workout = selectedWorkout, currentStepIndex < workout.steps.count else { return nil }
+        return workout.steps[currentStepIndex]
     }
 }

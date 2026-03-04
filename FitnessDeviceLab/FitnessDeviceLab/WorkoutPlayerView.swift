@@ -30,6 +30,13 @@ struct WorkoutPlayerView: View {
             if workoutManager.isRecording {
                 // Recording View
                 VStack(spacing: 0) {
+                    // Active Workout Header
+                    if let workout = workoutManager.selectedWorkout {
+                        WorkoutTargetHeader(workout: workout)
+                            .padding()
+                            .background(Color.secondary.opacity(0.05))
+                    }
+                    
                     TabView {
                         ForEach(workoutManager.activeProfile.pages) { page in
                             ScrollView {
@@ -237,6 +244,64 @@ struct WorkoutPlayerView: View {
                 .navigationTitle("New Session")
             }
         }
+    }
+}
+
+struct WorkoutTargetHeader: View {
+    @EnvironmentObject var workoutManager: WorkoutSessionManager
+    let workout: StructuredWorkout
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack(alignment: .center) {
+                // Time in Interval
+                if let step = workoutManager.currentWorkoutStep {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(formatTime(step.duration - workoutManager.timeInStep))
+                            .font(.system(size: 40, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                        Text("REMAINING IN STEP")
+                            .font(.system(size: 10, weight: .black))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    // Target Power
+                    VStack(alignment: .trailing, spacing: 2) {
+                        let targetWatts = Int(round(step.targetPowerPercent * SettingsManager.shared.userFTP))
+                        Text("\(targetWatts)")
+                            .font(.system(size: 40, weight: .bold, design: .rounded))
+                            .foregroundColor(WorkoutZone.forIntensity(step.targetPowerPercent).color)
+                        Text("TARGET WATTS")
+                            .font(.system(size: 10, weight: .black))
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            
+            WorkoutGraphView(workout: workout, elapsedTime: workoutManager.workoutElapsedTime)
+                .frame(height: 60)
+            
+            HStack {
+                Text("Total: \(formatTime(workoutManager.workoutElapsedTime)) / \(formatTime(workout.totalDuration))")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                if workoutManager.currentStepIndex < workout.steps.count - 1 {
+                    let nextStep = workout.steps[workoutManager.currentStepIndex + 1]
+                    Text("Next: \(Int(nextStep.targetPowerPercent * 100))% for \(Int(nextStep.duration / 60))m")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+    
+    func formatTime(_ interval: TimeInterval) -> String {
+        let mins = Int(interval) / 60
+        let secs = Int(interval) % 60
+        return String(format: "%02d:%02d", mins, secs)
     }
 }
 

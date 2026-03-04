@@ -3,10 +3,12 @@ import SwiftUI
 public struct WorkoutGraphView: View {
     public let workout: StructuredWorkout
     public var showAxis: Bool = true
+    public var elapsedTime: TimeInterval? = nil
     
-    public init(workout: StructuredWorkout, showAxis: Bool = true) {
+    public init(workout: StructuredWorkout, showAxis: Bool = true, elapsedTime: TimeInterval? = nil) {
         self.workout = workout
         self.showAxis = showAxis
+        self.elapsedTime = elapsedTime
     }
     
     public var body: some View {
@@ -46,6 +48,16 @@ public struct WorkoutGraphView: View {
                                 .frame(width: max(2, stepWidth), height: max(4, stepHeight))
                         }
                     }
+                    
+                    // Playhead
+                    if let elapsed = elapsedTime {
+                        let playheadX = (CGFloat(elapsed) / CGFloat(totalDuration)) * width
+                        Rectangle()
+                            .fill(Color.white)
+                            .frame(width: 2)
+                            .shadow(radius: 2)
+                            .offset(x: playheadX)
+                    }
                 }
             }
         }
@@ -53,7 +65,6 @@ public struct WorkoutGraphView: View {
     
     private func color(for step: WorkoutStep) -> Color {
         if step.type == .recovery || step.type == .warmup || step.type == .cooldown {
-            // Lower intensity often gets zone-based coloring anyway
             return WorkoutZone.forIntensity(step.targetPowerPercent).color.opacity(0.6)
         }
         return WorkoutZone.forIntensity(step.targetPowerPercent).color
