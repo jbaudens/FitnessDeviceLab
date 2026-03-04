@@ -13,6 +13,8 @@ class WorkoutSessionManager: ObservableObject {
     
     @Published var activeProfile: ActivityProfile = .defaultProfile
     
+    @Published var selectedWorkout: StructuredWorkout?
+    
     public var recorderA = SessionRecorder()
     public var recorderB = SessionRecorder()
     

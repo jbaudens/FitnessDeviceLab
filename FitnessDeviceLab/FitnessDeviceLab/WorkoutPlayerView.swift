@@ -140,11 +140,48 @@ struct WorkoutPlayerView: View {
                                     workoutManager.powerDeviceAId = nil
                                     workoutManager.hrDeviceBId = nil
                                     workoutManager.powerDeviceBId = nil
+                                    workoutManager.selectedWorkout = nil
                                 }
                                 .font(.caption)
                                 .buttonStyle(.bordered)
                             }
                             .padding(.bottom, 8)
+                            
+                            // Selected Workout Card
+                            if let workout = workoutManager.selectedWorkout {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    HStack {
+                                        Text("SELECTED WORKOUT")
+                                            .font(.caption)
+                                            .fontWeight(.black)
+                                            .foregroundColor(.blue)
+                                        Spacer()
+                                        Button(action: { workoutManager.selectedWorkout = nil }) {
+                                            Image(systemName: "xmark.circle.fill")
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                    
+                                    Text(workout.name)
+                                        .font(.headline)
+                                    
+                                    WorkoutGraphView(workout: workout, showAxis: false)
+                                        .frame(height: 60)
+                                        .padding(.vertical, 4)
+                                    
+                                    Text(workout.description)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+                                }
+                                .padding()
+                                .background(Color.blue.opacity(0.05))
+                                .cornerRadius(16)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+                                )
+                            }
 
                             // Sensor Selection Cards
                             SensorSetCard(

@@ -14,7 +14,15 @@ struct ContentView: View {
                 Label("Devices", systemImage: "antenna.radiowaves.left.and.right")
             }
             
-            // Tab 2: Workout
+            // Tab 2: Library
+            NavigationStack {
+                WorkoutLibraryView()
+            }
+            .tabItem {
+                Label("Library", systemImage: "books.vertical")
+            }
+            
+            // Tab 3: Workout
             NavigationStack {
                 WorkoutPlayerView()
             }
@@ -22,7 +30,7 @@ struct ContentView: View {
                 Label("Workout", systemImage: "play.circle")
             }
             
-            // Tab 3: Settings
+            // Tab 4: Settings
             NavigationStack {
                 SettingsView()
             }
