@@ -142,14 +142,14 @@ class SessionRecorder: ObservableObject {
         for pt in trackpoints {
             xml += "          <Trackpoint>\n"
             xml += "            <Time>\(formatter.string(from: pt.time))</Time>\n"
+            if let alt = pt.altitude {
+                xml += "            <AltitudeMeters>\(alt)</AltitudeMeters>\n"
+            }
             if let hr = pt.hr {
                 xml += "            <HeartRateBpm><Value>\(hr)</Value></HeartRateBpm>\n"
             }
             if let cad = pt.cadence {
                 xml += "            <Cadence>\(cad)</Cadence>\n"
-            }
-            if let alt = pt.altitude {
-                xml += "            <AltitudeMeters>\(alt)</AltitudeMeters>\n"
             }
             if let pwr = pt.power {
                 xml += "            <Extensions>\n"
