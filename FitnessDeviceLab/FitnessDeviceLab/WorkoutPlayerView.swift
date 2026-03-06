@@ -30,7 +30,7 @@ struct WorkoutPlayerView: View {
             if workoutManager.isRecording {
                 // Recording View
                 VStack(spacing: 0) {
-                    // Active Workout Header
+                    // Active Workout Header (Summary targets)
                     if let workout = workoutManager.selectedWorkout {
                         WorkoutTargetHeader(workout: workout)
                             .padding()
@@ -54,8 +54,18 @@ struct WorkoutPlayerView: View {
                                         .foregroundColor(.blue)
                                         .padding(.horizontal)
                                         
-                                        MetricGraphView(recorder: workoutManager.recorderA)
+                                        if let workout = workoutManager.selectedWorkout {
+                                            WorkoutGraphView(
+                                                workout: workout,
+                                                elapsedTime: workoutManager.workoutElapsedTime,
+                                                recorder: workoutManager.recorderA
+                                            )
+                                            .frame(height: 140)
+                                            .padding(8)
+                                            .background(Color.secondary.opacity(0.05))
+                                            .cornerRadius(12)
                                             .padding(.horizontal)
+                                        }
                                         
                                         DataFieldGrid(
                                             recorder: workoutManager.recorderA,
@@ -79,8 +89,18 @@ struct WorkoutPlayerView: View {
                                         .foregroundColor(.purple)
                                         .padding(.horizontal)
                                         
-                                        MetricGraphView(recorder: workoutManager.recorderB)
+                                        if let workout = workoutManager.selectedWorkout {
+                                            WorkoutGraphView(
+                                                workout: workout,
+                                                elapsedTime: workoutManager.workoutElapsedTime,
+                                                recorder: workoutManager.recorderB
+                                            )
+                                            .frame(height: 140)
+                                            .padding(8)
+                                            .background(Color.secondary.opacity(0.05))
+                                            .cornerRadius(12)
                                             .padding(.horizontal)
+                                        }
                                         
                                         DataFieldGrid(
                                             recorder: workoutManager.recorderB,
@@ -252,7 +272,7 @@ struct WorkoutTargetHeader: View {
     let workout: StructuredWorkout
     
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             HStack(alignment: .center) {
                 // Time in Interval
                 if let step = workoutManager.currentWorkoutStep {
@@ -280,18 +300,23 @@ struct WorkoutTargetHeader: View {
                 }
             }
             
-            WorkoutGraphView(workout: workout, elapsedTime: workoutManager.workoutElapsedTime)
-                .frame(height: 60)
-            
-            HStack {
-                Text("Total: \(formatTime(workoutManager.workoutElapsedTime)) / \(formatTime(workout.totalDuration))")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            // Legend
+            HStack(spacing: 12) {
+                Label("Power", systemImage: "bolt.fill").foregroundColor(.yellow)
+                Label("Cadence", systemImage: "bicycle").foregroundColor(.blue)
+                Label("HR", systemImage: "heart.fill").foregroundColor(.red)
                 Spacer()
-                if workoutManager.currentStepIndex < workout.steps.count - 1 {
-                    let nextStep = workout.steps[workoutManager.currentStepIndex + 1]
+                Text("Total: \(formatTime(workoutManager.workoutElapsedTime)) / \(formatTime(workout.totalDuration))")
+            }
+            .font(.system(size: 10, weight: .bold))
+            .foregroundColor(.secondary)
+            
+            if workoutManager.currentStepIndex < workout.steps.count - 1 {
+                let nextStep = workout.steps[workoutManager.currentStepIndex + 1]
+                HStack {
+                    Spacer()
                     Text("Next: \(Int(nextStep.targetPowerPercent * 100))% for \(Int(nextStep.duration / 60))m")
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundColor(.secondary)
                 }
             }
