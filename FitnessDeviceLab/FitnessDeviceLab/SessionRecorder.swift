@@ -32,13 +32,12 @@ class SessionRecorder: ObservableObject {
     @Published public var calculatedMetrics = CalculatedMetrics()
     @Published public var hrvMetrics = HRVMetrics()
     
-    private var timerCancellable: AnyCancellable?
     private var rrCancellable: AnyCancellable?
     
-    // Internal buffer to collect RR intervals between 1Hz ticks
+    // Internal buffer to collect RR intervals between ticks
     private var pendingRRIntervals: [Double] = []
     
-    func start() {
+    func prepare() {
         trackpoints.removeAll()
         pendingRRIntervals.removeAll()
         calculatedMetrics = CalculatedMetrics()
@@ -46,50 +45,30 @@ class SessionRecorder: ObservableObject {
         lastUpdate = Date()
         
         setupRRWatcher()
-        
-        timerCancellable = Timer.publish(every: 1, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                Task { @MainActor in
-                    self?.recordPoint()
-                }
-            }
     }
     
     private func setupRRWatcher() {
         rrCancellable = hrDevice?.$latestRRIntervals
-            .receive(on: RunLoop.main) // Explicitly ensure we append on Main Thread
+            .receive(on: RunLoop.main)
             .sink { [weak self] intervals in
                 guard let self = self, !intervals.isEmpty else { return }
-                // Collect intervals into the pending buffer
                 self.pendingRRIntervals.append(contentsOf: intervals)
             }
     }
     
     func stop(label: String) -> URL? {
-        timerCancellable?.cancel()
-        timerCancellable = nil
         rrCancellable?.cancel()
         rrCancellable = nil
         return generateTCX(label: label)
     }
     
-    private var effectiveAltitude: Double {
-        // Prioritize live GPS altitude, fall back to manual setting
-        return LocationManager.shared.currentAltitude ?? SettingsManager.shared.altitudeOverride
-    }
-    
-    private func recordPoint() {
-        let now = Date()
-        
+    func recordPoint(time: Date, altitude: Double?) {
         // Take the collected RR intervals and clear the buffer
         let rrThisSecond = pendingRRIntervals
         pendingRRIntervals.removeAll()
         
-        let altitude = effectiveAltitude
-        
         let pt = Trackpoint(
-            time: now,
+            time: time,
             hr: hrDevice?.heartRate,
             power: powerDevice?.cyclingPower,
             cadence: powerDevice?.cadence,
@@ -97,6 +76,7 @@ class SessionRecorder: ObservableObject {
             rrIntervals: rrThisSecond
         )
         
+        // Record if we have any data (including RR intervals)
         if pt.hr != nil || pt.power != nil || pt.cadence != nil || !pt.rrIntervals.isEmpty {
             trackpoints.append(pt)
             
@@ -108,7 +88,6 @@ class SessionRecorder: ObservableObject {
             )
             
             // 2. Calculate HRV Metrics (Potentially Heavy)
-            // Perform this on a background task to keep the UI responsive
             let allRR = trackpoints.flatMap { $0.rrIntervals }
             let windowRR = Array(allRR.suffix(600))
             
@@ -119,7 +98,7 @@ class SessionRecorder: ObservableObject {
                 }
             }
             
-            lastUpdate = now
+            lastUpdate = time
         }
     }
     
