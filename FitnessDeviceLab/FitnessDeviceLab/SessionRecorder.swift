@@ -84,6 +84,8 @@ class SessionRecorder: ObservableObject {
             self.calculatedMetrics = DataFieldEngine.calculate(
                 from: trackpoints,
                 userFTP: SettingsManager.shared.userFTP,
+                userWeight: SettingsManager.shared.userWeight,
+                ftpAltitude: SettingsManager.shared.ftpAltitude,
                 currentAltitude: altitude
             )
             

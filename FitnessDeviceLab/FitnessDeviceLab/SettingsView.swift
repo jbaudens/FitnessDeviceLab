@@ -7,6 +7,8 @@ struct SettingsView: View {
     @State private var localFTP: Double = 250.0
     @State private var localMaxHR: Int = 190
     @State private var localAltitude: Double = 0.0
+    @State private var localWeight: Double = 75.0
+    @State private var localFTPAltitude: Double = 0.0
     
     var body: some View {
         List {
@@ -27,7 +29,41 @@ struct SettingsView: View {
                 }
                 
                 HStack {
-                    Text("Max HR")
+                    Text("FTP Altitude")
+                    Spacer()
+                    TextField("Meters", value: $localFTPAltitude, format: .number)
+                        #if os(iOS)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        #endif
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 100)
+                        .onChange(of: localFTPAltitude) { newValue in
+                            settings.ftpAltitude = newValue
+                        }
+                    Text("m")
+                        .foregroundColor(.secondary)
+                }
+                
+                HStack {
+                    Text("Weight")
+                    Spacer()
+                    TextField("kg", value: $localWeight, format: .number)
+                        #if os(iOS)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        #endif
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 100)
+                        .onChange(of: localWeight) { newValue in
+                            settings.userWeight = newValue
+                        }
+                    Text("kg")
+                        .foregroundColor(.secondary)
+                }
+                
+                HStack {
+                    Text("Max Heart Rate")
                     Spacer()
                     TextField("BPM", value: $localMaxHR, format: .number)
                         #if os(iOS)
@@ -43,7 +79,7 @@ struct SettingsView: View {
             } header: {
                 Text("User Profile")
             } footer: {
-                Text("FTP is used for NP®, IF®, and TSS calculations. Max HR is used for intensity analysis.")
+                Text("FTP Altitude is the elevation where your FTP was tested. This allows for accurate performance normalization at different altitudes.")
             }
             
             Section {
@@ -83,6 +119,8 @@ struct SettingsView: View {
             localFTP = settings.userFTP
             localMaxHR = settings.maxHR
             localAltitude = settings.altitudeOverride
+            localWeight = settings.userWeight
+            localFTPAltitude = settings.ftpAltitude
         }
     }
 }
