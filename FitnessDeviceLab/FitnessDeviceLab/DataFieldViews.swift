@@ -63,23 +63,40 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     // Environment
     case altitude = "Altitude"
     
+    // Lap Metrics
+    case lapPower = "Lap Power"
+    case lapAvgPower = "Lap Avg Pwr"
+    case lapNP = "Lap NP®"
+    case lapHR = "Lap HR"
+    case lapCadence = "Lap Cad"
+    case lapTime = "Lap Time"
+    
     var id: String { rawValue }
     
     var isHR: Bool {
         switch self {
-        case .currentHR, .avgHR, .maxHR, .dfaAlpha1, .avnn, .sdnn, .rmssd, .pnn50: return true
+        case .currentHR, .avgHR, .maxHR, .dfaAlpha1, .avnn, .sdnn, .rmssd, .pnn50, .lapHR: return true
         default: return false
         }
     }
     
-    func value(for engine: DataFieldEngine) -> Double? {
-        let m = engine.calculatedMetrics
+    func value(for engine: DataFieldEngine, workoutManager: WorkoutSessionManager? = nil) -> Double? {
+        let sessionMetrics = engine.calculatedMetrics
         let hrv = engine.hrvMetrics
+        
+        // Mode-aware metrics (either Session or Lap)
+        let m: CalculatedMetrics = {
+            guard let wm = workoutManager, wm.currentDataFieldMode == .lap, let currentLap = wm.laps.last else {
+                return sessionMetrics
+            }
+            let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
+            return DataFieldEngine.calculate(from: points)
+        }()
         
         switch self {
         case .currentHR: return engine.currentHR.map { Double($0) }
-        case .avgHR: return m.avgHeartRate
-        case .maxHR: return m.maxHeartRate.map { Double($0) }
+        case .avgHR: return m.hr.avg
+        case .maxHR: return m.hr.max.map { Double($0) }
         case .dfaAlpha1: return hrv.dfaAlpha1
         case .avnn: return hrv.avnn
         case .sdnn: return hrv.sdnn
@@ -124,43 +141,69 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         case .homeFTP: return SettingsManager.shared.userFTP
         
         case .cadence: return engine.currentCadence.map { Double($0) }
-        case .avgCadence: return m.avgCadence
-        case .maxCadence: return m.maxCadence.map { Double($0) }
+        case .avgCadence: return m.cadence.avg
+        case .maxCadence: return m.cadence.max.map { Double($0) }
         
         case .altitude: return engine.currentAltitude
+        
+        case .lapPower: return engine.calculatedMetrics.standard.instantPower.map { Double($0) }
+        case .lapAvgPower:
+            guard let wm = workoutManager, let currentLap = wm.laps.last else { return nil }
+            let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
+            return DataFieldEngine.calculate(from: points).standard.avgPower
+        case .lapNP:
+            guard let wm = workoutManager, let currentLap = wm.laps.last else { return nil }
+            let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
+            return DataFieldEngine.calculate(from: points).standard.normalizedPower
+        case .lapHR:
+            guard let wm = workoutManager, let currentLap = wm.laps.last else { return nil }
+            let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
+            return DataFieldEngine.calculate(from: points).hr.avg
+        case .lapCadence:
+            guard let wm = workoutManager, let currentLap = wm.laps.last else { return nil }
+            let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
+            return DataFieldEngine.calculate(from: points).cadence.avg
+        case .lapTime:
+            if let start = workoutManager?.laps.last?.startTime {
+                return Date().timeIntervalSince(start)
+            }
+            return 0
         }
     }
     
     var unit: String {
         switch self {
-        case .currentHR, .avgHR, .maxHR: return "bpm"
+        case .currentHR, .avgHR, .maxHR, .lapHR: return "bpm"
         case .dfaAlpha1: return "idx"
         case .avnn, .sdnn, .rmssd: return "ms"
         case .pnn50: return "%"
-        case .currentPower, .power3s, .power10s, .power30s, .avgPower, .maxPower, .normalizedPower, .localFTP, .slPower, .slPower3s, .slPower10s, .slPower30s, .slAvgPower, .slMaxPower, .slNP, .slFTP, .homePower, .homePower3s, .homePower10s, .homePower30s, .homeAvgPower, .homeMaxPower, .homeNP, .homeFTP: return "W"
+        case .currentPower, .power3s, .power10s, .power30s, .avgPower, .maxPower, .normalizedPower, .localFTP, .slPower, .slPower3s, .slPower10s, .slPower30s, .slAvgPower, .slMaxPower, .slNP, .slFTP, .homePower, .homePower3s, .homePower10s, .homePower30s, .homeAvgPower, .homeMaxPower, .homeNP, .homeFTP, .lapPower, .lapAvgPower, .lapNP: return "W"
         case .intensityFactor, .slIF, .homeIF: return "IF"
         case .tss, .slTSS, .homeTSS: return "TSS"
-        case .cadence, .avgCadence, .maxCadence: return "rpm"
+        case .cadence, .avgCadence, .maxCadence, .lapCadence: return "rpm"
         case .powerBalance: return "%L"
         case .altitude: return "m"
         case .wattsPerKg, .slWkg, .homeWkg: return "W/kg"
+        case .lapTime: return "min"
         }
     }
     
     var color: Color {
         switch self {
-        case .currentHR, .avgHR, .maxHR: return .red
+        case .currentHR, .avgHR, .maxHR, .lapHR: return .red
         case .dfaAlpha1, .avnn, .sdnn, .rmssd, .pnn50: return .purple
-        case .intensityFactor, .tss, .slIF, .slTSS, .homeIF, .homeTSS: return .orange
-        case .cadence, .avgCadence, .maxCadence: return .blue
+        case .intensityFactor, .tss, .slIF, .slTSS, .homeIF, .homeTSS, .lapNP: return .orange
+        case .cadence, .avgCadence, .maxCadence, .lapCadence: return .blue
         case .powerBalance: return .orange
         case .altitude: return .green
+        case .lapTime: return .secondary
         default: return .yellow
         }
     }
 }
 
 struct DataFieldGrid: View {
+    @EnvironmentObject var workoutManager: WorkoutSessionManager
     @ObservedObject var engine: DataFieldEngine
     let fields: [DataFieldType]
     
@@ -177,6 +220,7 @@ struct DataFieldGrid: View {
 }
 
 struct DataFieldTile: View {
+    @EnvironmentObject var workoutManager: WorkoutSessionManager
     let type: DataFieldType
     @ObservedObject var engine: DataFieldEngine
     
@@ -214,12 +258,16 @@ struct DataFieldTile: View {
     }
     
     var valueText: String {
-        guard let val = type.value(for: engine) else { return "--" }
+        guard let val = type.value(for: engine, workoutManager: workoutManager) else { return "--" }
         
         switch type {
         case .dfaAlpha1, .intensityFactor, .wattsPerKg, .slWkg, .homeWkg, .slIF, .homeIF: return String(format: "%.2f", val)
         case .tss, .slTSS, .homeTSS: return String(format: "%.1f", val)
         case .altitude: return String(format: "%.0f", val)
+        case .lapTime:
+            let m = Int(val) / 60
+            let s = Int(val) % 60
+            return String(format: "%d:%02d", m, s)
         default: return String(format: "%.0f", val)
         }
     }

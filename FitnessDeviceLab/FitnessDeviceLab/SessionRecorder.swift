@@ -22,8 +22,21 @@ nonisolated public struct Trackpoint: Identifiable {
     }
 }
 
+public struct Lap: Identifiable {
+    public let id = UUID()
+    public let index: Int
+    public let startTime: Date
+    public var endTime: Date?
+    public let type: WorkoutStepType
+    
+    public var duration: TimeInterval {
+        let end = endTime ?? Date()
+        return end.timeIntervalSince(startTime)
+    }
+}
+
 @MainActor
-class SessionRecorder: ObservableObject {
+public class SessionRecorder: ObservableObject {
     var hrDevice: DiscoveredPeripheral?
     var powerDevice: DiscoveredPeripheral?
     

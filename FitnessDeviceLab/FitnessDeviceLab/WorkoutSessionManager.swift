@@ -3,6 +3,14 @@ import Combine
 
 @MainActor
 class WorkoutSessionManager: ObservableObject {
+    enum DataFieldMode: String, CaseIterable, Identifiable {
+        case session = "Session"
+        case lap = "Lap"
+        var id: String { rawValue }
+    }
+    
+    @Published var currentDataFieldMode: DataFieldMode = .session
+    
     @Published var hrDeviceAId: UUID?
     @Published var powerDeviceAId: UUID?
     
@@ -18,6 +26,8 @@ class WorkoutSessionManager: ObservableObject {
     
     @Published var currentStepIndex: Int = 0
     @Published var timeInStep: TimeInterval = 0
+    
+    @Published var laps: [Lap] = []
     
     public var recorderA = SessionRecorder()
     public var recorderB = SessionRecorder()
@@ -53,6 +63,7 @@ class WorkoutSessionManager: ObservableObject {
         workoutElapsedTime = 0
         currentStepIndex = 0
         timeInStep = 0
+        laps = []
         
         recorderA.hrDevice = devices.first { $0.id == hrDeviceAId }
         recorderA.powerDevice = devices.first { $0.id == powerDeviceAId }
@@ -62,6 +73,10 @@ class WorkoutSessionManager: ObservableObject {
         
         recorderA.prepare()
         recorderB.prepare()
+        
+        // Initial Lap
+        let initialStepType = selectedWorkout?.steps.first?.type ?? .work
+        startNewLap(type: initialStepType)
         
         sessionStartTime = Date()
         isRecording = true
@@ -74,6 +89,23 @@ class WorkoutSessionManager: ObservableObject {
             }
     }
     
+    func manualLap() {
+        guard isRecording else { return }
+        let currentStepType = currentWorkoutStep?.type ?? .work
+        startNewLap(type: currentStepType)
+    }
+    
+    private func startNewLap(type: WorkoutStepType) {
+        let now = Date()
+        if var lastLap = laps.last {
+            lastLap.endTime = now
+            laps[laps.count - 1] = lastLap
+        }
+        
+        let newLap = Lap(index: laps.count, startTime: now, type: type)
+        laps.append(newLap)
+    }
+    
     private func tick() {
         workoutElapsedTime += 1
         
@@ -84,6 +116,8 @@ class WorkoutSessionManager: ObservableObject {
                 if currentStepIndex < workout.steps.count - 1 {
                     currentStepIndex += 1
                     timeInStep = 0
+                    // Auto-lap on step change
+                    startNewLap(type: workout.steps[currentStepIndex].type)
                 }
             }
         }

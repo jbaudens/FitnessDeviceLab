@@ -1,6 +1,20 @@
 import Foundation
 import Combine
 
+nonisolated public struct HeartRateMetrics {
+    public var avg: Double?
+    public var max: Int?
+    public var min: Int?
+    public init() {}
+}
+
+nonisolated public struct CadenceMetrics {
+    public var avg: Double?
+    public var max: Int?
+    public var min: Int?
+    public init() {}
+}
+
 nonisolated public struct PowerMetrics {
     public var instantPower: Int?
     public var power3s: Int?
@@ -8,6 +22,7 @@ nonisolated public struct PowerMetrics {
     public var power30s: Int?
     public var avgPower: Double?
     public var maxPower: Int?
+    public var minPower: Int?
     public var normalizedPower: Double?
     public var intensityFactor: Double?
     public var tss: Double?
@@ -18,13 +33,8 @@ nonisolated public struct PowerMetrics {
 }
 
 nonisolated public struct CalculatedMetrics {
-    // Standard Metrics
-    public var avgHeartRate: Double?
-    public var maxHeartRate: Int?
-    public var avgCadence: Double?
-    public var maxCadence: Int?
-    
-    // Tracks
+    public var hr = HeartRateMetrics()
+    public var cadence = CadenceMetrics()
     public var standard = PowerMetrics()
     public var seaLevel = PowerMetrics()
     public var home = PowerMetrics()
@@ -33,17 +43,8 @@ nonisolated public struct CalculatedMetrics {
 }
 
 public class DataFieldEngine: ObservableObject {
-    // Individual published properties for simple UI observation
-    @Published public var standard = PowerMetrics()
-    @Published public var seaLevel = PowerMetrics()
-    @Published public var home = PowerMetrics()
-    
     @Published public var currentHR: Int?
-    @Published public var avgHeartRate: Double?
-    @Published public var maxHeartRate: Int?
     @Published public var currentCadence: Int?
-    @Published public var avgCadence: Double?
-    @Published public var maxCadence: Int?
     @Published public var powerBalance: Double?
     
     @Published public var currentAltitude: Double?
@@ -51,25 +52,21 @@ public class DataFieldEngine: ObservableObject {
     @Published public var slFTP: Double?
     
     @Published public var hrvMetrics = HRVMetrics()
-    
-    // Flat struct for consumers that prefer it
     @Published public var calculatedMetrics = CalculatedMetrics()
     
     private var cancellables = Set<AnyCancellable>()
-    private let recorder: SessionRecorder
+    public let recorder: SessionRecorder
     
     init(recorder: SessionRecorder) {
         self.recorder = recorder
         
-        // Observe trackpoints to trigger calculations
         recorder.$trackpoints
             .receive(on: RunLoop.main)
             .sink { [weak self] trackpoints in
-                self?.calculate(from: trackpoints)
+                self?.update(from: trackpoints)
             }
             .store(in: &cancellables)
             
-        // Observe settings changes
         SettingsManager.shared.objectWillChange
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
@@ -81,14 +78,38 @@ public class DataFieldEngine: ObservableObject {
     }
     
     public func recalculate() {
-        calculate(from: recorder.trackpoints)
+        update(from: recorder.trackpoints)
     }
     
-    private func calculate(from trackpoints: [Trackpoint]) {
-        guard let latest = trackpoints.last else {
-            reset()
-            return
+    private func update(from trackpoints: [Trackpoint]) {
+        let m = Self.calculate(from: trackpoints)
+        
+        if let latest = trackpoints.last {
+            self.currentHR = latest.hr
+            self.currentCadence = latest.cadence
+            self.powerBalance = latest.powerBalance
+            self.currentAltitude = latest.altitude
         }
+        
+        let settings = SettingsManager.shared
+        let homeRatio = Self.getAltitudeRatio(meters: settings.ftpAltitude)
+        self.slFTP = settings.userFTP / homeRatio
+        let currentRatio = Self.getAltitudeRatio(meters: currentAltitude ?? 0.0)
+        self.localFTP = (self.slFTP ?? 0) * currentRatio
+
+        let rrHistory = Array(trackpoints.flatMap { $0.rrIntervals }.suffix(600))
+        Task.detached(priority: .userInitiated) {
+            let newHRV = HRVEngine.calculateMetrics(rawRRIntervals: rrHistory)
+            await MainActor.run {
+                self.hrvMetrics = newHRV
+            }
+        }
+        
+        self.calculatedMetrics = m
+    }
+    
+    public static func calculate(from trackpoints: [Trackpoint]) -> CalculatedMetrics {
+        guard !trackpoints.isEmpty else { return CalculatedMetrics() }
         
         let settings = SettingsManager.shared
         let userFTP = settings.userFTP
@@ -99,98 +120,74 @@ public class DataFieldEngine: ObservableObject {
         let hrSamples = trackpoints.compactMap { $0.hr }
         let cadenceSamples = trackpoints.compactMap { $0.cadence }
         
-        // 1. Altitude Ratios & FTP References
-        let homeRatio = Self.getAltitudeRatio(meters: ftpAltitude)
+        let homeRatio = getAltitudeRatio(meters: ftpAltitude)
         let slFTPValue = userFTP / homeRatio
-        self.slFTP = slFTPValue
-        
-        currentAltitude = latest.altitude
-        let currentAlt = latest.altitude ?? 0.0
-        let currentRatio = Self.getAltitudeRatio(meters: currentAlt)
-        self.localFTP = slFTPValue * currentRatio
+        let currentAlt = trackpoints.last?.altitude ?? 0.0
+        let currentRatio = getAltitudeRatio(meters: currentAlt)
+        let localFTP = slFTPValue * currentRatio
         
         var m = CalculatedMetrics()
         
-        // 2. Core Metrics
         if !powerSamples.isEmpty {
-            let lastPower = Double(latest.power ?? 0)
+            let lastPower = Double(trackpoints.last?.power ?? 0)
             let lastSL = lastPower / currentRatio
             let lastHome = lastSL * homeRatio
             
-            // Standard
             m.standard.instantPower = Int(round(lastPower))
             m.standard.avgPower = Double(powerSamples.reduce(0, +)) / Double(powerSamples.count)
             m.standard.maxPower = powerSamples.max()
+            m.standard.minPower = powerSamples.min()
             m.standard.wattsPerKg = lastPower / userWeight
             m.standard.power3s = getRollingAvg(powerSamples, window: 3)
             m.standard.power10s = getRollingAvg(powerSamples, window: 10)
             m.standard.power30s = getRollingAvg(powerSamples, window: 30)
             m.standard.ftp = localFTP
             
-            // Sea Level
             let slPowers = trackpoints.compactMap { tp -> Double? in
                 guard let p = tp.power else { return nil }
-                return Double(p) / Self.getAltitudeRatio(meters: tp.altitude ?? 0.0)
+                return Double(p) / getAltitudeRatio(meters: tp.altitude ?? 0.0)
             }
             m.seaLevel.instantPower = Int(round(lastSL))
             m.seaLevel.avgPower = slPowers.reduce(0, +) / Double(slPowers.count)
             m.seaLevel.maxPower = Int(round(slPowers.max() ?? 0))
+            m.seaLevel.minPower = Int(round(slPowers.min() ?? 0))
             m.seaLevel.wattsPerKg = lastSL / userWeight
             m.seaLevel.power3s = getRollingAvgDouble(slPowers, window: 3)
             m.seaLevel.power10s = getRollingAvgDouble(slPowers, window: 10)
             m.seaLevel.power30s = getRollingAvgDouble(slPowers, window: 30)
-            m.seaLevel.ftp = slFTP
+            m.seaLevel.ftp = slFTPValue
             
-            // Home
             m.home.instantPower = Int(round(lastHome))
             m.home.avgPower = (m.seaLevel.avgPower ?? 0) * homeRatio
             m.home.maxPower = Int(round(Double(m.seaLevel.maxPower ?? 0) * homeRatio))
+            m.home.minPower = Int(round(Double(m.seaLevel.minPower ?? 0) * homeRatio))
             m.home.wattsPerKg = lastHome / userWeight
             m.home.power3s = m.seaLevel.power3s.map { Int(round(Double($0) * homeRatio)) }
             m.home.power10s = m.seaLevel.power10s.map { Int(round(Double($0) * homeRatio)) }
             m.home.power30s = m.seaLevel.power30s.map { Int(round(Double($0) * homeRatio)) }
             m.home.ftp = userFTP
             
-            // NP Metrics (Heavy)
             if powerSamples.count >= 30 {
                 calculateNPMetrics(trackpoints: trackpoints, homeRatio: homeRatio, userFTP: userFTP, slFTP: slFTPValue, metrics: &m)
             }
         }
         
-        currentHR = latest.hr
         if !hrSamples.isEmpty {
-            m.avgHeartRate = Double(hrSamples.reduce(0, +)) / Double(hrSamples.count)
-            m.maxHeartRate = hrSamples.max()
-            self.avgHeartRate = m.avgHeartRate
-            self.maxHeartRate = m.maxHeartRate
+            m.hr.avg = Double(hrSamples.reduce(0, +)) / Double(hrSamples.count)
+            m.hr.max = hrSamples.max()
+            m.hr.min = hrSamples.min()
         }
         
-        currentCadence = latest.cadence
         if !cadenceSamples.isEmpty {
-            m.avgCadence = Double(cadenceSamples.reduce(0, +)) / Double(cadenceSamples.count)
-            m.maxCadence = cadenceSamples.max()
-            self.avgCadence = m.avgCadence
-            self.maxCadence = m.maxCadence
+            m.cadence.avg = Double(cadenceSamples.reduce(0, +)) / Double(cadenceSamples.count)
+            m.cadence.max = cadenceSamples.max()
+            m.cadence.min = cadenceSamples.min()
         }
         
-        self.powerBalance = latest.powerBalance
-        
-        // 3. HRV (Offloaded)
-        let rrHistory = Array(trackpoints.flatMap { $0.rrIntervals }.suffix(600))
-        Task.detached(priority: .userInitiated) {
-            let newHRV = HRVEngine.calculateMetrics(rawRRIntervals: rrHistory)
-            await MainActor.run {
-                self.hrvMetrics = newHRV
-            }
-        }
-        
-        self.standard = m.standard
-        self.seaLevel = m.seaLevel
-        self.home = m.home
-        self.calculatedMetrics = m
+        return m
     }
     
-    private func calculateNPMetrics(trackpoints: [Trackpoint], homeRatio: Double, userFTP: Double, slFTP: Double, metrics: inout CalculatedMetrics) {
+    private static func calculateNPMetrics(trackpoints: [Trackpoint], homeRatio: Double, userFTP: Double, slFTP: Double, metrics: inout CalculatedMetrics) {
         var std30s = [Double](), sl30s = [Double](), home30s = [Double]()
         
         for i in 0..<trackpoints.count {
@@ -204,7 +201,7 @@ public class DataFieldEngine: ObservableObject {
             
             let slPowersInWindow = window.compactMap { tp -> Double? in
                 guard let p = tp.power else { return nil }
-                return Double(p) / Self.getAltitudeRatio(meters: tp.altitude ?? 0.0)
+                return Double(p) / getAltitudeRatio(meters: tp.altitude ?? 0.0)
             }
             let slAvg = slPowersInWindow.reduce(0, +) / Double(slPowersInWindow.count)
             sl30s.append(slAvg)
@@ -225,15 +222,8 @@ public class DataFieldEngine: ObservableObject {
     }
     
     private func reset() {
-        standard = PowerMetrics()
-        seaLevel = PowerMetrics()
-        home = PowerMetrics()
         calculatedMetrics = CalculatedMetrics()
         currentHR = nil
-        avgHeartRate = nil
-        maxHeartRate = nil
-        avgCadence = nil
-        maxCadence = nil
         currentCadence = nil
         powerBalance = nil
         hrvMetrics = HRVMetrics()
@@ -242,24 +232,24 @@ public class DataFieldEngine: ObservableObject {
         currentAltitude = nil
     }
     
-    nonisolated private static func getAltitudeRatio(meters: Double) -> Double {
+    nonisolated public static func getAltitudeRatio(meters: Double) -> Double {
         let h = max(0, meters / 1000.0)
         return max(0.5, 1.0 - 0.0112 * pow(h, 2) - 0.0190 * h)
     }
     
-    private func getRollingAvg(_ samples: [Int], window: Int) -> Int? {
+    private static func getRollingAvg(_ samples: [Int], window: Int) -> Int? {
         let count = min(samples.count, window)
         let slice = samples.suffix(count)
         return Int(round(Double(slice.reduce(0, +)) / Double(count)))
     }
     
-    private func getRollingAvgDouble(_ samples: [Double], window: Int) -> Int? {
+    private static func getRollingAvgDouble(_ samples: [Double], window: Int) -> Int? {
         let count = min(samples.count, window)
         let slice = samples.suffix(count)
         return Int(round(slice.reduce(0, +) / Double(count)))
     }
     
-    private func calculateNPFromRolling(_ rolling: [Double]) -> Double {
+    private static func calculateNPFromRolling(_ rolling: [Double]) -> Double {
         guard !rolling.isEmpty else { return 0 }
         let sum4 = rolling.reduce(0.0) { $0 + pow($1, 4) }
         return pow(sum4 / Double(rolling.count), 0.25)
