@@ -38,6 +38,10 @@ public class DataFieldEngine: ObservableObject {
     @Published public var seaLevel = PowerMetrics()
     @Published public var home = PowerMetrics()
     
+    // Lap specific metrics
+    @Published public var lapMetrics = CalculatedMetrics()
+    @Published public var currentLapIndex: Int = 0
+    
     @Published public var currentHR: Int?
     @Published public var avgHeartRate: Double?
     @Published public var maxHeartRate: Int?
@@ -56,7 +60,7 @@ public class DataFieldEngine: ObservableObject {
     @Published public var calculatedMetrics = CalculatedMetrics()
     
     private var cancellables = Set<AnyCancellable>()
-    private let recorder: SessionRecorder
+    public let recorder: SessionRecorder
     
     init(recorder: SessionRecorder) {
         self.recorder = recorder
@@ -95,9 +99,16 @@ public class DataFieldEngine: ObservableObject {
         let userWeight = settings.userWeight
         let ftpAltitude = settings.ftpAltitude
         
+        // Lap specific points
+        let lapPoints = trackpoints.filter { $0.lapIndex == currentLapIndex }
+        
         let powerSamples = trackpoints.compactMap { $0.power }
         let hrSamples = trackpoints.compactMap { $0.hr }
         let cadenceSamples = trackpoints.compactMap { $0.cadence }
+        
+        let lapPowerSamples = lapPoints.compactMap { $0.power }
+        let lapHRSamples = lapPoints.compactMap { $0.hr }
+        let lapCadenceSamples = lapPoints.compactMap { $0.cadence }
         
         // 1. Altitude Ratios & FTP References
         let homeRatio = Self.getAltitudeRatio(meters: ftpAltitude)
@@ -110,8 +121,9 @@ public class DataFieldEngine: ObservableObject {
         self.localFTP = slFTPValue * currentRatio
         
         var m = CalculatedMetrics()
+        var lm = CalculatedMetrics()
         
-        // 2. Core Metrics
+        // 2. Core Metrics (Session)
         if !powerSamples.isEmpty {
             let lastPower = Double(latest.power ?? 0)
             let lastSL = lastPower / currentRatio
@@ -157,12 +169,27 @@ public class DataFieldEngine: ObservableObject {
             }
         }
         
+        // 2b. Lap Metrics
+        if !lapPowerSamples.isEmpty {
+            lm.standard.avgPower = Double(lapPowerSamples.reduce(0, +)) / Double(lapPowerSamples.count)
+            lm.standard.maxPower = lapPowerSamples.max()
+            
+            if lapPowerSamples.count >= 30 {
+                calculateNPMetrics(trackpoints: lapPoints, homeRatio: homeRatio, userFTP: userFTP, slFTP: slFTPValue, metrics: &lm)
+            }
+        }
+        
         currentHR = latest.hr
         if !hrSamples.isEmpty {
             m.avgHeartRate = Double(hrSamples.reduce(0, +)) / Double(hrSamples.count)
             m.maxHeartRate = hrSamples.max()
             self.avgHeartRate = m.avgHeartRate
             self.maxHeartRate = m.maxHeartRate
+        }
+        
+        if !lapHRSamples.isEmpty {
+            lm.avgHeartRate = Double(lapHRSamples.reduce(0, +)) / Double(lapHRSamples.count)
+            lm.maxHeartRate = lapHRSamples.max()
         }
         
         currentCadence = latest.cadence
@@ -173,9 +200,14 @@ public class DataFieldEngine: ObservableObject {
             self.maxCadence = m.maxCadence
         }
         
+        if !lapCadenceSamples.isEmpty {
+            lm.avgCadence = Double(lapCadenceSamples.reduce(0, +)) / Double(lapCadenceSamples.count)
+            lm.maxCadence = lapCadenceSamples.max()
+        }
+        
         self.powerBalance = latest.powerBalance
         
-        // 3. HRV (Offloaded)
+        // 3. HRV (Offloaded) - Using full history for DFA-a1 stability
         let rrHistory = Array(trackpoints.flatMap { $0.rrIntervals }.suffix(600))
         Task.detached(priority: .userInitiated) {
             let newHRV = HRVEngine.calculateMetrics(rawRRIntervals: rrHistory)
@@ -188,6 +220,7 @@ public class DataFieldEngine: ObservableObject {
         self.seaLevel = m.seaLevel
         self.home = m.home
         self.calculatedMetrics = m
+        self.lapMetrics = lm
     }
     
     private func calculateNPMetrics(trackpoints: [Trackpoint], homeRatio: Double, userFTP: Double, slFTP: Double, metrics: inout CalculatedMetrics) {

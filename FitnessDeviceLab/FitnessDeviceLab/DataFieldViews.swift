@@ -63,11 +63,19 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     // Environment
     case altitude = "Altitude"
     
+    // Lap Metrics
+    case lapPower = "Lap Power"
+    case lapAvgPower = "Lap Avg Pwr"
+    case lapNP = "Lap NP®"
+    case lapHR = "Lap HR"
+    case lapCadence = "Lap Cad"
+    case lapTime = "Lap Time"
+    
     var id: String { rawValue }
     
     var isHR: Bool {
         switch self {
-        case .currentHR, .avgHR, .maxHR, .dfaAlpha1, .avnn, .sdnn, .rmssd, .pnn50: return true
+        case .currentHR, .avgHR, .maxHR, .dfaAlpha1, .avnn, .sdnn, .rmssd, .pnn50, .lapHR: return true
         default: return false
         }
     }
@@ -128,33 +136,47 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         case .maxCadence: return m.maxCadence.map { Double($0) }
         
         case .altitude: return engine.currentAltitude
+        
+        case .lapPower: return m.standard.instantPower.map { Double($0) }
+        case .lapAvgPower: return engine.lapMetrics.standard.avgPower
+        case .lapNP: return engine.lapMetrics.standard.normalizedPower
+        case .lapHR: return engine.lapMetrics.avgHeartRate
+        case .lapCadence: return engine.lapMetrics.avgCadence
+        case .lapTime:
+            if let first = engine.recorder.trackpoints.first(where: { $0.lapIndex == engine.currentLapIndex }),
+               let last = engine.recorder.trackpoints.last(where: { $0.lapIndex == engine.currentLapIndex }) {
+                return last.time.timeIntervalSince(first.time)
+            }
+            return 0
         }
     }
     
     var unit: String {
         switch self {
-        case .currentHR, .avgHR, .maxHR: return "bpm"
+        case .currentHR, .avgHR, .maxHR, .lapHR: return "bpm"
         case .dfaAlpha1: return "idx"
         case .avnn, .sdnn, .rmssd: return "ms"
         case .pnn50: return "%"
-        case .currentPower, .power3s, .power10s, .power30s, .avgPower, .maxPower, .normalizedPower, .localFTP, .slPower, .slPower3s, .slPower10s, .slPower30s, .slAvgPower, .slMaxPower, .slNP, .slFTP, .homePower, .homePower3s, .homePower10s, .homePower30s, .homeAvgPower, .homeMaxPower, .homeNP, .homeFTP: return "W"
+        case .currentPower, .power3s, .power10s, .power30s, .avgPower, .maxPower, .normalizedPower, .localFTP, .slPower, .slPower3s, .slPower10s, .slPower30s, .slAvgPower, .slMaxPower, .slNP, .slFTP, .homePower, .homePower3s, .homePower10s, .homePower30s, .homeAvgPower, .homeMaxPower, .homeNP, .homeFTP, .lapPower, .lapAvgPower, .lapNP: return "W"
         case .intensityFactor, .slIF, .homeIF: return "IF"
         case .tss, .slTSS, .homeTSS: return "TSS"
-        case .cadence, .avgCadence, .maxCadence: return "rpm"
+        case .cadence, .avgCadence, .maxCadence, .lapCadence: return "rpm"
         case .powerBalance: return "%L"
         case .altitude: return "m"
         case .wattsPerKg, .slWkg, .homeWkg: return "W/kg"
+        case .lapTime: return "min"
         }
     }
     
     var color: Color {
         switch self {
-        case .currentHR, .avgHR, .maxHR: return .red
+        case .currentHR, .avgHR, .maxHR, .lapHR: return .red
         case .dfaAlpha1, .avnn, .sdnn, .rmssd, .pnn50: return .purple
-        case .intensityFactor, .tss, .slIF, .slTSS, .homeIF, .homeTSS: return .orange
-        case .cadence, .avgCadence, .maxCadence: return .blue
+        case .intensityFactor, .tss, .slIF, .slTSS, .homeIF, .homeTSS, .lapNP: return .orange
+        case .cadence, .avgCadence, .maxCadence, .lapCadence: return .blue
         case .powerBalance: return .orange
         case .altitude: return .green
+        case .lapTime: return .secondary
         default: return .yellow
         }
     }
@@ -220,6 +242,10 @@ struct DataFieldTile: View {
         case .dfaAlpha1, .intensityFactor, .wattsPerKg, .slWkg, .homeWkg, .slIF, .homeIF: return String(format: "%.2f", val)
         case .tss, .slTSS, .homeTSS: return String(format: "%.1f", val)
         case .altitude: return String(format: "%.0f", val)
+        case .lapTime:
+            let m = Int(val) / 60
+            let s = Int(val) % 60
+            return String(format: "%d:%02d", m, s)
         default: return String(format: "%.0f", val)
         }
     }

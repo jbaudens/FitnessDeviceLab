@@ -10,8 +10,9 @@ nonisolated public struct Trackpoint: Identifiable {
     public let altitude: Double?
     public let powerBalance: Double?
     public let rrIntervals: [Double]
+    public let lapIndex: Int
     
-    public init(time: Date, hr: Int? = nil, power: Int? = nil, cadence: Int? = nil, altitude: Double? = nil, powerBalance: Double? = nil, rrIntervals: [Double] = []) {
+    public init(time: Date, hr: Int? = nil, power: Int? = nil, cadence: Int? = nil, altitude: Double? = nil, powerBalance: Double? = nil, rrIntervals: [Double] = [], lapIndex: Int = 0) {
         self.time = time
         self.hr = hr
         self.power = power
@@ -19,21 +20,37 @@ nonisolated public struct Trackpoint: Identifiable {
         self.altitude = altitude
         self.powerBalance = powerBalance
         self.rrIntervals = rrIntervals
+        self.lapIndex = lapIndex
+    }
+}
+
+public struct Lap: Identifiable {
+    public let id = UUID()
+    public let index: Int
+    public let startTime: Date
+    public var endTime: Date?
+    public let type: WorkoutStepType
+    
+    public var duration: TimeInterval {
+        let end = endTime ?? Date()
+        return end.timeIntervalSince(startTime)
     }
 }
 
 @MainActor
-class SessionRecorder: ObservableObject {
+public class SessionRecorder: ObservableObject {
     var hrDevice: DiscoveredPeripheral?
     var powerDevice: DiscoveredPeripheral?
     
     @Published public var trackpoints: [Trackpoint] = []
+    @Published public var currentLapIndex: Int = 0
     
     private var rrCancellable: AnyCancellable?
     private var pendingRRIntervals: [Double] = []
     
     func prepare() {
         trackpoints.removeAll()
+        currentLapIndex = 0
         pendingRRIntervals.removeAll()
         setupRRWatcher()
     }
@@ -63,7 +80,8 @@ class SessionRecorder: ObservableObject {
             cadence: powerDevice?.cadence,
             altitude: altitude,
             powerBalance: powerDevice?.powerBalance,
-            rrIntervals: rrThisSecond
+            rrIntervals: rrThisSecond,
+            lapIndex: currentLapIndex
         )
         
         trackpoints.append(pt)

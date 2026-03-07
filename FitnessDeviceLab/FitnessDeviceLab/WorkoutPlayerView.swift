@@ -38,6 +38,7 @@ struct WorkoutPlayerView: View {
                     }
                     
                     TabView {
+                        // Data Pages
                         ForEach(workoutManager.activeProfile.pages) { page in
                             ScrollView {
                                 VStack(spacing: 24) {
@@ -112,22 +113,38 @@ struct WorkoutPlayerView: View {
                                 .padding(.vertical)
                             }
                         }
+                        
+                        // Laps View
+                        LapsHistoryView()
                     }
                     #if os(iOS)
                     .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
                     .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .always))
                     #endif
                     
-                    Button(action: {
-                        workoutManager.stopWorkout()
-                    }) {
-                        Label("Stop Recording", systemImage: "stop.fill")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding()
+                    HStack(spacing: 16) {
+                        Button(action: {
+                            workoutManager.manualLap()
+                        }) {
+                            Label("Lap", systemImage: "circle.circle")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.blue)
+                        
+                        Button(action: {
+                            workoutManager.stopWorkout()
+                        }) {
+                            Label("Stop Recording", systemImage: "stop.fill")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.red)
                     .padding()
                 }
                 .navigationTitle(workoutManager.activeProfile.name)
@@ -277,9 +294,20 @@ struct WorkoutTargetHeader: View {
                 // Time in Interval
                 if let step = workoutManager.currentWorkoutStep {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(formatTime(step.duration - workoutManager.timeInStep))
-                            .font(.system(size: 40, weight: .bold, design: .rounded))
-                            .monospacedDigit()
+                        HStack(alignment: .lastTextBaseline, spacing: 4) {
+                            Text(formatTime(step.duration - workoutManager.timeInStep))
+                                .font(.system(size: 40, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                            
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text("LAP \(workoutManager.laps.count)")
+                                    .font(.system(size: 10, weight: .black))
+                                    .foregroundColor(.blue)
+                                Text(formatTime(workoutManager.laps.last?.duration ?? 0))
+                                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                         Text("REMAINING IN STEP")
                             .font(.system(size: 10, weight: .black))
                             .foregroundColor(.secondary)
@@ -327,6 +355,88 @@ struct WorkoutTargetHeader: View {
         let mins = Int(interval) / 60
         let secs = Int(interval) % 60
         return String(format: "%02d:%02d", mins, secs)
+    }
+}
+
+struct LapsHistoryView: View {
+    @EnvironmentObject var workoutManager: WorkoutSessionManager
+    
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Laps History")
+                    .font(.headline)
+                    .padding(.horizontal)
+                
+                ForEach(workoutManager.laps.reversed()) { lap in
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Lap \(lap.index + 1)")
+                                .fontWeight(.bold)
+                            if lap.index == workoutManager.laps.count - 1 {
+                                Text("CURRENT")
+                                    .font(.system(size: 8, weight: .black))
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 2)
+                                    .background(Color.green)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(4)
+                            }
+                            Spacer()
+                            Text(formatInterval(lap.duration))
+                                .monospacedDigit()
+                                .foregroundColor(.secondary)
+                        }
+                        .font(.subheadline)
+                        
+                        // Lap Summary Table (A vs B)
+                        HStack(spacing: 20) {
+                            LapSummaryColumn(label: "SET A", recorder: workoutManager.recorderA, lapIndex: lap.index, color: .blue)
+                            Divider()
+                            LapSummaryColumn(label: "SET B", recorder: workoutManager.recorderB, lapIndex: lap.index, color: .purple)
+                        }
+                        .padding(10)
+                        .background(Color.secondary.opacity(0.05))
+                        .cornerRadius(8)
+                    }
+                    .padding(.horizontal)
+                }
+            }
+            .padding(.vertical)
+        }
+    }
+    
+    func formatInterval(_ interval: TimeInterval) -> String {
+        let m = Int(interval) / 60
+        let s = Int(interval) % 60
+        return String(format: "%d:%02d", m, s)
+    }
+}
+
+struct LapSummaryColumn: View {
+    let label: String
+    let recorder: SessionRecorder
+    let lapIndex: Int
+    let color: Color
+    
+    var body: some View {
+        let points = recorder.trackpoints.filter { $0.lapIndex == lapIndex }
+        let avgPwr = points.isEmpty ? 0 : Double(points.compactMap { $0.power }.reduce(0, +)) / Double(max(1, points.compactMap { $0.power }.count))
+        let avgHR = points.isEmpty ? 0 : Double(points.compactMap { $0.hr }.reduce(0, +)) / Double(max(1, points.compactMap { $0.hr }.count))
+        
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 8, weight: .black))
+                .foregroundColor(color)
+            
+            HStack(spacing: 8) {
+                Label("\(Int(round(avgPwr)))", systemImage: "bolt.fill")
+                    .foregroundColor(.yellow)
+                Label("\(Int(round(avgHR)))", systemImage: "heart.fill")
+                    .foregroundColor(.red)
+            }
+            .font(.system(size: 12, weight: .bold, design: .rounded))
+        }
     }
 }
 
