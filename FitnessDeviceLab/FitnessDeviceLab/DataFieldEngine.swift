@@ -8,6 +8,7 @@ nonisolated public struct PowerMetrics {
     public var power30s: Int?
     public var avgPower: Double?
     public var maxPower: Int?
+    public var minPower: Int?
     public var normalizedPower: Double?
     public var intensityFactor: Double?
     public var tss: Double?
@@ -21,8 +22,10 @@ nonisolated public struct CalculatedMetrics {
     // Standard Metrics
     public var avgHeartRate: Double?
     public var maxHeartRate: Int?
+    public var minHeartRate: Int?
     public var avgCadence: Double?
     public var maxCadence: Int?
+    public var minCadence: Int?
     
     // Tracks
     public var standard = PowerMetrics()
@@ -152,6 +155,7 @@ public class DataFieldEngine: ObservableObject {
             m.standard.instantPower = Int(round(lastPower))
             m.standard.avgPower = Double(powerSamples.reduce(0, +)) / Double(powerSamples.count)
             m.standard.maxPower = powerSamples.max()
+            m.standard.minPower = powerSamples.min()
             m.standard.wattsPerKg = lastPower / userWeight
             m.standard.power3s = getRollingAvg(powerSamples, window: 3)
             m.standard.power10s = getRollingAvg(powerSamples, window: 10)
@@ -166,6 +170,7 @@ public class DataFieldEngine: ObservableObject {
             m.seaLevel.instantPower = Int(round(lastSL))
             m.seaLevel.avgPower = slPowers.reduce(0, +) / Double(slPowers.count)
             m.seaLevel.maxPower = Int(round(slPowers.max() ?? 0))
+            m.seaLevel.minPower = Int(round(slPowers.min() ?? 0))
             m.seaLevel.wattsPerKg = lastSL / userWeight
             m.seaLevel.power3s = getRollingAvgDouble(slPowers, window: 3)
             m.seaLevel.power10s = getRollingAvgDouble(slPowers, window: 10)
@@ -176,6 +181,7 @@ public class DataFieldEngine: ObservableObject {
             m.home.instantPower = Int(round(lastHome))
             m.home.avgPower = (m.seaLevel.avgPower ?? 0) * homeRatio
             m.home.maxPower = Int(round(Double(m.seaLevel.maxPower ?? 0) * homeRatio))
+            m.home.minPower = Int(round(Double(m.seaLevel.minPower ?? 0) * homeRatio))
             m.home.wattsPerKg = lastHome / userWeight
             m.home.power3s = m.seaLevel.power3s.map { Int(round(Double($0) * homeRatio)) }
             m.home.power10s = m.seaLevel.power10s.map { Int(round(Double($0) * homeRatio)) }
@@ -191,11 +197,13 @@ public class DataFieldEngine: ObservableObject {
         if !hrSamples.isEmpty {
             m.avgHeartRate = Double(hrSamples.reduce(0, +)) / Double(hrSamples.count)
             m.maxHeartRate = hrSamples.max()
+            m.minHeartRate = hrSamples.min()
         }
         
         if !cadenceSamples.isEmpty {
             m.avgCadence = Double(cadenceSamples.reduce(0, +)) / Double(cadenceSamples.count)
             m.maxCadence = cadenceSamples.max()
+            m.minCadence = cadenceSamples.min()
         }
         
         return m

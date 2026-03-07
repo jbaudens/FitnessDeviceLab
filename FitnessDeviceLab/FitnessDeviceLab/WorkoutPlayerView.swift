@@ -330,14 +330,29 @@ struct WorkoutTargetHeader: View {
             
             // Legend
             HStack(spacing: 12) {
+                Picker("Mode", selection: $workoutManager.currentDataFieldMode) {
+                    ForEach(WorkoutSessionManager.DataFieldMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 150)
+                
+                Spacer()
+                
                 Label("Power", systemImage: "bolt.fill").foregroundColor(.yellow)
                 Label("Cadence", systemImage: "bicycle").foregroundColor(.blue)
                 Label("HR", systemImage: "heart.fill").foregroundColor(.red)
-                Spacer()
-                Text("Total: \(formatTime(workoutManager.workoutElapsedTime)) / \(formatTime(workout.totalDuration))")
             }
             .font(.system(size: 10, weight: .bold))
             .foregroundColor(.secondary)
+            
+            HStack {
+                Spacer()
+                Text("Total: \(formatTime(workoutManager.workoutElapsedTime)) / \(formatTime(workout.totalDuration))")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.secondary)
+            }
             
             if workoutManager.currentStepIndex < workout.steps.count - 1 {
                 let nextStep = workout.steps[workoutManager.currentStepIndex + 1]
@@ -427,18 +442,30 @@ struct LapSummaryColumn: View {
         }
         let m = DataFieldEngine.calculate(from: points)
         
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(.system(size: 8, weight: .black))
+                .font(.system(size: 10, weight: .black))
                 .foregroundColor(color)
             
-            HStack(spacing: 8) {
-                Label("\(Int(round(m.standard.avgPower ?? 0)))", systemImage: "bolt.fill")
-                    .foregroundColor(.yellow)
-                Label("\(Int(round(m.avgHeartRate ?? 0)))", systemImage: "heart.fill")
-                    .foregroundColor(.red)
+            VStack(alignment: .leading, spacing: 2) {
+                // Power row
+                HStack(spacing: 4) {
+                    Image(systemName: "bolt.fill").foregroundColor(.yellow)
+                    Text("\(Int(round(m.standard.avgPower ?? 0)))").bold()
+                    Text("[\(m.standard.minPower ?? 0)-\(m.standard.maxPower ?? 0)]").font(.caption2).foregroundColor(.secondary)
+                    if let np = m.standard.normalizedPower {
+                        Text("NP: \(Int(round(np)))").font(.caption2).foregroundColor(.orange)
+                    }
+                }
+                
+                // HR row
+                HStack(spacing: 4) {
+                    Image(systemName: "heart.fill").foregroundColor(.red)
+                    Text("\(Int(round(m.avgHeartRate ?? 0)))").bold()
+                    Text("[\(m.minHeartRate ?? 0)-\(m.maxHeartRate ?? 0)]").font(.caption2).foregroundColor(.secondary)
+                }
             }
-            .font(.system(size: 12, weight: .bold, design: .rounded))
+            .font(.system(size: 12, weight: .medium, design: .rounded))
         }
     }
 }

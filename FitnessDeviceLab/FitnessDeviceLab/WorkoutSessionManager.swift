@@ -3,6 +3,14 @@ import Combine
 
 @MainActor
 class WorkoutSessionManager: ObservableObject {
+    enum DataFieldMode: String, CaseIterable, Identifiable {
+        case session = "Session"
+        case lap = "Lap"
+        var id: String { rawValue }
+    }
+    
+    @Published var currentDataFieldMode: DataFieldMode = .session
+    
     @Published var hrDeviceAId: UUID?
     @Published var powerDeviceAId: UUID?
     
