@@ -10,9 +10,8 @@ nonisolated public struct Trackpoint: Identifiable {
     public let altitude: Double?
     public let powerBalance: Double?
     public let rrIntervals: [Double]
-    public let lapIndex: Int
     
-    public init(time: Date, hr: Int? = nil, power: Int? = nil, cadence: Int? = nil, altitude: Double? = nil, powerBalance: Double? = nil, rrIntervals: [Double] = [], lapIndex: Int = 0) {
+    public init(time: Date, hr: Int? = nil, power: Int? = nil, cadence: Int? = nil, altitude: Double? = nil, powerBalance: Double? = nil, rrIntervals: [Double] = []) {
         self.time = time
         self.hr = hr
         self.power = power
@@ -20,7 +19,6 @@ nonisolated public struct Trackpoint: Identifiable {
         self.altitude = altitude
         self.powerBalance = powerBalance
         self.rrIntervals = rrIntervals
-        self.lapIndex = lapIndex
     }
 }
 
@@ -43,14 +41,12 @@ public class SessionRecorder: ObservableObject {
     var powerDevice: DiscoveredPeripheral?
     
     @Published public var trackpoints: [Trackpoint] = []
-    @Published public var currentLapIndex: Int = 0
     
     private var rrCancellable: AnyCancellable?
     private var pendingRRIntervals: [Double] = []
     
     func prepare() {
         trackpoints.removeAll()
-        currentLapIndex = 0
         pendingRRIntervals.removeAll()
         setupRRWatcher()
     }
@@ -80,8 +76,7 @@ public class SessionRecorder: ObservableObject {
             cadence: powerDevice?.cadence,
             altitude: altitude,
             powerBalance: powerDevice?.powerBalance,
-            rrIntervals: rrThisSecond,
-            lapIndex: currentLapIndex
+            rrIntervals: rrThisSecond
         )
         
         trackpoints.append(pt)

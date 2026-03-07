@@ -418,11 +418,14 @@ struct LapSummaryColumn: View {
     let recorder: SessionRecorder
     let lapIndex: Int
     let color: Color
+    @EnvironmentObject var workoutManager: WorkoutSessionManager
     
     var body: some View {
-        let points = recorder.trackpoints.filter { $0.lapIndex == lapIndex }
-        let avgPwr = points.isEmpty ? 0 : Double(points.compactMap { $0.power }.reduce(0, +)) / Double(max(1, points.compactMap { $0.power }.count))
-        let avgHR = points.isEmpty ? 0 : Double(points.compactMap { $0.hr }.reduce(0, +)) / Double(max(1, points.compactMap { $0.hr }.count))
+        let lap = workoutManager.laps[lapIndex]
+        let points = recorder.trackpoints.filter { 
+            $0.time >= lap.startTime && (lap.endTime == nil || $0.time < lap.endTime!)
+        }
+        let m = DataFieldEngine.calculate(from: points)
         
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
@@ -430,9 +433,9 @@ struct LapSummaryColumn: View {
                 .foregroundColor(color)
             
             HStack(spacing: 8) {
-                Label("\(Int(round(avgPwr)))", systemImage: "bolt.fill")
+                Label("\(Int(round(m.standard.avgPower ?? 0)))", systemImage: "bolt.fill")
                     .foregroundColor(.yellow)
-                Label("\(Int(round(avgHR)))", systemImage: "heart.fill")
+                Label("\(Int(round(m.avgHeartRate ?? 0)))", systemImage: "heart.fill")
                     .foregroundColor(.red)
             }
             .font(.system(size: 12, weight: .bold, design: .rounded))

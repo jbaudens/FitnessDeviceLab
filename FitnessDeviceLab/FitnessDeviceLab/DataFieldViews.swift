@@ -80,9 +80,16 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         }
     }
     
-    func value(for engine: DataFieldEngine) -> Double? {
+    func value(for engine: DataFieldEngine, workoutManager: WorkoutSessionManager? = nil) -> Double? {
         let m = engine.calculatedMetrics
         let hrv = engine.hrvMetrics
+        
+        // Lap specific calculation if needed
+        let lapMetrics: CalculatedMetrics? = {
+            guard let wm = workoutManager, let currentLap = wm.laps.last else { return nil }
+            let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
+            return DataFieldEngine.calculate(from: points)
+        }()
         
         switch self {
         case .currentHR: return engine.currentHR.map { Double($0) }
@@ -137,15 +144,14 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         
         case .altitude: return engine.currentAltitude
         
-        case .lapPower: return m.standard.instantPower.map { Double($0) }
-        case .lapAvgPower: return engine.lapMetrics.standard.avgPower
-        case .lapNP: return engine.lapMetrics.standard.normalizedPower
-        case .lapHR: return engine.lapMetrics.avgHeartRate
-        case .lapCadence: return engine.lapMetrics.avgCadence
+        case .lapPower: return engine.standard.instantPower.map { Double($0) }
+        case .lapAvgPower: return lapMetrics?.standard.avgPower
+        case .lapNP: return lapMetrics?.standard.normalizedPower
+        case .lapHR: return lapMetrics?.avgHeartRate
+        case .lapCadence: return lapMetrics?.avgCadence
         case .lapTime:
-            if let first = engine.recorder.trackpoints.first(where: { $0.lapIndex == engine.currentLapIndex }),
-               let last = engine.recorder.trackpoints.last(where: { $0.lapIndex == engine.currentLapIndex }) {
-                return last.time.timeIntervalSince(first.time)
+            if let start = workoutManager?.laps.last?.startTime {
+                return Date().timeIntervalSince(start)
             }
             return 0
         }
@@ -183,6 +189,7 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
 }
 
 struct DataFieldGrid: View {
+    @EnvironmentObject var workoutManager: WorkoutSessionManager
     @ObservedObject var engine: DataFieldEngine
     let fields: [DataFieldType]
     
@@ -199,6 +206,7 @@ struct DataFieldGrid: View {
 }
 
 struct DataFieldTile: View {
+    @EnvironmentObject var workoutManager: WorkoutSessionManager
     let type: DataFieldType
     @ObservedObject var engine: DataFieldEngine
     
@@ -236,7 +244,7 @@ struct DataFieldTile: View {
     }
     
     var valueText: String {
-        guard let val = type.value(for: engine) else { return "--" }
+        guard let val = type.value(for: engine, workoutManager: workoutManager) else { return "--" }
         
         switch type {
         case .dfaAlpha1, .intensityFactor, .wattsPerKg, .slWkg, .homeWkg, .slIF, .homeIF: return String(format: "%.2f", val)

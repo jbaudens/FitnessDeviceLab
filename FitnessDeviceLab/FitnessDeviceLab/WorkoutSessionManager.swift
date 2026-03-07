@@ -96,13 +96,6 @@ class WorkoutSessionManager: ObservableObject {
         
         let newLap = Lap(index: laps.count, startTime: now, type: type)
         laps.append(newLap)
-        
-        recorderA.currentLapIndex = newLap.index
-        recorderB.currentLapIndex = newLap.index
-        
-        // Notify engines to focus on the new lap for lap-specific fields
-        engineA.currentLapIndex = newLap.index
-        engineB.currentLapIndex = newLap.index
     }
     
     private func tick() {
