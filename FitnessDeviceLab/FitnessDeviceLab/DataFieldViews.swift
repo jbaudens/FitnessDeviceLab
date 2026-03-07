@@ -15,7 +15,7 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     case rmssd = "rMSSD"
     case pnn50 = "pNN50"
     
-    // Standard Power (Local Altitude)
+    // Standard Power
     case currentPower = "Power"
     case power3s = "3s Power"
     case power10s = "10s Power"
@@ -29,7 +29,7 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     case localFTP = "Local FTP"
     case powerBalance = "L/R Bal"
     
-    // Sea Level Equivalent (0m)
+    // Sea Level Equivalent
     case slPower = "SL Power"
     case slPower3s = "SL 3s Pwr"
     case slPower10s = "SL 10s Pwr"
@@ -42,7 +42,7 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     case slWkg = "SL W/kg"
     case slFTP = "SL FTP"
     
-    // Home Equivalent (ftpAltitude)
+    // Home Equivalent
     case homePower = "Home Power"
     case homePower3s = "Home 3s Pwr"
     case homePower10s = "Home 10s Pwr"
@@ -72,12 +72,12 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         }
     }
     
-    func value(for recorder: SessionRecorder) -> Double? {
-        let m = recorder.calculatedMetrics
-        let hrv = recorder.hrvMetrics
+    func value(for engine: DataFieldEngine) -> Double? {
+        let m = engine.calculatedMetrics
+        let hrv = engine.hrvMetrics
         
         switch self {
-        case .currentHR: return recorder.hrDevice?.heartRate.map { Double($0) }
+        case .currentHR: return engine.currentHR.map { Double($0) }
         case .avgHR: return m.avgHeartRate
         case .maxHR: return m.maxHeartRate.map { Double($0) }
         case .dfaAlpha1: return hrv.dfaAlpha1
@@ -96,8 +96,8 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         case .intensityFactor: return m.standard.intensityFactor
         case .tss: return m.standard.tss
         case .wattsPerKg: return m.standard.wattsPerKg
-        case .localFTP: return m.standard.ftp
-        case .powerBalance: return recorder.powerDevice?.powerBalance
+        case .localFTP: return engine.localFTP
+        case .powerBalance: return engine.powerBalance
         
         case .slPower: return m.seaLevel.instantPower.map { Double($0) }
         case .slPower3s: return m.seaLevel.power3s.map { Double($0) }
@@ -109,7 +109,7 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         case .slIF: return m.seaLevel.intensityFactor
         case .slTSS: return m.seaLevel.tss
         case .slWkg: return m.seaLevel.wattsPerKg
-        case .slFTP: return m.seaLevel.ftp
+        case .slFTP: return engine.slFTP
         
         case .homePower: return m.home.instantPower.map { Double($0) }
         case .homePower3s: return m.home.power3s.map { Double($0) }
@@ -121,13 +121,13 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         case .homeIF: return m.home.intensityFactor
         case .homeTSS: return m.home.tss
         case .homeWkg: return m.home.wattsPerKg
-        case .homeFTP: return m.home.ftp
+        case .homeFTP: return SettingsManager.shared.userFTP
         
-        case .cadence: return recorder.powerDevice?.cadence.map { Double($0) }
+        case .cadence: return engine.currentCadence.map { Double($0) }
         case .avgCadence: return m.avgCadence
         case .maxCadence: return m.maxCadence.map { Double($0) }
         
-        case .altitude: return recorder.trackpoints.last?.altitude
+        case .altitude: return engine.currentAltitude
         }
     }
     
@@ -161,7 +161,7 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
 }
 
 struct DataFieldGrid: View {
-    @ObservedObject var recorder: SessionRecorder
+    @ObservedObject var engine: DataFieldEngine
     let fields: [DataFieldType]
     
     var body: some View {
@@ -170,7 +170,7 @@ struct DataFieldGrid: View {
         
         LazyVGrid(columns: cols, spacing: 8) {
             ForEach(fields) { field in
-                DataFieldTile(type: field, recorder: recorder)
+                DataFieldTile(type: field, engine: engine)
             }
         }
     }
@@ -178,7 +178,7 @@ struct DataFieldGrid: View {
 
 struct DataFieldTile: View {
     let type: DataFieldType
-    @ObservedObject var recorder: SessionRecorder
+    @ObservedObject var engine: DataFieldEngine
     
     var body: some View {
         HStack(alignment: .lastTextBaseline, spacing: 4) {
@@ -214,10 +214,10 @@ struct DataFieldTile: View {
     }
     
     var valueText: String {
-        guard let val = type.value(for: recorder) else { return "--" }
+        guard let val = type.value(for: engine) else { return "--" }
         
         switch type {
-        case .dfaAlpha1, .intensityFactor, .slIF, .homeIF, .wattsPerKg, .slWkg, .homeWkg: return String(format: "%.2f", val)
+        case .dfaAlpha1, .intensityFactor, .wattsPerKg, .slWkg, .homeWkg, .slIF, .homeIF: return String(format: "%.2f", val)
         case .tss, .slTSS, .homeTSS: return String(format: "%.1f", val)
         case .altitude: return String(format: "%.0f", val)
         default: return String(format: "%.0f", val)

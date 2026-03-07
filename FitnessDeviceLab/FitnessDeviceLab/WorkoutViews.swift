@@ -22,7 +22,7 @@ struct WorkoutGraphView: View {
                 let height = geometry.size.height
                 let totalDuration = workout.totalDuration
                 
-                // Max height is based on the highest interval or highest data point, at least 100%
+                // Max height is based on the highest interval or highest data point
                 let maxTarget = workout.steps.map { $0.targetPowerPercent }.max() ?? 1.0
                 let maxActual = recorder?.trackpoints.compactMap { $0.power }.map { Double($0) / SettingsManager.shared.userFTP }.max() ?? 0.0
                 let maxPercent = max(1.0, max(maxTarget, maxActual)) * 1.1
@@ -91,15 +91,33 @@ struct PerformanceChart: View {
     let maxPower: Double
     let startTime: Date?
     
+    // Downsampling logic to maintain performance during long sessions
+    private var downsampledTrackpoints: [Trackpoint] {
+        let maxPoints = 500 // Swift Charts sweet spot for performance
+        let totalPoints = recorder.trackpoints.count
+        guard totalPoints > maxPoints else { return recorder.trackpoints }
+        
+        let strideValue = totalPoints / maxPoints
+        var result: [Trackpoint] = []
+        for i in Swift.stride(from: 0, to: totalPoints, by: strideValue) {
+            result.append(recorder.trackpoints[i])
+        }
+        // Always include the latest point
+        if let last = recorder.trackpoints.last, result.last?.id != last.id {
+            result.append(last)
+        }
+        return result
+    }
+    
     var body: some View {
         Chart {
-            ForEach(recorder.trackpoints) { pt in
+            ForEach(downsampledTrackpoints) { pt in
                 let timeOffset = pt.time.timeIntervalSince(startTime ?? pt.time)
                 
                 if let pwr = pt.power {
                     LineMark(
                         x: .value("Time", timeOffset),
-                        y: .value("Power", Double(pwr)),
+                        y: .value("Power", min(Double(pwr), 1600)), // Don't clip at 600, allow spikes
                         series: .value("Metric", "Power")
                     )
                     .foregroundStyle(Color.yellow)
@@ -128,6 +146,7 @@ struct PerformanceChart: View {
         .chartYScale(domain: 0...maxPower)
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
+        .animation(.none, value: recorder.trackpoints.count) // Disable chart animation for performance
     }
 }
 

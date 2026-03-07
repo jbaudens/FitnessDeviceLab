@@ -1,6 +1,7 @@
 import Foundation
+import Combine
 
-public struct PowerMetrics {
+nonisolated public struct PowerMetrics {
     public var instantPower: Int?
     public var power3s: Int?
     public var power10s: Int?
@@ -17,158 +18,250 @@ public struct PowerMetrics {
 }
 
 nonisolated public struct CalculatedMetrics {
-    // Three tracks of power analysis
-    public var standard = PowerMetrics() // Raw data at current altitude
-    public var seaLevel = PowerMetrics() // Normalized to 0m
-    public var home = PowerMetrics()     // Normalized to user's ftpAltitude
-    
-    // Heart Rate
+    // Standard Metrics
     public var avgHeartRate: Double?
     public var maxHeartRate: Int?
-    
-    // Cadence
     public var avgCadence: Double?
     public var maxCadence: Int?
+    
+    // Tracks
+    public var standard = PowerMetrics()
+    public var seaLevel = PowerMetrics()
+    public var home = PowerMetrics()
     
     public init() {}
 }
 
-public struct DataFieldEngine {
+public class DataFieldEngine: ObservableObject {
+    // Individual published properties for simple UI observation
+    @Published public var standard = PowerMetrics()
+    @Published public var seaLevel = PowerMetrics()
+    @Published public var home = PowerMetrics()
     
-    nonisolated private static func getAltitudeRatio(meters: Double) -> Double {
-        let h = max(0, meters / 1000.0) // km
-        // Using the "acclimated" curve as the base for normalization
-        return max(0.5, 1.0 - 0.0112 * pow(h, 2) - 0.0190 * h)
+    @Published public var currentHR: Int?
+    @Published public var avgHeartRate: Double?
+    @Published public var maxHeartRate: Int?
+    @Published public var currentCadence: Int?
+    @Published public var avgCadence: Double?
+    @Published public var maxCadence: Int?
+    @Published public var powerBalance: Double?
+    
+    @Published public var currentAltitude: Double?
+    @Published public var localFTP: Double?
+    @Published public var slFTP: Double?
+    
+    @Published public var hrvMetrics = HRVMetrics()
+    
+    // Flat struct for consumers that prefer it
+    @Published public var calculatedMetrics = CalculatedMetrics()
+    
+    private var cancellables = Set<AnyCancellable>()
+    private let recorder: SessionRecorder
+    
+    init(recorder: SessionRecorder) {
+        self.recorder = recorder
+        
+        // Observe trackpoints to trigger calculations
+        recorder.$trackpoints
+            .receive(on: RunLoop.main)
+            .sink { [weak self] trackpoints in
+                self?.calculate(from: trackpoints)
+            }
+            .store(in: &cancellables)
+            
+        // Observe settings changes
+        SettingsManager.shared.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self?.recalculate()
+                }
+            }
+            .store(in: &cancellables)
     }
     
-    nonisolated public static func calculate(from trackpoints: [Trackpoint], userFTP: Double, userWeight: Double, ftpAltitude: Double, currentAltitude: Double?) -> CalculatedMetrics {
-        var metrics = CalculatedMetrics()
+    public func recalculate() {
+        calculate(from: recorder.trackpoints)
+    }
+    
+    private func calculate(from trackpoints: [Trackpoint]) {
+        guard let latest = trackpoints.last else {
+            reset()
+            return
+        }
+        
+        let settings = SettingsManager.shared
+        let userFTP = settings.userFTP
+        let userWeight = settings.userWeight
+        let ftpAltitude = settings.ftpAltitude
         
         let powerSamples = trackpoints.compactMap { $0.power }
         let hrSamples = trackpoints.compactMap { $0.hr }
         let cadenceSamples = trackpoints.compactMap { $0.cadence }
         
-        // 0. FTP References
-        let homeRatio = getAltitudeRatio(meters: ftpAltitude)
-        let seaLevelFTP = userFTP / homeRatio
+        // 1. Altitude Ratios & FTP References
+        let homeRatio = Self.getAltitudeRatio(meters: ftpAltitude)
+        let slFTPValue = userFTP / homeRatio
+        self.slFTP = slFTPValue
         
-        metrics.home.ftp = userFTP
-        metrics.seaLevel.ftp = seaLevelFTP
+        currentAltitude = latest.altitude
+        let currentAlt = latest.altitude ?? 0.0
+        let currentRatio = Self.getAltitudeRatio(meters: currentAlt)
+        self.localFTP = slFTPValue * currentRatio
         
-        let currentAlt = currentAltitude ?? 0.0
-        let currentRatio = getAltitudeRatio(meters: currentAlt)
-        metrics.standard.ftp = seaLevelFTP * currentRatio
+        var m = CalculatedMetrics()
         
-        // 1. Heart Rate Metrics
-        if !hrSamples.isEmpty {
-            metrics.avgHeartRate = Double(hrSamples.reduce(0, +)) / Double(hrSamples.count)
-            metrics.maxHeartRate = hrSamples.max()
-        }
-        
-        // 2. Cadence Metrics
-        if !cadenceSamples.isEmpty {
-            metrics.avgCadence = Double(cadenceSamples.reduce(0, +)) / Double(cadenceSamples.count)
-            metrics.maxCadence = cadenceSamples.max()
-        }
-        
-        // 3. Power Metrics
+        // 2. Core Metrics
         if !powerSamples.isEmpty {
-            let lastPower = powerSamples.last ?? 0
+            let lastPower = Double(latest.power ?? 0)
+            let lastSL = lastPower / currentRatio
+            let lastHome = lastSL * homeRatio
             
-            // Standard (Raw)
-            metrics.standard.instantPower = lastPower
-            metrics.standard.avgPower = Double(powerSamples.reduce(0, +)) / Double(powerSamples.count)
-            metrics.standard.maxPower = powerSamples.max()
-            metrics.standard.wattsPerKg = Double(lastPower) / userWeight
+            // Standard
+            m.standard.instantPower = Int(round(lastPower))
+            m.standard.avgPower = Double(powerSamples.reduce(0, +)) / Double(powerSamples.count)
+            m.standard.maxPower = powerSamples.max()
+            m.standard.wattsPerKg = lastPower / userWeight
+            m.standard.power3s = getRollingAvg(powerSamples, window: 3)
+            m.standard.power10s = getRollingAvg(powerSamples, window: 10)
+            m.standard.power30s = getRollingAvg(powerSamples, window: 30)
+            m.standard.ftp = localFTP
             
-            // Sea Level (Normalized to 0m)
+            // Sea Level
             let slPowers = trackpoints.compactMap { tp -> Double? in
                 guard let p = tp.power else { return nil }
-                let ratio = getAltitudeRatio(meters: tp.altitude ?? 0.0)
-                return Double(p) / ratio
+                return Double(p) / Self.getAltitudeRatio(meters: tp.altitude ?? 0.0)
             }
-            let lastSLPower = slPowers.last ?? 0.0
-            metrics.seaLevel.instantPower = Int(round(lastSLPower))
-            metrics.seaLevel.avgPower = slPowers.reduce(0, +) / Double(slPowers.count)
-            metrics.seaLevel.maxPower = Int(round(slPowers.max() ?? 0))
-            metrics.seaLevel.wattsPerKg = lastSLPower / userWeight
+            m.seaLevel.instantPower = Int(round(lastSL))
+            m.seaLevel.avgPower = slPowers.reduce(0, +) / Double(slPowers.count)
+            m.seaLevel.maxPower = Int(round(slPowers.max() ?? 0))
+            m.seaLevel.wattsPerKg = lastSL / userWeight
+            m.seaLevel.power3s = getRollingAvgDouble(slPowers, window: 3)
+            m.seaLevel.power10s = getRollingAvgDouble(slPowers, window: 10)
+            m.seaLevel.power30s = getRollingAvgDouble(slPowers, window: 30)
+            m.seaLevel.ftp = slFTP
             
-            // Home (Normalized to ftpAltitude)
-            let homePowers = slPowers.map { $0 * homeRatio }
-            let lastHomePower = lastSLPower * homeRatio
-            metrics.home.instantPower = Int(round(lastHomePower))
-            metrics.home.avgPower = homePowers.reduce(0, +) / Double(homePowers.count)
-            metrics.home.maxPower = Int(round(homePowers.max() ?? 0))
-            metrics.home.wattsPerKg = lastHomePower / userWeight
+            // Home
+            m.home.instantPower = Int(round(lastHome))
+            m.home.avgPower = (m.seaLevel.avgPower ?? 0) * homeRatio
+            m.home.maxPower = Int(round(Double(m.seaLevel.maxPower ?? 0) * homeRatio))
+            m.home.wattsPerKg = lastHome / userWeight
+            m.home.power3s = m.seaLevel.power3s.map { Int(round(Double($0) * homeRatio)) }
+            m.home.power10s = m.seaLevel.power10s.map { Int(round(Double($0) * homeRatio)) }
+            m.home.power30s = m.seaLevel.power30s.map { Int(round(Double($0) * homeRatio)) }
+            m.home.ftp = userFTP
             
-            // Rolling Averages
-            metrics.standard.power3s = rollingAverage(samples: powerSamples, window: 3)
-            metrics.standard.power10s = rollingAverage(samples: powerSamples, window: 10)
-            metrics.standard.power30s = rollingAverage(samples: powerSamples, window: 30)
-            
-            metrics.seaLevel.power3s = rollingAverageDouble(samples: slPowers, window: 3)
-            metrics.seaLevel.power10s = rollingAverageDouble(samples: slPowers, window: 10)
-            metrics.seaLevel.power30s = rollingAverageDouble(samples: slPowers, window: 30)
-            
-            metrics.home.power3s = rollingAverageDouble(samples: homePowers, window: 3)
-            metrics.home.power10s = rollingAverageDouble(samples: homePowers, window: 10)
-            metrics.home.power30s = rollingAverageDouble(samples: homePowers, window: 30)
-            
-            // Calculate NP, IF, TSS for all tracks
-            var std30s = [Double](), sl30s = [Double](), home30s = [Double]()
-            
-            for i in 0..<trackpoints.count {
-                let start = max(0, i - 29)
-                let window = trackpoints[start...i]
-                
-                // Standard
-                let powers = window.compactMap { $0.power }
-                if !powers.isEmpty {
-                    let stdAvg = Double(powers.reduce(0, +)) / Double(powers.count)
-                    std30s.append(stdAvg)
-                }
-                
-                // Sea Level
-                let slPowersInWindow = window.compactMap { tp -> Double? in
-                    guard let p = tp.power else { return nil }
-                    return Double(p) / getAltitudeRatio(meters: tp.altitude ?? 0.0)
-                }
-                if !slPowersInWindow.isEmpty {
-                    let slAvg = slPowersInWindow.reduce(0, +) / Double(slPowersInWindow.count)
-                    sl30s.append(slAvg)
-                    home30s.append(slAvg * homeRatio)
-                }
+            // NP Metrics (Heavy)
+            if powerSamples.count >= 30 {
+                calculateNPMetrics(trackpoints: trackpoints, homeRatio: homeRatio, userFTP: userFTP, slFTP: slFTPValue, metrics: &m)
             }
-            
-            computeNPBasedMetrics(rolling30s: std30s, ftp: userFTP, metrics: &metrics.standard)
-            computeNPBasedMetrics(rolling30s: sl30s, ftp: seaLevelFTP, metrics: &metrics.seaLevel)
-            computeNPBasedMetrics(rolling30s: home30s, ftp: userFTP, metrics: &metrics.home)
         }
         
-        return metrics
+        currentHR = latest.hr
+        if !hrSamples.isEmpty {
+            m.avgHeartRate = Double(hrSamples.reduce(0, +)) / Double(hrSamples.count)
+            m.maxHeartRate = hrSamples.max()
+            self.avgHeartRate = m.avgHeartRate
+            self.maxHeartRate = m.maxHeartRate
+        }
+        
+        currentCadence = latest.cadence
+        if !cadenceSamples.isEmpty {
+            m.avgCadence = Double(cadenceSamples.reduce(0, +)) / Double(cadenceSamples.count)
+            m.maxCadence = cadenceSamples.max()
+            self.avgCadence = m.avgCadence
+            self.maxCadence = m.maxCadence
+        }
+        
+        self.powerBalance = latest.powerBalance
+        
+        // 3. HRV (Offloaded)
+        let rrHistory = Array(trackpoints.flatMap { $0.rrIntervals }.suffix(600))
+        Task.detached(priority: .userInitiated) {
+            let newHRV = HRVEngine.calculateMetrics(rawRRIntervals: rrHistory)
+            await MainActor.run {
+                self.hrvMetrics = newHRV
+            }
+        }
+        
+        self.standard = m.standard
+        self.seaLevel = m.seaLevel
+        self.home = m.home
+        self.calculatedMetrics = m
     }
     
-    nonisolated private static func computeNPBasedMetrics(rolling30s: [Double], ftp: Double, metrics: inout PowerMetrics) {
-        guard !rolling30s.isEmpty else { return }
-        let sum4 = rolling30s.reduce(0) { $0 + pow($1, 4) }
-        let np = pow(sum4 / Double(rolling30s.count), 0.25)
-        metrics.normalizedPower = np
-        metrics.intensityFactor = np / ftp
-        let durationSeconds = Double(rolling30s.count)
-        metrics.tss = (durationSeconds * np * (metrics.intensityFactor ?? 0)) / (ftp * 3600.0) * 100.0
+    private func calculateNPMetrics(trackpoints: [Trackpoint], homeRatio: Double, userFTP: Double, slFTP: Double, metrics: inout CalculatedMetrics) {
+        var std30s = [Double](), sl30s = [Double](), home30s = [Double]()
+        
+        for i in 0..<trackpoints.count {
+            let start = max(0, i - 29)
+            let window = trackpoints[start...i]
+            let powers = window.compactMap { $0.power }
+            if powers.isEmpty { continue }
+            
+            let stdAvg = Double(powers.reduce(0, +)) / Double(powers.count)
+            std30s.append(stdAvg)
+            
+            let slPowersInWindow = window.compactMap { tp -> Double? in
+                guard let p = tp.power else { return nil }
+                return Double(p) / Self.getAltitudeRatio(meters: tp.altitude ?? 0.0)
+            }
+            let slAvg = slPowersInWindow.reduce(0, +) / Double(slPowersInWindow.count)
+            sl30s.append(slAvg)
+            home30s.append(slAvg * homeRatio)
+        }
+        
+        metrics.standard.normalizedPower = calculateNPFromRolling(std30s)
+        metrics.standard.intensityFactor = (metrics.standard.normalizedPower ?? 0) / userFTP
+        metrics.standard.tss = (Double(std30s.count) * (metrics.standard.normalizedPower ?? 0) * (metrics.standard.intensityFactor ?? 0)) / (userFTP * 36.0)
+        
+        metrics.seaLevel.normalizedPower = calculateNPFromRolling(sl30s)
+        metrics.seaLevel.intensityFactor = (metrics.seaLevel.normalizedPower ?? 0) / slFTP
+        metrics.seaLevel.tss = (Double(sl30s.count) * (metrics.seaLevel.normalizedPower ?? 0) * (metrics.seaLevel.intensityFactor ?? 0)) / (slFTP * 36.0)
+        
+        metrics.home.normalizedPower = calculateNPFromRolling(home30s)
+        metrics.home.intensityFactor = (metrics.home.normalizedPower ?? 0) / userFTP
+        metrics.home.tss = (Double(home30s.count) * (metrics.home.normalizedPower ?? 0) * (metrics.home.intensityFactor ?? 0)) / (userFTP * 36.0)
     }
     
-    nonisolated private static func rollingAverage(samples: [Int], window: Int) -> Int? {
-        guard !samples.isEmpty else { return nil }
+    private func reset() {
+        standard = PowerMetrics()
+        seaLevel = PowerMetrics()
+        home = PowerMetrics()
+        calculatedMetrics = CalculatedMetrics()
+        currentHR = nil
+        avgHeartRate = nil
+        maxHeartRate = nil
+        avgCadence = nil
+        maxCadence = nil
+        currentCadence = nil
+        powerBalance = nil
+        hrvMetrics = HRVMetrics()
+        localFTP = nil
+        slFTP = nil
+        currentAltitude = nil
+    }
+    
+    nonisolated private static func getAltitudeRatio(meters: Double) -> Double {
+        let h = max(0, meters / 1000.0)
+        return max(0.5, 1.0 - 0.0112 * pow(h, 2) - 0.0190 * h)
+    }
+    
+    private func getRollingAvg(_ samples: [Int], window: Int) -> Int? {
         let count = min(samples.count, window)
         let slice = samples.suffix(count)
         return Int(round(Double(slice.reduce(0, +)) / Double(count)))
     }
     
-    nonisolated private static func rollingAverageDouble(samples: [Double], window: Int) -> Int? {
-        guard !samples.isEmpty else { return nil }
+    private func getRollingAvgDouble(_ samples: [Double], window: Int) -> Int? {
         let count = min(samples.count, window)
         let slice = samples.suffix(count)
         return Int(round(slice.reduce(0, +) / Double(count)))
+    }
+    
+    private func calculateNPFromRolling(_ rolling: [Double]) -> Double {
+        guard !rolling.isEmpty else { return 0 }
+        let sum4 = rolling.reduce(0.0) { $0 + pow($1, 4) }
+        return pow(sum4 / Double(rolling.count), 0.25)
     }
 }

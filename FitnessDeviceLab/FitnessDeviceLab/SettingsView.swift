@@ -1,132 +1,135 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @ObservedObject var settings = SettingsManager.shared
+    @StateObject private var settings = SettingsManager.shared
     
-    // Use local state to avoid real-time UserDefaults writes while typing
-    @State private var localFTP: Double = 250.0
-    @State private var localMaxHR: Int = 190
-    @State private var localAltitude: Double = 0.0
-    @State private var localWeight: Double = 75.0
-    @State private var localFTPAltitude: Double = 0.0
+    // Local state to avoid layout loops during typing
+    @State private var userFTP: String = ""
+    @State private var userWeight: String = ""
+    @State private var ftpAltitude: String = ""
+    @State private var altitudeOverride: String = ""
+    @State private var useAltitudeOverride: Bool = false
     
     var body: some View {
-        List {
-            Section {
+        Form {
+            Section("User Profile") {
                 HStack {
-                    Text("FTP")
+                    Text("FTP (Watts)")
                     Spacer()
-                    TextField("Watts", value: $localFTP, format: .number)
-                        #if os(iOS)
-                        .keyboardType(.numberPad)
+                    let ftpField = TextField("250", text: $userFTP)
                         .multilineTextAlignment(.trailing)
-                        #endif
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 100)
-                        .onChange(of: localFTP) { newValue in
-                            settings.userFTP = newValue
-                        }
+                        .frame(width: 80)
+                    
+                    #if os(iOS)
+                    ftpField.keyboardType(.decimalPad)
+                    #else
+                    ftpField
+                    #endif
+                }
+                .onChange(of: userFTP) { _, newValue in
+                    if let val = Double(newValue) {
+                        settings.userFTP = val
+                    }
                 }
                 
                 HStack {
-                    Text("FTP Altitude")
+                    Text("Weight (kg)")
                     Spacer()
-                    TextField("Meters", value: $localFTPAltitude, format: .number)
-                        #if os(iOS)
-                        .keyboardType(.numberPad)
+                    let weightField = TextField("75", text: $userWeight)
                         .multilineTextAlignment(.trailing)
-                        #endif
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 100)
-                        .onChange(of: localFTPAltitude) { newValue in
-                            settings.ftpAltitude = newValue
-                        }
-                    Text("m")
-                        .foregroundColor(.secondary)
+                        .frame(width: 80)
+                    
+                    #if os(iOS)
+                    weightField.keyboardType(.decimalPad)
+                    #else
+                    weightField
+                    #endif
+                }
+                .onChange(of: userWeight) { _, newValue in
+                    if let val = Double(newValue) {
+                        settings.userWeight = val
+                    }
+                }
+            }
+            
+            Section("Altitude Settings") {
+                HStack {
+                    Text("Training Altitude (m)")
+                    Spacer()
+                    let altField = TextField("0", text: $ftpAltitude)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 80)
+                    
+                    #if os(iOS)
+                    altField.keyboardType(.decimalPad)
+                    #else
+                    altField
+                    #endif
+                }
+                .onChange(of: ftpAltitude) { _, newValue in
+                    if let val = Double(newValue) {
+                        settings.ftpAltitude = val
+                    }
                 }
                 
-                HStack {
-                    Text("Weight")
-                    Spacer()
-                    TextField("kg", value: $localWeight, format: .number)
-                        #if os(iOS)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        #endif
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 100)
-                        .onChange(of: localWeight) { newValue in
-                            settings.userWeight = newValue
+                Toggle("Manual Altitude Override", isOn: $useAltitudeOverride)
+                    .onChange(of: useAltitudeOverride) { _, newValue in
+                        if !newValue {
+                            settings.altitudeOverride = nil
+                        } else if let val = Double(altitudeOverride) {
+                            settings.altitudeOverride = val
                         }
-                    Text("kg")
-                        .foregroundColor(.secondary)
-                }
+                    }
                 
-                HStack {
-                    Text("Max Heart Rate")
-                    Spacer()
-                    TextField("BPM", value: $localMaxHR, format: .number)
+                if useAltitudeOverride {
+                    HStack {
+                        Text("Fixed Altitude (m)")
+                        Spacer()
+                        let fixedAltField = TextField("500", text: $altitudeOverride)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 80)
+                        
                         #if os(iOS)
-                        .keyboardType(.numberPad)
-                        .multilineTextAlignment(.trailing)
+                        fixedAltField.keyboardType(.decimalPad)
+                        #else
+                        fixedAltField
                         #endif
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 100)
-                        .onChange(of: localMaxHR) { newValue in
-                            settings.maxHR = newValue
+                    }
+                    .onChange(of: altitudeOverride) { _, newValue in
+                        if let val = Double(newValue) {
+                            settings.altitudeOverride = val
                         }
+                    }
                 }
-            } header: {
-                Text("User Profile")
-            } footer: {
-                Text("FTP Altitude is the elevation where your FTP was tested. This allows for accurate performance normalization at different altitudes.")
             }
             
             Section {
-                HStack {
-                    Text("Default Altitude")
-                    Spacer()
-                    TextField("Meters", value: $localAltitude, format: .number)
-                        #if os(iOS)
-                        .keyboardType(.numbersAndPunctuation)
-                        .multilineTextAlignment(.trailing)
-                        #endif
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 100)
-                        .onChange(of: localAltitude) { newValue in
-                            settings.altitudeOverride = newValue
-                        }
-                    Text("m")
-                        .foregroundColor(.secondary)
+                Button("Reset to Defaults") {
+                    settings.userFTP = 200
+                    settings.userWeight = 75
+                    settings.ftpAltitude = 0
+                    settings.altitudeOverride = nil
+                    syncLocalState()
                 }
-            } header: {
-                Text("Environment")
-            } footer: {
-                Text("This altitude will be used when GPS data is unavailable (e.g., indoor training or Mac Mini).")
-            }
-            
-            Section("App Info") {
-                HStack {
-                    Text("Version")
-                    Spacer()
-                    Text("1.0.0")
-                        .foregroundColor(.secondary)
-                }
+                .foregroundColor(.red)
             }
         }
-        .navigationTitle("Settings")
+        .navigationTitle("Profile & Environment")
         .onAppear {
-            localFTP = settings.userFTP
-            localMaxHR = settings.maxHR
-            localAltitude = settings.altitudeOverride
-            localWeight = settings.userWeight
-            localFTPAltitude = settings.ftpAltitude
+            syncLocalState()
         }
     }
-}
-
-#Preview {
-    NavigationStack {
-        SettingsView()
+    
+    private func syncLocalState() {
+        userFTP = String(format: "%.0f", settings.userFTP)
+        userWeight = String(format: "%.1f", settings.userWeight)
+        ftpAltitude = String(format: "%.0f", settings.ftpAltitude)
+        if let over = settings.altitudeOverride {
+            altitudeOverride = String(format: "%.0f", over)
+            useAltitudeOverride = true
+        } else {
+            altitudeOverride = ""
+            useAltitudeOverride = false
+        }
     }
 }
