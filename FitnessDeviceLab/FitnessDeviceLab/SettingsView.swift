@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @StateObject private var settings = SettingsManager.shared
+    @ObservedObject var settings = SettingsManager.shared
     
     // Local state to avoid layout loops during typing
     @State private var userFTP: String = ""
@@ -11,20 +11,18 @@ struct SettingsView: View {
     @State private var useAltitudeOverride: Bool = false
     
     var body: some View {
-        Form {
+        List {
             Section("User Profile") {
                 HStack {
                     Text("FTP (Watts)")
                     Spacer()
-                    let ftpField = TextField("250", text: $userFTP)
+                    TextField("250", text: $userFTP)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 80)
-                    
-                    #if os(iOS)
-                    ftpField.keyboardType(.decimalPad)
-                    #else
-                    ftpField
-                    #endif
+                        .textFieldStyle(.roundedBorder)
+                        #if os(iOS)
+                        .keyboardType(.decimalPad)
+                        #endif
                 }
                 .onChange(of: userFTP) { _, newValue in
                     if let val = Double(newValue) {
@@ -35,15 +33,13 @@ struct SettingsView: View {
                 HStack {
                     Text("Weight (kg)")
                     Spacer()
-                    let weightField = TextField("75", text: $userWeight)
+                    TextField("75", text: $userWeight)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 80)
-                    
-                    #if os(iOS)
-                    weightField.keyboardType(.decimalPad)
-                    #else
-                    weightField
-                    #endif
+                        .textFieldStyle(.roundedBorder)
+                        #if os(iOS)
+                        .keyboardType(.decimalPad)
+                        #endif
                 }
                 .onChange(of: userWeight) { _, newValue in
                     if let val = Double(newValue) {
@@ -56,15 +52,13 @@ struct SettingsView: View {
                 HStack {
                     Text("Training Altitude (m)")
                     Spacer()
-                    let altField = TextField("0", text: $ftpAltitude)
+                    TextField("0", text: $ftpAltitude)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 80)
-                    
-                    #if os(iOS)
-                    altField.keyboardType(.decimalPad)
-                    #else
-                    altField
-                    #endif
+                        .textFieldStyle(.roundedBorder)
+                        #if os(iOS)
+                        .keyboardType(.decimalPad)
+                        #endif
                 }
                 .onChange(of: ftpAltitude) { _, newValue in
                     if let val = Double(newValue) {
@@ -85,15 +79,13 @@ struct SettingsView: View {
                     HStack {
                         Text("Fixed Altitude (m)")
                         Spacer()
-                        let fixedAltField = TextField("500", text: $altitudeOverride)
+                        TextField("500", text: $altitudeOverride)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 80)
-                        
-                        #if os(iOS)
-                        fixedAltField.keyboardType(.decimalPad)
-                        #else
-                        fixedAltField
-                        #endif
+                            .textFieldStyle(.roundedBorder)
+                            #if os(iOS)
+                            .keyboardType(.decimalPad)
+                            #endif
                     }
                     .onChange(of: altitudeOverride) { _, newValue in
                         if let val = Double(newValue) {
