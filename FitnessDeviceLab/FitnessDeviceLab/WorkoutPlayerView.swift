@@ -464,6 +464,13 @@ struct LapSummaryColumn: View {
                     Text("\(Int(round(m.hr.avg ?? 0)))").bold()
                     Text("[\(m.hr.min ?? 0)-\(m.hr.max ?? 0)]").font(.caption2).foregroundColor(.secondary)
                 }
+                
+                // Cadence row
+                HStack(spacing: 4) {
+                    Image(systemName: "bicycle").foregroundColor(.blue)
+                    Text("\(Int(round(m.cadence.avg ?? 0)))").bold()
+                    Text("[\(m.cadence.min ?? 0)-\(m.cadence.max ?? 0)]").font(.caption2).foregroundColor(.secondary)
+                }
             }
             .font(.system(size: 12, weight: .medium, design: .rounded))
         }

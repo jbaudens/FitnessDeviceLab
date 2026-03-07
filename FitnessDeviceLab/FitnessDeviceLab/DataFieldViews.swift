@@ -146,7 +146,7 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         
         case .altitude: return engine.currentAltitude
         
-        case .lapPower: return engine.standard.instantPower.map { Double($0) }
+        case .lapPower: return engine.calculatedMetrics.standard.instantPower.map { Double($0) }
         case .lapAvgPower:
             guard let wm = workoutManager, let currentLap = wm.laps.last else { return nil }
             let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }

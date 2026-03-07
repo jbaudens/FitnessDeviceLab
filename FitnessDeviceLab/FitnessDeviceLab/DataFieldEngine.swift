@@ -43,12 +43,6 @@ nonisolated public struct CalculatedMetrics {
 }
 
 public class DataFieldEngine: ObservableObject {
-    @Published public var standard = PowerMetrics()
-    @Published public var seaLevel = PowerMetrics()
-    @Published public var home = PowerMetrics()
-    @Published public var hr = HeartRateMetrics()
-    @Published public var cadence = CadenceMetrics()
-    
     @Published public var currentHR: Int?
     @Published public var currentCadence: Int?
     @Published public var powerBalance: Double?
@@ -97,9 +91,6 @@ public class DataFieldEngine: ObservableObject {
             self.currentAltitude = latest.altitude
         }
         
-        self.hr = m.hr
-        self.cadence = m.cadence
-        
         let settings = SettingsManager.shared
         let homeRatio = Self.getAltitudeRatio(meters: settings.ftpAltitude)
         self.slFTP = settings.userFTP / homeRatio
@@ -114,9 +105,6 @@ public class DataFieldEngine: ObservableObject {
             }
         }
         
-        self.standard = m.standard
-        self.seaLevel = m.seaLevel
-        self.home = m.home
         self.calculatedMetrics = m
     }
     
@@ -234,11 +222,6 @@ public class DataFieldEngine: ObservableObject {
     }
     
     private func reset() {
-        standard = PowerMetrics()
-        seaLevel = PowerMetrics()
-        home = PowerMetrics()
-        hr = HeartRateMetrics()
-        cadence = CadenceMetrics()
         calculatedMetrics = CalculatedMetrics()
         currentHR = nil
         currentCadence = nil
