@@ -6,6 +6,7 @@ struct SettingsView: View {
     // Local state to avoid layout loops during typing
     @State private var userFTP: String = ""
     @State private var userWeight: String = ""
+    @State private var maxHR: String = ""
     @State private var ftpAltitude: String = ""
     @State private var altitudeOverride: String = ""
     @State private var useAltitudeOverride: Bool = false
@@ -44,6 +45,23 @@ struct SettingsView: View {
                 .onChange(of: userWeight) { _, newValue in
                     if let val = Double(newValue) {
                         settings.userWeight = val
+                    }
+                }
+
+                HStack {
+                    Text("Max Heart Rate (BPM)")
+                    Spacer()
+                    TextField("190", text: $maxHR)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 80)
+                        .textFieldStyle(.roundedBorder)
+                        #if os(iOS)
+                        .keyboardType(.numberPad)
+                        #endif
+                }
+                .onChange(of: maxHR) { _, newValue in
+                    if let val = Int(newValue) {
+                        settings.maxHR = val
                     }
                 }
             }
@@ -115,6 +133,7 @@ struct SettingsView: View {
     private func syncLocalState() {
         userFTP = String(format: "%.0f", settings.userFTP)
         userWeight = String(format: "%.1f", settings.userWeight)
+        maxHR = String(format: "%d", settings.maxHR)
         ftpAltitude = String(format: "%.0f", settings.ftpAltitude)
         if let over = settings.altitudeOverride {
             altitudeOverride = String(format: "%.0f", over)
