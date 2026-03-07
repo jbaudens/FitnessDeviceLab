@@ -461,8 +461,8 @@ struct LapSummaryColumn: View {
                 // HR row
                 HStack(spacing: 4) {
                     Image(systemName: "heart.fill").foregroundColor(.red)
-                    Text("\(Int(round(m.avgHeartRate ?? 0)))").bold()
-                    Text("[\(m.minHeartRate ?? 0)-\(m.maxHeartRate ?? 0)]").font(.caption2).foregroundColor(.secondary)
+                    Text("\(Int(round(m.hr.avg ?? 0)))").bold()
+                    Text("[\(m.hr.min ?? 0)-\(m.hr.max ?? 0)]").font(.caption2).foregroundColor(.secondary)
                 }
             }
             .font(.system(size: 12, weight: .medium, design: .rounded))

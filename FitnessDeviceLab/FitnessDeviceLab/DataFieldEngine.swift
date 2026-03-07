@@ -1,6 +1,20 @@
 import Foundation
 import Combine
 
+nonisolated public struct HeartRateMetrics {
+    public var avg: Double?
+    public var max: Int?
+    public var min: Int?
+    public init() {}
+}
+
+nonisolated public struct CadenceMetrics {
+    public var avg: Double?
+    public var max: Int?
+    public var min: Int?
+    public init() {}
+}
+
 nonisolated public struct PowerMetrics {
     public var instantPower: Int?
     public var power3s: Int?
@@ -19,15 +33,8 @@ nonisolated public struct PowerMetrics {
 }
 
 nonisolated public struct CalculatedMetrics {
-    // Standard Metrics
-    public var avgHeartRate: Double?
-    public var maxHeartRate: Int?
-    public var minHeartRate: Int?
-    public var avgCadence: Double?
-    public var maxCadence: Int?
-    public var minCadence: Int?
-    
-    // Tracks
+    public var hr = HeartRateMetrics()
+    public var cadence = CadenceMetrics()
     public var standard = PowerMetrics()
     public var seaLevel = PowerMetrics()
     public var home = PowerMetrics()
@@ -36,17 +43,14 @@ nonisolated public struct CalculatedMetrics {
 }
 
 public class DataFieldEngine: ObservableObject {
-    // Individual published properties for simple UI observation
     @Published public var standard = PowerMetrics()
     @Published public var seaLevel = PowerMetrics()
     @Published public var home = PowerMetrics()
+    @Published public var hr = HeartRateMetrics()
+    @Published public var cadence = CadenceMetrics()
     
     @Published public var currentHR: Int?
-    @Published public var avgHeartRate: Double?
-    @Published public var maxHeartRate: Int?
     @Published public var currentCadence: Int?
-    @Published public var avgCadence: Double?
-    @Published public var maxCadence: Int?
     @Published public var powerBalance: Double?
     
     @Published public var currentAltitude: Double?
@@ -54,8 +58,6 @@ public class DataFieldEngine: ObservableObject {
     @Published public var slFTP: Double?
     
     @Published public var hrvMetrics = HRVMetrics()
-    
-    // Flat struct for consumers that prefer it
     @Published public var calculatedMetrics = CalculatedMetrics()
     
     private var cancellables = Set<AnyCancellable>()
@@ -64,7 +66,6 @@ public class DataFieldEngine: ObservableObject {
     init(recorder: SessionRecorder) {
         self.recorder = recorder
         
-        // Observe trackpoints to trigger calculations
         recorder.$trackpoints
             .receive(on: RunLoop.main)
             .sink { [weak self] trackpoints in
@@ -72,7 +73,6 @@ public class DataFieldEngine: ObservableObject {
             }
             .store(in: &cancellables)
             
-        // Observe settings changes
         SettingsManager.shared.objectWillChange
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
@@ -97,19 +97,15 @@ public class DataFieldEngine: ObservableObject {
             self.currentAltitude = latest.altitude
         }
         
-        self.avgHeartRate = m.avgHeartRate
-        self.maxHeartRate = m.maxHeartRate
-        self.avgCadence = m.avgCadence
-        self.maxCadence = m.maxCadence
+        self.hr = m.hr
+        self.cadence = m.cadence
         
-        // Altitude Ratios & FTP References
         let settings = SettingsManager.shared
         let homeRatio = Self.getAltitudeRatio(meters: settings.ftpAltitude)
         self.slFTP = settings.userFTP / homeRatio
         let currentRatio = Self.getAltitudeRatio(meters: currentAltitude ?? 0.0)
         self.localFTP = (self.slFTP ?? 0) * currentRatio
 
-        // HRV (Offloaded)
         let rrHistory = Array(trackpoints.flatMap { $0.rrIntervals }.suffix(600))
         Task.detached(priority: .userInitiated) {
             let newHRV = HRVEngine.calculateMetrics(rawRRIntervals: rrHistory)
@@ -136,7 +132,6 @@ public class DataFieldEngine: ObservableObject {
         let hrSamples = trackpoints.compactMap { $0.hr }
         let cadenceSamples = trackpoints.compactMap { $0.cadence }
         
-        // 1. Altitude Ratios & FTP References
         let homeRatio = getAltitudeRatio(meters: ftpAltitude)
         let slFTPValue = userFTP / homeRatio
         let currentAlt = trackpoints.last?.altitude ?? 0.0
@@ -145,13 +140,11 @@ public class DataFieldEngine: ObservableObject {
         
         var m = CalculatedMetrics()
         
-        // 2. Core Metrics
         if !powerSamples.isEmpty {
             let lastPower = Double(trackpoints.last?.power ?? 0)
             let lastSL = lastPower / currentRatio
             let lastHome = lastSL * homeRatio
             
-            // Standard
             m.standard.instantPower = Int(round(lastPower))
             m.standard.avgPower = Double(powerSamples.reduce(0, +)) / Double(powerSamples.count)
             m.standard.maxPower = powerSamples.max()
@@ -162,7 +155,6 @@ public class DataFieldEngine: ObservableObject {
             m.standard.power30s = getRollingAvg(powerSamples, window: 30)
             m.standard.ftp = localFTP
             
-            // Sea Level
             let slPowers = trackpoints.compactMap { tp -> Double? in
                 guard let p = tp.power else { return nil }
                 return Double(p) / getAltitudeRatio(meters: tp.altitude ?? 0.0)
@@ -177,7 +169,6 @@ public class DataFieldEngine: ObservableObject {
             m.seaLevel.power30s = getRollingAvgDouble(slPowers, window: 30)
             m.seaLevel.ftp = slFTPValue
             
-            // Home
             m.home.instantPower = Int(round(lastHome))
             m.home.avgPower = (m.seaLevel.avgPower ?? 0) * homeRatio
             m.home.maxPower = Int(round(Double(m.seaLevel.maxPower ?? 0) * homeRatio))
@@ -188,22 +179,21 @@ public class DataFieldEngine: ObservableObject {
             m.home.power30s = m.seaLevel.power30s.map { Int(round(Double($0) * homeRatio)) }
             m.home.ftp = userFTP
             
-            // NP Metrics
             if powerSamples.count >= 30 {
                 calculateNPMetrics(trackpoints: trackpoints, homeRatio: homeRatio, userFTP: userFTP, slFTP: slFTPValue, metrics: &m)
             }
         }
         
         if !hrSamples.isEmpty {
-            m.avgHeartRate = Double(hrSamples.reduce(0, +)) / Double(hrSamples.count)
-            m.maxHeartRate = hrSamples.max()
-            m.minHeartRate = hrSamples.min()
+            m.hr.avg = Double(hrSamples.reduce(0, +)) / Double(hrSamples.count)
+            m.hr.max = hrSamples.max()
+            m.hr.min = hrSamples.min()
         }
         
         if !cadenceSamples.isEmpty {
-            m.avgCadence = Double(cadenceSamples.reduce(0, +)) / Double(cadenceSamples.count)
-            m.maxCadence = cadenceSamples.max()
-            m.minCadence = cadenceSamples.min()
+            m.cadence.avg = Double(cadenceSamples.reduce(0, +)) / Double(cadenceSamples.count)
+            m.cadence.max = cadenceSamples.max()
+            m.cadence.min = cadenceSamples.min()
         }
         
         return m
@@ -247,12 +237,10 @@ public class DataFieldEngine: ObservableObject {
         standard = PowerMetrics()
         seaLevel = PowerMetrics()
         home = PowerMetrics()
+        hr = HeartRateMetrics()
+        cadence = CadenceMetrics()
         calculatedMetrics = CalculatedMetrics()
         currentHR = nil
-        avgHeartRate = nil
-        maxHeartRate = nil
-        avgCadence = nil
-        maxCadence = nil
         currentCadence = nil
         powerBalance = nil
         hrvMetrics = HRVMetrics()

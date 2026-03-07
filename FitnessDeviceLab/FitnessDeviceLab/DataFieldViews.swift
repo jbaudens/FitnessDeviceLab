@@ -95,8 +95,8 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         
         switch self {
         case .currentHR: return engine.currentHR.map { Double($0) }
-        case .avgHR: return m.avgHeartRate
-        case .maxHR: return m.maxHeartRate.map { Double($0) }
+        case .avgHR: return m.hr.avg
+        case .maxHR: return m.hr.max.map { Double($0) }
         case .dfaAlpha1: return hrv.dfaAlpha1
         case .avnn: return hrv.avnn
         case .sdnn: return hrv.sdnn
@@ -141,8 +141,8 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         case .homeFTP: return SettingsManager.shared.userFTP
         
         case .cadence: return engine.currentCadence.map { Double($0) }
-        case .avgCadence: return m.avgCadence
-        case .maxCadence: return m.maxCadence.map { Double($0) }
+        case .avgCadence: return m.cadence.avg
+        case .maxCadence: return m.cadence.max.map { Double($0) }
         
         case .altitude: return engine.currentAltitude
         
@@ -158,11 +158,11 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         case .lapHR:
             guard let wm = workoutManager, let currentLap = wm.laps.last else { return nil }
             let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
-            return DataFieldEngine.calculate(from: points).avgHeartRate
+            return DataFieldEngine.calculate(from: points).hr.avg
         case .lapCadence:
             guard let wm = workoutManager, let currentLap = wm.laps.last else { return nil }
             let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
-            return DataFieldEngine.calculate(from: points).avgCadence
+            return DataFieldEngine.calculate(from: points).cadence.avg
         case .lapTime:
             if let start = workoutManager?.laps.last?.startTime {
                 return Date().timeIntervalSince(start)
