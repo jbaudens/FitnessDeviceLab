@@ -68,7 +68,7 @@ struct WorkoutPlayerView: View {
                                         }
                                         
                                         DataFieldGrid(
-                                            recorder: workoutManager.recorderA,
+                                            engine: workoutManager.engineA,
                                             fields: page.fields
                                         )
                                         .padding(.horizontal)
@@ -103,7 +103,7 @@ struct WorkoutPlayerView: View {
                                         }
                                         
                                         DataFieldGrid(
-                                            recorder: workoutManager.recorderB,
+                                            engine: workoutManager.engineB,
                                             fields: page.fields
                                         )
                                         .padding(.horizontal)

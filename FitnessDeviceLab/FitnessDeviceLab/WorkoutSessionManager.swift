@@ -22,9 +22,32 @@ class WorkoutSessionManager: ObservableObject {
     public var recorderA = SessionRecorder()
     public var recorderB = SessionRecorder()
     
+    @Published public var engineA: DataFieldEngine
+    @Published public var engineB: DataFieldEngine
+    
     @Published var exportedFiles: [URL] = []
     
     private var timerCancellable: AnyCancellable?
+    private var settingsCancellable: AnyCancellable?
+    
+    init() {
+        let recA = SessionRecorder()
+        let recB = SessionRecorder()
+        self.recorderA = recA
+        self.recorderB = recB
+        self.engineA = DataFieldEngine(recorder: recA)
+        self.engineB = DataFieldEngine(recorder: recB)
+        
+        // Observe settings changes
+        settingsCancellable = SettingsManager.shared.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self?.engineA.recalculate()
+                    self?.engineB.recalculate()
+                }
+            }
+    }
     
     func startWorkout(devices: [DiscoveredPeripheral]) {
         workoutElapsedTime = 0
@@ -37,14 +60,12 @@ class WorkoutSessionManager: ObservableObject {
         recorderB.hrDevice = devices.first { $0.id == hrDeviceBId }
         recorderB.powerDevice = devices.first { $0.id == powerDeviceBId }
         
-        // Prepare recorders (they no longer have internal timers)
         recorderA.prepare()
         recorderB.prepare()
         
         sessionStartTime = Date()
         isRecording = true
         
-        // Unified 1Hz Timer
         timerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
@@ -56,7 +77,6 @@ class WorkoutSessionManager: ObservableObject {
     private func tick() {
         workoutElapsedTime += 1
         
-        // Update Workout Step Progress
         if let workout = selectedWorkout {
             timeInStep += 1
             let currentStep = workout.steps[currentStepIndex]
@@ -64,9 +84,6 @@ class WorkoutSessionManager: ObservableObject {
                 if currentStepIndex < workout.steps.count - 1 {
                     currentStepIndex += 1
                     timeInStep = 0
-                } else {
-                    // Workout finished? We could auto-stop or just keep recording.
-                    // For now, let's just stay on the last step.
                 }
             }
         }

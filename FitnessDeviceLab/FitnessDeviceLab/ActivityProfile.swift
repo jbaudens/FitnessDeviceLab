@@ -10,10 +10,8 @@ nonisolated struct ActivityProfile: Identifiable, Codable, Hashable {
         pages: [
             // Page 1: General
             DataPage(fields: [
-                .currentPower, .currentHR,
-                .power3s, .cadence,
-                .aapAcclimated, .aapNonAcclimated,
-                .altitude
+                .currentPower, .power3s, .powerBalance, .currentHR, .cadence,
+                .tss, .normalizedPower, .avgPower
             ]),
             
             // Page 2: Power Focus
@@ -22,16 +20,37 @@ nonisolated struct ActivityProfile: Identifiable, Codable, Hashable {
                 .power10s, .power30s,
                 .avgPower, .maxPower,
                 .normalizedPower, .intensityFactor,
-                .tss, .powerBalance
+                .tss, .wattsPerKg,
+                .localFTP
             ]),
             
-            // Page 3: HR & HRV Focus
+            // Page 3: Home Equivalents (Normalized to ftpAltitude)
+            DataPage(fields: [
+                .homePower, .homePower3s,
+                .homePower10s, .homePower30s,
+                .homeAvgPower, .homeMaxPower,
+                .homeNP, .homeIF, 
+                .homeTSS, .homeWkg, 
+                .homeFTP
+            ]),
+            
+            // Page 4: Sea Level Equivalents (Normalized to 0m)
+            DataPage(fields: [
+                .slPower, .slPower3s,
+                .slPower10s, .slPower30s,
+                .slAvgPower, .slMaxPower,
+                .slNP, .slIF, 
+                .slTSS, .slWkg, 
+                .slFTP
+            ]),
+            
+            // Page 5: HR & HRV Focus
             DataPage(fields: [
                 .currentHR, .avgHR,
                 .maxHR, .dfaAlpha1,
                 .rmssd, .sdnn,
                 .avnn, .pnn50
-            ])
+            ]),
         ]
     )
 }

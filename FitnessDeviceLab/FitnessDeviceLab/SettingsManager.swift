@@ -14,8 +14,22 @@ class SettingsManager: ObservableObject {
         didSet { defaults.set(maxHR, forKey: "maxHeartRate") }
     }
     
-    @Published var altitudeOverride: Double {
-        didSet { defaults.set(altitudeOverride, forKey: "altitudeOverride") }
+    @Published var altitudeOverride: Double? {
+        didSet { 
+            if let val = altitudeOverride {
+                defaults.set(val, forKey: "altitudeOverride")
+            } else {
+                defaults.removeObject(forKey: "altitudeOverride")
+            }
+        }
+    }
+    
+    @Published var userWeight: Double {
+        didSet { defaults.set(userWeight, forKey: "userWeight") }
+    }
+    
+    @Published var ftpAltitude: Double {
+        didSet { defaults.set(ftpAltitude, forKey: "ftpAltitude") }
     }
     
     private init() {
@@ -25,6 +39,13 @@ class SettingsManager: ObservableObject {
         let savedHR = defaults.integer(forKey: "maxHeartRate")
         self.maxHR = savedHR > 0 ? savedHR : 190
         
-        self.altitudeOverride = defaults.double(forKey: "altitudeOverride")
+        let savedAlt = defaults.object(forKey: "altitudeOverride") as? Double
+        self.altitudeOverride = savedAlt
+        
+        let savedWeight = defaults.double(forKey: "userWeight")
+        self.userWeight = savedWeight > 0 ? savedWeight : 75.0
+        
+        let savedFTPAlt = defaults.double(forKey: "ftpAltitude")
+        self.ftpAltitude = savedFTPAlt // Can be 0
     }
 }

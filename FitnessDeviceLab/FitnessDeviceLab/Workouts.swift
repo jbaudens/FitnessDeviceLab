@@ -4,6 +4,7 @@ public struct DefaultWorkouts {
     public static let all: [StructuredWorkout] = [
         recovery,
         endurance,
+        gabriel,
         sweetSpot,
         threshold,
         vo2max,
@@ -27,6 +28,16 @@ public struct DefaultWorkouts {
             WorkoutStep(duration: 600, targetPowerPercent: 0.50, type: .warmup),
             WorkoutStep(duration: 3600, targetPowerPercent: 0.65, type: .work),
             WorkoutStep(duration: 600, targetPowerPercent: 0.50, type: .cooldown)
+        ]
+    )
+    
+    private static let gabriel = StructuredWorkout(
+        name: "Gabriel",
+        description: "120 minutes of aerobic endurance training. This workout aims to build your aerobic base and improve fat metabolism through long, steady-state intervals in Zone 2.",
+        steps: [
+            WorkoutStep(duration: 900, targetPowerPercent: 0.50, type: .warmup),
+            WorkoutStep(duration: 5940, targetPowerPercent: 0.60, type: .work),
+            WorkoutStep(duration: 360, targetPowerPercent: 0.50, type: .cooldown)
         ]
     )
     

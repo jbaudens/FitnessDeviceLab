@@ -8,14 +8,16 @@ nonisolated public struct Trackpoint: Identifiable {
     public let power: Int?
     public let cadence: Int?
     public let altitude: Double?
+    public let powerBalance: Double?
     public let rrIntervals: [Double]
     
-    public init(time: Date, hr: Int? = nil, power: Int? = nil, cadence: Int? = nil, altitude: Double? = nil, rrIntervals: [Double] = []) {
+    public init(time: Date, hr: Int? = nil, power: Int? = nil, cadence: Int? = nil, altitude: Double? = nil, powerBalance: Double? = nil, rrIntervals: [Double] = []) {
         self.time = time
         self.hr = hr
         self.power = power
         self.cadence = cadence
         self.altitude = altitude
+        self.powerBalance = powerBalance
         self.rrIntervals = rrIntervals
     }
 }
@@ -26,24 +28,13 @@ class SessionRecorder: ObservableObject {
     var powerDevice: DiscoveredPeripheral?
     
     @Published public var trackpoints: [Trackpoint] = []
-    @Published public var lastUpdate = Date()
-    
-    // Published results of stateless calculations
-    @Published public var calculatedMetrics = CalculatedMetrics()
-    @Published public var hrvMetrics = HRVMetrics()
     
     private var rrCancellable: AnyCancellable?
-    
-    // Internal buffer to collect RR intervals between ticks
     private var pendingRRIntervals: [Double] = []
     
     func prepare() {
         trackpoints.removeAll()
         pendingRRIntervals.removeAll()
-        calculatedMetrics = CalculatedMetrics()
-        hrvMetrics = HRVMetrics()
-        lastUpdate = Date()
-        
         setupRRWatcher()
     }
     
@@ -51,8 +42,7 @@ class SessionRecorder: ObservableObject {
         rrCancellable = hrDevice?.$latestRRIntervals
             .receive(on: RunLoop.main)
             .sink { [weak self] intervals in
-                guard let self = self, !intervals.isEmpty else { return }
-                self.pendingRRIntervals.append(contentsOf: intervals)
+                self?.pendingRRIntervals.append(contentsOf: intervals)
             }
     }
     
@@ -63,7 +53,6 @@ class SessionRecorder: ObservableObject {
     }
     
     func recordPoint(time: Date, altitude: Double?) {
-        // Take the collected RR intervals and clear the buffer
         let rrThisSecond = pendingRRIntervals
         pendingRRIntervals.removeAll()
         
@@ -73,38 +62,15 @@ class SessionRecorder: ObservableObject {
             power: powerDevice?.cyclingPower,
             cadence: powerDevice?.cadence,
             altitude: altitude,
+            powerBalance: powerDevice?.powerBalance,
             rrIntervals: rrThisSecond
         )
         
-        // Record if we have any data (including RR intervals)
-        if pt.hr != nil || pt.power != nil || pt.cadence != nil || !pt.rrIntervals.isEmpty {
-            trackpoints.append(pt)
-            
-            // 1. Calculate Standard Metrics (Fast)
-            self.calculatedMetrics = DataFieldEngine.calculate(
-                from: trackpoints,
-                userFTP: SettingsManager.shared.userFTP,
-                currentAltitude: altitude
-            )
-            
-            // 2. Calculate HRV Metrics (Potentially Heavy)
-            let allRR = trackpoints.flatMap { $0.rrIntervals }
-            let windowRR = Array(allRR.suffix(600))
-            
-            Task.detached(priority: .userInitiated) {
-                let newHRV = HRVEngine.calculateMetrics(rawRRIntervals: windowRR)
-                await MainActor.run {
-                    self.hrvMetrics = newHRV
-                }
-            }
-            
-            lastUpdate = time
-        }
+        trackpoints.append(pt)
     }
     
     private func generateTCX(label: String) -> URL? {
         guard !trackpoints.isEmpty else { return nil }
-        
         let formatter = ISO8601DateFormatter()
         let startTimeStr = formatter.string(from: trackpoints.first!.time)
         let totalTime = trackpoints.last!.time.timeIntervalSince(trackpoints.first!.time)
@@ -121,19 +87,16 @@ class SessionRecorder: ObservableObject {
         for pt in trackpoints {
             xml += "          <Trackpoint>\n"
             xml += "            <Time>\(formatter.string(from: pt.time))</Time>\n"
-            if let alt = pt.altitude {
-                xml += "            <AltitudeMeters>\(alt)</AltitudeMeters>\n"
-            }
-            if let hr = pt.hr {
-                xml += "            <HeartRateBpm><Value>\(hr)</Value></HeartRateBpm>\n"
-            }
-            if let cad = pt.cadence {
-                xml += "            <Cadence>\(cad)</Cadence>\n"
-            }
+            if let alt = pt.altitude { xml += "            <AltitudeMeters>\(alt)</AltitudeMeters>\n" }
+            if let hr = pt.hr { xml += "            <HeartRateBpm><Value>\(hr)</Value></HeartRateBpm>\n" }
+            if let cad = pt.cadence { xml += "            <Cadence>\(cad)</Cadence>\n" }
             if let pwr = pt.power {
                 xml += "            <Extensions>\n"
                 xml += "              <ns3:TPX>\n"
                 xml += "                <ns3:Watts>\(pwr)</ns3:Watts>\n"
+                if let balance = pt.powerBalance {
+                    xml += "                <ns3:Value>\(Int(round(balance)))</ns3:Value>\n" // Simplified balance tag
+                }
                 xml += "              </ns3:TPX>\n"
                 xml += "            </Extensions>\n"
             }
@@ -149,13 +112,7 @@ class SessionRecorder: ObservableObject {
         let safeDate = formatter.string(from: trackpoints.first!.time).replacingOccurrences(of: ":", with: "-")
         let filename = "Workout_\(label)_\(safeDate).tcx"
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-        
-        do {
-            try xml.write(to: tempURL, atomically: true, encoding: .utf8)
-            return tempURL
-        } catch {
-            print("Failed to write TCX: \(error)")
-            return nil
-        }
+        try? xml.write(to: tempURL, atomically: true, encoding: .utf8)
+        return tempURL
     }
 }
