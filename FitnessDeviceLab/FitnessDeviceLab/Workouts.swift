@@ -7,6 +7,7 @@ public struct DefaultWorkouts {
         gabriel,
         sweetSpot,
         threshold,
+        blackcapMinus1,
         vo2max,
         sprints
     ]
@@ -64,6 +65,39 @@ public struct DefaultWorkouts {
             WorkoutStep(duration: 600, targetPowerPercent: 0.55, type: .recovery),
             WorkoutStep(duration: 1200, targetPowerPercent: 1.00, type: .work),
             WorkoutStep(duration: 600, targetPowerPercent: 0.50, type: .cooldown)
+        ]
+    )
+    
+    private static let blackcapMinus1 = StructuredWorkout(
+        name: "Blackcap -1",
+        description: "3*9min Over-Unders.",
+        steps: [
+            WorkoutStep(duration: 180, targetPowerPercent: 0.50, type: .warmup),
+            WorkoutStep(duration: 180, targetPowerPercent: 0.65, type: .warmup),
+            WorkoutStep(duration: 180, targetPowerPercent: 0.80, type: .warmup),
+            WorkoutStep(duration: 180, targetPowerPercent: 0.95, type: .warmup),
+            WorkoutStep(duration: 300, targetPowerPercent: 0.40, type: .recovery),
+            WorkoutStep(duration: 120, targetPowerPercent: 0.95, type: .work),
+            WorkoutStep(duration: 60, targetPowerPercent: 1.10, type: .work),
+            WorkoutStep(duration: 120, targetPowerPercent: 0.95, type: .work),
+            WorkoutStep(duration: 60, targetPowerPercent: 1.10, type: .work),
+            WorkoutStep(duration: 120, targetPowerPercent: 0.95, type: .work),
+            WorkoutStep(duration: 60, targetPowerPercent: 1.10, type: .work),
+            WorkoutStep(duration: 360, targetPowerPercent: 0.40, type: .recovery),
+            WorkoutStep(duration: 120, targetPowerPercent: 0.95, type: .work),
+            WorkoutStep(duration: 60, targetPowerPercent: 1.10, type: .work),
+            WorkoutStep(duration: 120, targetPowerPercent: 0.95, type: .work),
+            WorkoutStep(duration: 60, targetPowerPercent: 1.10, type: .work),
+            WorkoutStep(duration: 120, targetPowerPercent: 0.95, type: .work),
+            WorkoutStep(duration: 60, targetPowerPercent: 1.10, type: .work),
+            WorkoutStep(duration: 360, targetPowerPercent: 0.40, type: .recovery),
+            WorkoutStep(duration: 120, targetPowerPercent: 0.95, type: .work),
+            WorkoutStep(duration: 60, targetPowerPercent: 1.10, type: .work),
+            WorkoutStep(duration: 120, targetPowerPercent: 0.95, type: .work),
+            WorkoutStep(duration: 60, targetPowerPercent: 1.10, type: .work),
+            WorkoutStep(duration: 120, targetPowerPercent: 0.95, type: .work),
+            WorkoutStep(duration: 60, targetPowerPercent: 1.10, type: .work),
+            WorkoutStep(duration: 240, targetPowerPercent: 0.40, type: .cooldown)
         ]
     )
     

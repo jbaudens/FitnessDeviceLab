@@ -288,6 +288,12 @@ struct WorkoutTargetHeader: View {
     @EnvironmentObject var workoutManager: WorkoutSessionManager
     let workout: StructuredWorkout
     
+    private let timeFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.timeStyle = .medium
+        return df
+    }()
+    
     var body: some View {
         VStack(spacing: 12) {
             HStack(alignment: .center) {
@@ -295,7 +301,7 @@ struct WorkoutTargetHeader: View {
                 if let step = workoutManager.currentWorkoutStep {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(alignment: .lastTextBaseline, spacing: 4) {
-                            Text(formatTime(step.duration - workoutManager.timeInStep))
+                            Text(formatDuration(step.duration - workoutManager.timeInStep))
                                 .font(.system(size: 40, weight: .bold, design: .rounded))
                                 .monospacedDigit()
                             
@@ -303,7 +309,7 @@ struct WorkoutTargetHeader: View {
                                 Text("LAP \(workoutManager.laps.count)")
                                     .font(.system(size: 10, weight: .black))
                                     .foregroundColor(.blue)
-                                Text(formatTime(workoutManager.laps.last?.duration ?? 0))
+                                Text(formatDuration(workoutManager.laps.last?.duration ?? 0))
                                     .font(.system(size: 12, weight: .bold, design: .monospaced))
                                     .foregroundColor(.secondary)
                             }
@@ -347,11 +353,24 @@ struct WorkoutTargetHeader: View {
             .font(.system(size: 10, weight: .bold))
             .foregroundColor(.secondary)
             
-            HStack {
-                Spacer()
-                Text("Total: \(formatTime(workoutManager.workoutElapsedTime)) / \(formatTime(workout.totalDuration))")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.secondary)
+            VStack(spacing: 4) {
+                HStack {
+                    if let start = workoutManager.sessionStartTime {
+                        Text("Started: \(timeFormatter.string(from: start))")
+                        Spacer()
+                        let expectedEnd = start.addingTimeInterval(workout.totalDuration)
+                        Text("Ends: \(timeFormatter.string(from: expectedEnd))")
+                    }
+                }
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.secondary)
+
+                HStack {
+                    Spacer()
+                    Text("Total: \(formatDuration(workoutManager.workoutElapsedTime)) / \(formatDuration(workout.totalDuration))")
+                        .font(.system(size: 12, weight: .black))
+                        .foregroundColor(.primary)
+                }
             }
             
             if workoutManager.currentStepIndex < workout.steps.count - 1 {
@@ -366,7 +385,7 @@ struct WorkoutTargetHeader: View {
         }
     }
     
-    func formatTime(_ interval: TimeInterval) -> String {
+    func formatDuration(_ interval: TimeInterval) -> String {
         let mins = Int(interval) / 60
         let secs = Int(interval) % 60
         return String(format: "%02d:%02d", mins, secs)
@@ -376,6 +395,12 @@ struct WorkoutTargetHeader: View {
 struct LapsHistoryView: View {
     @EnvironmentObject var workoutManager: WorkoutSessionManager
     
+    private let timeFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.timeStyle = .medium
+        return df
+    }()
+    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -384,10 +409,18 @@ struct LapsHistoryView: View {
                     .padding(.horizontal)
                 
                 ForEach(workoutManager.laps.reversed()) { lap in
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text("Lap \(lap.index + 1)")
                                 .fontWeight(.bold)
+                            
+                            Text(lap.type.rawValue.uppercased())
+                                .font(.system(size: 8, weight: .black))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(Color.secondary.opacity(0.2))
+                                .cornerRadius(4)
+
                             if lap.index == workoutManager.laps.count - 1 {
                                 Text("CURRENT")
                                     .font(.system(size: 8, weight: .black))
@@ -398,11 +431,29 @@ struct LapsHistoryView: View {
                                     .cornerRadius(4)
                             }
                             Spacer()
-                            Text(formatInterval(lap.duration))
-                                .monospacedDigit()
-                                .foregroundColor(.secondary)
                         }
-                        .font(.subheadline)
+                        
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 4) {
+                                    Text(timeFormatter.string(from: lap.startTime))
+                                    Text("-")
+                                    if let end = lap.endTime {
+                                        Text(timeFormatter.string(from: end))
+                                    } else {
+                                        Text("Now")
+                                    }
+                                }
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                
+                                Text("Duration: \(formatDuration(lap.duration))")
+                                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.primary)
+                            }
+                            Spacer()
+                        }
+                        .monospacedDigit()
                         
                         // Lap Summary Table (A vs B)
                         HStack(spacing: 20) {
@@ -421,7 +472,7 @@ struct LapsHistoryView: View {
         }
     }
     
-    func formatInterval(_ interval: TimeInterval) -> String {
+    func formatDuration(_ interval: TimeInterval) -> String {
         let m = Int(interval) / 60
         let s = Int(interval) % 60
         return String(format: "%d:%02d", m, s)
