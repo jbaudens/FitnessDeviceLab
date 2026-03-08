@@ -82,8 +82,6 @@ public class DataFieldEngine: ObservableObject {
     }
     
     private func update(from trackpoints: [Trackpoint]) {
-        let m = Self.calculate(from: trackpoints)
-        
         if let latest = trackpoints.last {
             self.currentHR = latest.hr
             self.currentCadence = latest.cadence
@@ -97,15 +95,21 @@ public class DataFieldEngine: ObservableObject {
         let currentRatio = Self.getAltitudeRatio(meters: currentAltitude ?? 0.0)
         self.localFTP = (self.slFTP ?? 0) * currentRatio
 
+        // Offload heavy calculations to background
         let rrHistory = Array(trackpoints.flatMap { $0.rrIntervals }.suffix(600))
+        
         Task.detached(priority: .userInitiated) {
+            // Calculate standard metrics
+            let m = Self.calculate(from: trackpoints)
+            
+            // Calculate HRV metrics
             let newHRV = HRVEngine.calculateMetrics(rawRRIntervals: rrHistory)
+            
             await MainActor.run {
+                self.calculatedMetrics = m
                 self.hrvMetrics = newHRV
             }
         }
-        
-        self.calculatedMetrics = m
     }
     
     public static func calculate(from trackpoints: [Trackpoint]) -> CalculatedMetrics {

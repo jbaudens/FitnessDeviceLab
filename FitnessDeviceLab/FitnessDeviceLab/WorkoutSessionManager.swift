@@ -107,22 +107,36 @@ class WorkoutSessionManager: ObservableObject {
     }
     
     private func tick() {
-        workoutElapsedTime += 1
+        guard let start = sessionStartTime else { return }
+        let now = Date()
+        let totalElapsed = now.timeIntervalSince(start)
+        workoutElapsedTime = totalElapsed
         
         if let workout = selectedWorkout {
-            timeInStep += 1
-            let currentStep = workout.steps[currentStepIndex]
-            if timeInStep >= currentStep.duration {
-                if currentStepIndex < workout.steps.count - 1 {
-                    currentStepIndex += 1
-                    timeInStep = 0
-                    // Auto-lap on step change
-                    startNewLap(type: workout.steps[currentStepIndex].type)
+            // Recalculate current step and time in step based on totalElapsed
+            var accumulated: TimeInterval = 0
+            var foundStep = false
+            for (index, step) in workout.steps.enumerated() {
+                if totalElapsed < accumulated + step.duration {
+                    if currentStepIndex != index {
+                        // Auto-lap on step change
+                        currentStepIndex = index
+                        startNewLap(type: step.type)
+                    }
+                    timeInStep = totalElapsed - accumulated
+                    foundStep = true
+                    break
                 }
+                accumulated += step.duration
+            }
+            
+            if !foundStep && !workout.steps.isEmpty {
+                // Workout finished or beyond defined steps
+                currentStepIndex = workout.steps.count - 1
+                timeInStep = workout.steps.last!.duration
             }
         }
         
-        let now = Date()
         let altitude = LocationManager.shared.currentAltitude ?? SettingsManager.shared.altitudeOverride
         
         recorderA.recordPoint(time: now, altitude: altitude)
