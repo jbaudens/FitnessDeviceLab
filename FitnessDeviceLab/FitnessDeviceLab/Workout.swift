@@ -94,6 +94,33 @@ public struct StructuredWorkout: Identifiable, Codable, Hashable {
         return totalWork / totalDuration
     }
     
+    public var intensityFactor: Double {
+        guard !steps.isEmpty else { return 0 }
+        
+        // Generate second-by-second intensity profile
+        var samples = [Double]()
+        for step in steps {
+            let count = Int(step.duration)
+            samples.append(contentsOf: Array(repeating: step.targetPowerPercent, count: count))
+        }
+        
+        // Calculate 30s rolling averages with growing window for the first 30 seconds
+        var rollingAverages = [Double]()
+        var currentSum = 0.0
+        for i in 0..<samples.count {
+            currentSum += samples[i]
+            if i >= 30 {
+                currentSum -= samples[i - 30]
+            }
+            let count = Double(min(i + 1, 30))
+            rollingAverages.append(currentSum / count)
+        }
+        
+        // NP calculation: 4th root of average of 4th powers
+        let sum4 = rollingAverages.reduce(0.0) { $0 + pow($1, 4) }
+        return pow(sum4 / Double(rollingAverages.count), 0.25)
+    }
+    
     public var primaryZone: WorkoutZone {
         // Find the zone with the most duration in 'work' steps
         let workSteps = steps.filter { $0.type == .work }

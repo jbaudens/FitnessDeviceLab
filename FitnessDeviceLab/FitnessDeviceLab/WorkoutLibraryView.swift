@@ -130,7 +130,7 @@ struct WorkoutDetailView: View {
                         Text("Intensity")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text("\(String(format: "%.2f", workout.averageIntensity)) IF")
+                        Text("\(String(format: "%.2f", workout.intensityFactor)) IF")
                             .font(.headline)
                     }
                     

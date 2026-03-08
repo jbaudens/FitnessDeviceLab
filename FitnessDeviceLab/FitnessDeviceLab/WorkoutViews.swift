@@ -170,7 +170,7 @@ struct WorkoutRowView: View {
                             .cornerRadius(4)
                     }
                     
-                    Text("\(Int(workout.totalDuration / 60)) min • IF \(String(format: "%.2f", workout.averageIntensity))")
+                    Text("\(Int(workout.totalDuration / 60)) min • IF \(String(format: "%.2f", workout.intensityFactor))")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
