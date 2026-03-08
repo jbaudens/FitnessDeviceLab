@@ -42,6 +42,18 @@ nonisolated public struct CalculatedMetrics {
     public init() {}
 }
 
+nonisolated public struct MetricsSettings: Sendable {
+    public let userFTP: Double
+    public let userWeight: Double
+    public let ftpAltitude: Double
+    
+    public init(userFTP: Double, userWeight: Double, ftpAltitude: Double) {
+        self.userFTP = userFTP
+        self.userWeight = userWeight
+        self.ftpAltitude = ftpAltitude
+    }
+}
+
 public class DataFieldEngine: ObservableObject {
     @Published public var currentHR: Int?
     @Published public var currentCadence: Int?
@@ -82,8 +94,6 @@ public class DataFieldEngine: ObservableObject {
     }
     
     private func update(from trackpoints: [Trackpoint]) {
-        let m = Self.calculate(from: trackpoints)
-        
         if let latest = trackpoints.last {
             self.currentHR = latest.hr
             self.currentCadence = latest.cadence
@@ -92,26 +102,32 @@ public class DataFieldEngine: ObservableObject {
         }
         
         let settings = SettingsManager.shared
+        let metricsSettings = settings.metricsSettings
         let homeRatio = Self.getAltitudeRatio(meters: settings.ftpAltitude)
         self.slFTP = settings.userFTP / homeRatio
         let currentRatio = Self.getAltitudeRatio(meters: currentAltitude ?? 0.0)
         self.localFTP = (self.slFTP ?? 0) * currentRatio
 
+        // Offload heavy calculations to background
         let rrHistory = Array(trackpoints.flatMap { $0.rrIntervals }.suffix(600))
+        
         Task.detached(priority: .userInitiated) {
+            // Calculate standard metrics
+            let m = Self.calculate(from: trackpoints, settings: metricsSettings)
+            
+            // Calculate HRV metrics
             let newHRV = HRVEngine.calculateMetrics(rawRRIntervals: rrHistory)
+            
             await MainActor.run {
+                self.calculatedMetrics = m
                 self.hrvMetrics = newHRV
             }
         }
-        
-        self.calculatedMetrics = m
     }
     
-    public static func calculate(from trackpoints: [Trackpoint]) -> CalculatedMetrics {
+    nonisolated public static func calculate(from trackpoints: [Trackpoint], settings: MetricsSettings) -> CalculatedMetrics {
         guard !trackpoints.isEmpty else { return CalculatedMetrics() }
         
-        let settings = SettingsManager.shared
         let userFTP = settings.userFTP
         let userWeight = settings.userWeight
         let ftpAltitude = settings.ftpAltitude
@@ -187,7 +203,7 @@ public class DataFieldEngine: ObservableObject {
         return m
     }
     
-    private static func calculateNPMetrics(trackpoints: [Trackpoint], homeRatio: Double, userFTP: Double, slFTP: Double, metrics: inout CalculatedMetrics) {
+    nonisolated private static func calculateNPMetrics(trackpoints: [Trackpoint], homeRatio: Double, userFTP: Double, slFTP: Double, metrics: inout CalculatedMetrics) {
         var std30s = [Double](), sl30s = [Double](), home30s = [Double]()
         
         for i in 0..<trackpoints.count {
@@ -237,19 +253,19 @@ public class DataFieldEngine: ObservableObject {
         return max(0.5, 1.0 - 0.0112 * pow(h, 2) - 0.0190 * h)
     }
     
-    private static func getRollingAvg(_ samples: [Int], window: Int) -> Int? {
+    nonisolated private static func getRollingAvg(_ samples: [Int], window: Int) -> Int? {
         let count = min(samples.count, window)
         let slice = samples.suffix(count)
         return Int(round(Double(slice.reduce(0, +)) / Double(count)))
     }
     
-    private static func getRollingAvgDouble(_ samples: [Double], window: Int) -> Int? {
+    nonisolated private static func getRollingAvgDouble(_ samples: [Double], window: Int) -> Int? {
         let count = min(samples.count, window)
         let slice = samples.suffix(count)
         return Int(round(slice.reduce(0, +) / Double(count)))
     }
     
-    private static func calculateNPFromRolling(_ rolling: [Double]) -> Double {
+    nonisolated private static func calculateNPFromRolling(_ rolling: [Double]) -> Double {
         guard !rolling.isEmpty else { return 0 }
         let sum4 = rolling.reduce(0.0) { $0 + pow($1, 4) }
         return pow(sum4 / Double(rolling.count), 0.25)

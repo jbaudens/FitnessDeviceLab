@@ -32,6 +32,10 @@ class SettingsManager: ObservableObject {
         didSet { defaults.set(ftpAltitude, forKey: "ftpAltitude") }
     }
     
+    var metricsSettings: MetricsSettings {
+        MetricsSettings(userFTP: userFTP, userWeight: userWeight, ftpAltitude: ftpAltitude)
+    }
+    
     private init() {
         let savedFTP = defaults.double(forKey: "userFTP")
         self.userFTP = savedFTP > 0 ? savedFTP : 250.0

@@ -491,7 +491,7 @@ struct LapSummaryColumn: View {
         let points = recorder.trackpoints.filter { 
             $0.time >= lap.startTime && (lap.endTime == nil || $0.time < lap.endTime!)
         }
-        let m = DataFieldEngine.calculate(from: points)
+        let m = DataFieldEngine.calculate(from: points, settings: SettingsManager.shared.metricsSettings)
         
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
