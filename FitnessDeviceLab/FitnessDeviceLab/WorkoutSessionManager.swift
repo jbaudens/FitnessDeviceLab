@@ -24,6 +24,7 @@ class WorkoutSessionManager: ObservableObject {
     @Published var activeProfile: ActivityProfile = .defaultProfile
     @Published var selectedWorkout: StructuredWorkout?
     @Published var ergModeEnabled = false
+    @Published var resistanceLevel: Double = 40.0
     
     @Published var currentStepIndex: Int = 0
     @Published var timeInStep: TimeInterval = 0
@@ -31,6 +32,7 @@ class WorkoutSessionManager: ObservableObject {
     @Published var laps: [Lap] = []
     
     private var lastSentTargetPower: Int?
+    private var lastSentResistanceLevel: Double?
     
     public var recorderA = SessionRecorder()
     public var recorderB = SessionRecorder()
@@ -149,11 +151,24 @@ class WorkoutSessionManager: ObservableObject {
                     recorderB.powerDevice?.setTargetPower(targetWatts)
                     lastSentTargetPower = targetWatts
                 }
-            } else if lastSentTargetPower != nil {
-                // We just disabled ERG mode - send a resistance command to toggle the trainer out of ERG
-                recorderA.powerDevice?.setResistanceLevel(0) // Default low resistance
-                recorderB.powerDevice?.setResistanceLevel(0)
-                lastSentTargetPower = nil
+                lastSentResistanceLevel = nil
+            } else {
+                // Manual Resistance Mode
+                if lastSentTargetPower != nil || lastSentResistanceLevel != resistanceLevel {
+                    recorderA.powerDevice?.setResistanceLevel(resistanceLevel)
+                    recorderB.powerDevice?.setResistanceLevel(resistanceLevel)
+                    lastSentResistanceLevel = resistanceLevel
+                    lastSentTargetPower = nil
+                }
+            }
+        } else {
+            // Not a structured workout, but might still have a trainer connected
+            if !ergModeEnabled {
+                if lastSentResistanceLevel != resistanceLevel {
+                    recorderA.powerDevice?.setResistanceLevel(resistanceLevel)
+                    recorderB.powerDevice?.setResistanceLevel(resistanceLevel)
+                    lastSentResistanceLevel = resistanceLevel
+                }
             }
         }
         

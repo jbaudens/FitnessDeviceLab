@@ -210,6 +210,18 @@ struct WorkoutPlayerView: View {
                                         }
                                         .padding(.trailing, 8)
                                         
+                                        if !workoutManager.ergModeEnabled {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "plusminus")
+                                                    .font(.system(size: 8))
+                                                Slider(value: $workoutManager.resistanceLevel, in: 0...100, step: 1)
+                                                    .frame(width: 80)
+                                                Text("\(Int(workoutManager.resistanceLevel))%")
+                                                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                            }
+                                            .padding(.trailing, 8)
+                                        }
+                                        
                                         Button(action: { workoutManager.selectedWorkout = nil }) {
                                             Image(systemName: "xmark.circle.fill")
                                                 .foregroundColor(.secondary)
@@ -344,7 +356,7 @@ struct WorkoutTargetHeader: View {
                 }
             }
             
-            // Legend
+            // Legend & Controls
             HStack(spacing: 12) {
                 Picker("Mode", selection: $workoutManager.currentDataFieldMode) {
                     ForEach(WorkoutSessionManager.DataFieldMode.allCases) { mode in
@@ -361,6 +373,18 @@ struct WorkoutTargetHeader: View {
                 .font(.system(size: 10, weight: .black))
                 .tint(.green)
                 .frame(height: 24)
+                
+                if !workoutManager.ergModeEnabled {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plusminus.circle.fill")
+                            .foregroundColor(.blue)
+                        Slider(value: $workoutManager.resistanceLevel, in: 0...100, step: 1)
+                            .frame(maxWidth: 150)
+                        Text("\(Int(workoutManager.resistanceLevel))%")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .frame(width: 30)
+                    }
+                }
                 
                 Spacer()
                 
