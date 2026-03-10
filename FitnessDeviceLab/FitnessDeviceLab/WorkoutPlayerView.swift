@@ -200,6 +200,16 @@ struct WorkoutPlayerView: View {
                                             .fontWeight(.black)
                                             .foregroundColor(.blue)
                                         Spacer()
+                                        
+                                        HStack(spacing: 4) {
+                                            Text("ERG")
+                                                .font(.system(size: 8, weight: .black))
+                                            Toggle("ERG Mode", isOn: $workoutManager.ergModeEnabled)
+                                                .labelsHidden()
+                                                .scaleEffect(0.7)
+                                        }
+                                        .padding(.trailing, 8)
+                                        
                                         Button(action: { workoutManager.selectedWorkout = nil }) {
                                             Image(systemName: "xmark.circle.fill")
                                                 .foregroundColor(.secondary)
@@ -342,7 +352,15 @@ struct WorkoutTargetHeader: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 150)
+                .frame(width: 140)
+                
+                Toggle(isOn: $workoutManager.ergModeEnabled) {
+                    Text("ERG")
+                }
+                .toggleStyle(.button)
+                .font(.system(size: 10, weight: .black))
+                .tint(.green)
+                .frame(height: 24)
                 
                 Spacer()
                 

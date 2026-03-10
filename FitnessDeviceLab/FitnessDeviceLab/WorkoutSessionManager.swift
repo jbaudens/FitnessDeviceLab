@@ -23,11 +23,14 @@ class WorkoutSessionManager: ObservableObject {
     
     @Published var activeProfile: ActivityProfile = .defaultProfile
     @Published var selectedWorkout: StructuredWorkout?
+    @Published var ergModeEnabled = false
     
     @Published var currentStepIndex: Int = 0
     @Published var timeInStep: TimeInterval = 0
     
     @Published var laps: [Lap] = []
+    
+    private var lastSentTargetPower: Int?
     
     public var recorderA = SessionRecorder()
     public var recorderB = SessionRecorder()
@@ -134,6 +137,20 @@ class WorkoutSessionManager: ObservableObject {
                 // Workout finished or beyond defined steps
                 currentStepIndex = workout.steps.count - 1
                 timeInStep = workout.steps.last!.duration
+            }
+            
+            // ERG Mode control
+            if ergModeEnabled, let step = currentWorkoutStep {
+                let ftp = SettingsManager.shared.userFTP
+                let targetWatts = Int(round(step.targetPowerPercent * ftp))
+                
+                if targetWatts != lastSentTargetPower {
+                    recorderA.powerDevice?.setTargetPower(targetWatts)
+                    recorderB.powerDevice?.setTargetPower(targetWatts)
+                    lastSentTargetPower = targetWatts
+                }
+            } else if !ergModeEnabled {
+                lastSentTargetPower = nil
             }
         }
         
