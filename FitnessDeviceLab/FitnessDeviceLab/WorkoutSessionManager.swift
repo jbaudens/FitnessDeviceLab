@@ -149,7 +149,10 @@ class WorkoutSessionManager: ObservableObject {
                     recorderB.powerDevice?.setTargetPower(targetWatts)
                     lastSentTargetPower = targetWatts
                 }
-            } else if !ergModeEnabled {
+            } else if lastSentTargetPower != nil {
+                // We just disabled ERG mode - send a resistance command to toggle the trainer out of ERG
+                recorderA.powerDevice?.setResistanceLevel(0) // Default low resistance
+                recorderB.powerDevice?.setResistanceLevel(0)
                 lastSentTargetPower = nil
             }
         }

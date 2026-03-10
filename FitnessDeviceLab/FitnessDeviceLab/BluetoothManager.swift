@@ -225,6 +225,24 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
         peripheral.writeValue(data, for: cp, type: .withResponse)
     }
     
+    public func setResistanceLevel(_ level: Double) {
+        guard let cp = controlPointCharacteristic else { return }
+        
+        if !isControlRequested {
+            let requestControlData = Data([0x00])
+            peripheral.writeValue(requestControlData, for: cp, type: .withResponse)
+            return
+        }
+        
+        var data = Data([0x04]) // Set Resistance Level OpCode
+        // Level is usually 0-255 or 0-100 depending on device, FTMS uses 0.1 unit resolution UInt8 or UInt16? 
+        // Spec says UInt8 for OpCode 0x04.
+        let val = UInt8(max(0, min(level, 255)))
+        data.append(val)
+        
+        peripheral.writeValue(data, for: cp, type: .withResponse)
+    }
+    
     private func parseHeartRate(data: Data) -> (Int?, [Double]) {
         guard data.count > 1 else { return (nil, []) }
         let flags = data[0]
