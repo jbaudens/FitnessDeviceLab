@@ -2,6 +2,7 @@ import Foundation
 
 public struct DefaultWorkouts {
     public static let all: [StructuredWorkout] = [
+        dynamicWarmup,
         recovery,
         endurance,
         gabriel,
@@ -11,6 +12,37 @@ public struct DefaultWorkouts {
         vo2max,
         sprints
     ]
+    
+    private static let dynamicWarmup = StructuredWorkout(
+        name: "Dynamic Warmup",
+        description: "A comprehensive warmup with progressive ramps and intensity spikes to prepare for hard efforts.",
+        steps: {
+            var steps: [WorkoutStep] = []
+            
+            // Phase 1: 10 min (20 * 30s) ramping from 40% to 60%
+            let rampStart = 0.40
+            let rampEnd = 0.60
+            let rampSteps = 20
+            for i in 0..<rampSteps {
+                let intensity = rampStart + (Double(i) / Double(rampSteps - 1)) * (rampEnd - rampStart)
+                steps.append(WorkoutStep(duration: 30, targetPowerPercent: intensity, type: .warmup))
+            }
+            
+            // Phase 2: 5 min alternating between 65% and 80% every 30s
+            for _ in 0..<5 {
+                steps.append(WorkoutStep(duration: 30, targetPowerPercent: 0.65, type: .warmup))
+                steps.append(WorkoutStep(duration: 30, targetPowerPercent: 0.80, type: .warmup))
+            }
+            
+            // Phase 3: 4 min alternating between 60% and 95% (30s intervals)
+            for _ in 0..<4 {
+                steps.append(WorkoutStep(duration: 30, targetPowerPercent: 0.60, type: .warmup))
+                steps.append(WorkoutStep(duration: 30, targetPowerPercent: 0.95, type: .warmup))
+            }
+            
+            return steps
+        }()
+    )
     
     private static let recovery = StructuredWorkout(
         name: "Active Recovery",
