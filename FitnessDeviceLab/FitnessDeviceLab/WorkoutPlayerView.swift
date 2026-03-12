@@ -207,6 +207,7 @@ struct WorkoutPlayerView: View {
                                             Toggle("ERG Mode", isOn: $workoutManager.ergModeEnabled)
                                                 .labelsHidden()
                                                 .scaleEffect(0.7)
+                                                .disabled(!workoutManager.canEnableErgMode)
                                         }
                                         .padding(.trailing, 8)
                                         
@@ -216,6 +217,7 @@ struct WorkoutPlayerView: View {
                                                     .font(.system(size: 8))
                                                 Slider(value: $workoutManager.resistanceLevel, in: 0...100, step: 1)
                                                     .frame(width: 80)
+                                                    .disabled(!workoutManager.canEnableErgMode)
                                                 Text("\(Int(workoutManager.resistanceLevel))%")
                                                     .font(.system(size: 8, weight: .bold, design: .monospaced))
                                             }
@@ -373,6 +375,7 @@ struct WorkoutTargetHeader: View {
                 .font(.system(size: 10, weight: .black))
                 .tint(.green)
                 .frame(height: 24)
+                .disabled(!workoutManager.canEnableErgMode)
                 
                 if !workoutManager.ergModeEnabled {
                     HStack(spacing: 8) {
@@ -380,6 +383,7 @@ struct WorkoutTargetHeader: View {
                             .foregroundColor(.blue)
                         Slider(value: $workoutManager.resistanceLevel, in: 0...100, step: 1)
                             .frame(maxWidth: 150)
+                            .disabled(!workoutManager.canEnableErgMode)
                         Text("\(Int(workoutManager.resistanceLevel))%")
                             .font(.system(size: 10, weight: .bold, design: .monospaced))
                             .frame(width: 30)
