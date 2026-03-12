@@ -71,7 +71,7 @@ public class SessionRecorder: ObservableObject {
     
     private func generateFIT(label: String, laps: [Lap]) -> URL? {
         let encoder = FitEncoder()
-        let data = encoder.encode(trackpoints: trackpoints, laps: laps)
+        guard let data = encoder.encode(trackpoints: trackpoints, laps: laps) else { return nil }
         
         let formatter = ISO8601DateFormatter()
         let safeDate = formatter.string(from: trackpoints.first?.time ?? Date()).replacingOccurrences(of: ":", with: "-")
