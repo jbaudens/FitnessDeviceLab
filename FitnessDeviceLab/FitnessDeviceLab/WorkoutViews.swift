@@ -23,26 +23,51 @@ struct WorkoutGraphView: View {
                 let width = geometry.size.width
                 let height = geometry.size.height
                 let totalDuration = workout.totalDuration
+                let ftp = SettingsManager.shared.userFTP
                 
                 // Max height is based on the highest interval or highest data point
                 let maxTarget = workout.steps.map { $0.targetPowerPercent * scale }.max() ?? 1.0
-                let maxActual = recorder?.trackpoints.compactMap { $0.power }.map { Double($0) / SettingsManager.shared.userFTP }.max() ?? 0.0
+                let maxActual = recorder?.trackpoints.compactMap { $0.power }.map { Double($0) / ftp }.max() ?? 0.0
                 let maxPercent = max(1.0, max(maxTarget, maxActual)) * 1.1
                 
                 ZStack(alignment: .bottomLeading) {
-                    // Background grid lines (50%, 100%)
+                    // Background grid lines and labels
                     if showAxis {
-                        Path { path in
-                            let y50 = height * (1.0 - (0.5 / maxPercent))
-                            let y100 = height * (1.0 - (1.0 / maxPercent))
-                            
-                            path.move(to: CGPoint(x: 0, y: y50))
-                            path.addLine(to: CGPoint(x: width, y: y50))
-                            
-                            path.move(to: CGPoint(x: 0, y: y100))
-                            path.addLine(to: CGPoint(x: width, y: y100))
+                        let increments: [Double] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5]
+                        ForEach(increments, id: \.self) { pct in
+                            if pct < maxPercent {
+                                let y = height * (1.0 - (pct / maxPercent))
+                                
+                                // Grid line
+                                Path { path in
+                                    path.move(to: CGPoint(x: 0, y: y))
+                                    path.addLine(to: CGPoint(x: width, y: y))
+                                }
+                                .stroke(Color.secondary.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [2]))
+                                
+                                // Left label (Watts)
+                                Text("\(Int(pct * ftp))w")
+                                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                                    .position(x: 20, y: y - 6)
+                                
+                                // Right label (Watts)
+                                Text("\(Int(pct * ftp))w")
+                                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                                    .position(x: width - 20, y: y - 6)
+                            }
                         }
-                        .stroke(Color.secondary.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [5]))
+                        
+                        // Time X-axis increments
+                        let timeStep: TimeInterval = totalDuration > 3600 ? 900 : (totalDuration > 1800 ? 600 : 300)
+                        ForEach(Swift.stride(from: timeStep, to: totalDuration, by: timeStep), id: \.self) { t in
+                            let x = (CGFloat(t) / CGFloat(totalDuration)) * width
+                            Text("\(Int(t/60))m")
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                .foregroundColor(.secondary.opacity(0.5))
+                                .position(x: x, y: height - 6)
+                        }
                     }
                     
                     // The target bars (background)
@@ -50,10 +75,20 @@ struct WorkoutGraphView: View {
                         ForEach(workout.steps) { step in
                             let stepWidth = (CGFloat(step.duration) / CGFloat(totalDuration)) * (width - CGFloat(workout.steps.count))
                             let stepHeight = (CGFloat(step.targetPowerPercent * scale) / CGFloat(maxPercent)) * height
+                            let scaledPercent = step.targetPowerPercent * scale
                             
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(color(for: step, scale: scale).opacity(0.3))
-                                .frame(width: max(2, stepWidth), height: max(4, stepHeight))
+                            ZStack(alignment: .top) {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(color(for: step, scale: scale).opacity(0.3))
+                                    .frame(width: max(2, stepWidth), height: max(4, stepHeight))
+                                
+                                if stepWidth > 30 {
+                                    Text("\(Int(round(scaledPercent * 100)))%")
+                                        .font(.system(size: 8, weight: .black, design: .monospaced))
+                                        .foregroundColor(color(for: step, scale: scale).opacity(0.8))
+                                        .padding(.top, 4)
+                                }
+                            }
                         }
                     }
                     
