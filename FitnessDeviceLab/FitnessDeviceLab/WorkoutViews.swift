@@ -23,7 +23,8 @@ struct WorkoutGraphView: View {
                 let totalDuration = workout.totalDuration
                 
                 // Max height is based on the highest interval or highest data point
-                let maxTarget = workout.steps.map { $0.targetPowerPercent }.max() ?? 1.0
+                let scale = workoutManager.workoutDifficultyScale
+                let maxTarget = workout.steps.map { $0.targetPowerPercent * scale }.max() ?? 1.0
                 let maxActual = recorder?.trackpoints.compactMap { $0.power }.map { Double($0) / SettingsManager.shared.userFTP }.max() ?? 0.0
                 let maxPercent = max(1.0, max(maxTarget, maxActual)) * 1.1
                 
@@ -47,10 +48,10 @@ struct WorkoutGraphView: View {
                     HStack(alignment: .bottom, spacing: 1) {
                         ForEach(workout.steps) { step in
                             let stepWidth = (CGFloat(step.duration) / CGFloat(totalDuration)) * (width - CGFloat(workout.steps.count))
-                            let stepHeight = (CGFloat(step.targetPowerPercent) / CGFloat(maxPercent)) * height
+                            let stepHeight = (CGFloat(step.targetPowerPercent * scale) / CGFloat(maxPercent)) * height
                             
                             RoundedRectangle(cornerRadius: 2)
-                                .fill(color(for: step).opacity(0.3))
+                                .fill(color(for: step, scale: scale).opacity(0.3))
                                 .frame(width: max(2, stepWidth), height: max(4, stepHeight))
                         }
                     }
@@ -80,8 +81,8 @@ struct WorkoutGraphView: View {
         }
     }
     
-    private func color(for step: WorkoutStep) -> Color {
-        return WorkoutZone.forIntensity(step.targetPowerPercent).color
+    private func color(for step: WorkoutStep, scale: Double) -> Color {
+        return WorkoutZone.forIntensity(step.targetPowerPercent * scale).color
     }
 }
 

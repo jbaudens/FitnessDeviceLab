@@ -347,10 +347,11 @@ struct WorkoutTargetHeader: View {
                     
                     // Target Power
                     VStack(alignment: .trailing, spacing: 2) {
-                        let targetWatts = Int(round(step.targetPowerPercent * SettingsManager.shared.userFTP))
+                        let scale = workoutManager.workoutDifficultyScale
+                        let targetWatts = Int(round(step.targetPowerPercent * scale * SettingsManager.shared.userFTP))
                         Text("\(targetWatts)")
                             .font(.system(size: 40, weight: .bold, design: .rounded))
-                            .foregroundColor(WorkoutZone.forIntensity(step.targetPowerPercent).color)
+                            .foregroundColor(WorkoutZone.forIntensity(step.targetPowerPercent * scale).color)
                         Text("TARGET WATTS")
                             .font(.system(size: 10, weight: .black))
                             .foregroundColor(.secondary)
@@ -360,6 +361,25 @@ struct WorkoutTargetHeader: View {
             
             // Legend & Controls
             HStack(spacing: 12) {
+                // Difficulty Controls
+                HStack(spacing: 4) {
+                    Button(action: { workoutManager.decreaseDifficulty() }) {
+                        Image(systemName: "minus.circle.fill")
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Text("\(Int(round(workoutManager.workoutDifficultyScale * 100)))%")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .frame(width: 45)
+                    
+                    Button(action: { workoutManager.increaseDifficulty() }) {
+                        Image(systemName: "plus.circle.fill")
+                    }
+                    .buttonStyle(.plain)
+                }
+                .foregroundColor(.blue)
+                .padding(.trailing, 4)
+                
                 Picker("Mode", selection: $workoutManager.currentDataFieldMode) {
                     ForEach(WorkoutSessionManager.DataFieldMode.allCases) { mode in
                         Text(mode.rawValue).tag(mode)
@@ -421,9 +441,11 @@ struct WorkoutTargetHeader: View {
             
             if workoutManager.currentStepIndex < workout.steps.count - 1 {
                 let nextStep = workout.steps[workoutManager.currentStepIndex + 1]
+                let scale = workoutManager.workoutDifficultyScale
+                let nextWatts = Int(round(nextStep.targetPowerPercent * scale * SettingsManager.shared.userFTP))
                 HStack {
                     Spacer()
-                    Text("Next: \(Int(nextStep.targetPowerPercent * 100))% for \(Int(nextStep.duration / 60))m")
+                    Text("Next: \(nextWatts)W (\(Int(nextStep.targetPowerPercent * scale * 100))%) for \(Int(nextStep.duration / 60))m")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
