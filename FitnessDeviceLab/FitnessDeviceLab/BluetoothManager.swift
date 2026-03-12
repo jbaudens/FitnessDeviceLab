@@ -57,6 +57,10 @@ class DiscoveredPeripheral: NSObject, Identifiable, ObservableObject {
     // Latest RR Intervals (for external consumption)
     @Published var latestRRIntervals: [Double] = []
     
+    // FTMS State
+    var controlPointCharacteristic: CBCharacteristic?
+    var isControlRequested = false
+    
     private var cancellables = Set<AnyCancellable>()
     
     init(peripheral: CBPeripheral, rssi: NSNumber) {
@@ -81,6 +85,9 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
     private static let heartRateMeasurementUUID = CBUUID(string: "2A37")
     private static let cyclingPowerMeasurementUUID = CBUUID(string: "2A63")
     private static let indoorBikeDataUUID = CBUUID(string: "2AD2")
+    private static let fitnessMachineControlPointUUID = CBUUID(string: "2AD9")
+    private static let fitnessMachineFeatureUUID = CBUUID(string: "2ACC")
+    private static let fitnessMachineStatusUUID = CBUUID(string: "2ADA")
     
     private static let manufacturerNameUUID = CBUUID(string: "2A29")
     private static let modelNumberUUID = CBUUID(string: "2A24")
@@ -111,7 +118,12 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
             case Self.cyclingPowerServiceUUID:
                 peripheral.discoverCharacteristics([Self.cyclingPowerMeasurementUUID], for: service)
             case Self.fitnessMachineServiceUUID:
-                peripheral.discoverCharacteristics([Self.indoorBikeDataUUID], for: service)
+                peripheral.discoverCharacteristics([
+                    Self.indoorBikeDataUUID,
+                    Self.fitnessMachineControlPointUUID,
+                    Self.fitnessMachineFeatureUUID,
+                    Self.fitnessMachineStatusUUID
+                ], for: service)
             case Self.deviceInfoServiceUUID:
                 peripheral.discoverCharacteristics([Self.manufacturerNameUUID, Self.modelNumberUUID, Self.firmwareRevisionUUID], for: service)
             case Self.batteryServiceUUID:
@@ -125,6 +137,11 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         guard let characteristics = service.characteristics else { return }
         for characteristic in characteristics {
+            if characteristic.uuid == Self.fitnessMachineControlPointUUID {
+                self.controlPointCharacteristic = characteristic
+                peripheral.setNotifyValue(true, for: characteristic)
+            }
+            
             if characteristic.properties.contains(.read) {
                 peripheral.readValue(for: characteristic)
             }
@@ -156,6 +173,8 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
                 let (power, cadence) = self.parseIndoorBikeData(data: data)
                 if let power = power { self.cyclingPower = power }
                 if let cadence = cadence { self.cadence = cadence }
+            case Self.fitnessMachineControlPointUUID:
+                self.handleControlPointResponse(data: data)
             case Self.manufacturerNameUUID:
                 self.manufacturerName = String(data: data, encoding: .utf8)
             case Self.modelNumberUUID:
@@ -168,6 +187,60 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
                 break
             }
         }
+    }
+    
+    private func handleControlPointResponse(data: Data) {
+        guard data.count >= 3 else { return }
+        let responseCode = data[0]
+        let opCode = data[1]
+        let result = data[2]
+        
+        if responseCode == 0x80 { // Response Code
+            if opCode == 0x00 { // Request Control
+                if result == 0x01 { // Success
+                    self.isControlRequested = true
+                    print("Control acquired for \(name)")
+                } else {
+                    print("Failed to acquire control for \(name): \(result)")
+                }
+            }
+        }
+    }
+    
+    public func setTargetPower(_ watts: Int) {
+        guard let cp = controlPointCharacteristic else { return }
+        
+        if !isControlRequested {
+            let requestControlData = Data([0x00])
+            peripheral.writeValue(requestControlData, for: cp, type: .withResponse)
+            // We'll set the power in the response handler or just try again next tick
+            return
+        }
+        
+        var data = Data([0x05]) // Set Target Power OpCode
+        let power = UInt16(max(0, min(watts, 4000)))
+        data.append(UInt8(power & 0xFF))
+        data.append(UInt8((power >> 8) & 0xFF))
+        
+        peripheral.writeValue(data, for: cp, type: .withResponse)
+    }
+    
+    public func setResistanceLevel(_ level: Double) {
+        guard let cp = controlPointCharacteristic else { return }
+        
+        if !isControlRequested {
+            let requestControlData = Data([0x00])
+            peripheral.writeValue(requestControlData, for: cp, type: .withResponse)
+            return
+        }
+        
+        var data = Data([0x04]) // Set Resistance Level OpCode
+        // Level is usually 0-255 or 0-100 depending on device, FTMS uses 0.1 unit resolution UInt8 or UInt16? 
+        // Spec says UInt8 for OpCode 0x04.
+        let val = UInt8(max(0, min(level, 255)))
+        data.append(val)
+        
+        peripheral.writeValue(data, for: cp, type: .withResponse)
     }
     
     private func parseHeartRate(data: Data) -> (Int?, [Double]) {
@@ -412,6 +485,8 @@ extension BluetoothManager: CBCentralManagerDelegate {
                 discovered.heartRate = nil
                 discovered.cyclingPower = nil
                 discovered.cadence = nil
+                discovered.isControlRequested = false
+                discovered.controlPointCharacteristic = nil
                 
                 if wasConnected {
                     // Play disconnect sound

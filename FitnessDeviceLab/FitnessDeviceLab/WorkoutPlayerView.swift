@@ -200,6 +200,30 @@ struct WorkoutPlayerView: View {
                                             .fontWeight(.black)
                                             .foregroundColor(.blue)
                                         Spacer()
+                                        
+                                        HStack(spacing: 4) {
+                                            Text("ERG")
+                                                .font(.system(size: 8, weight: .black))
+                                            Toggle("ERG Mode", isOn: $workoutManager.ergModeEnabled)
+                                                .labelsHidden()
+                                                .scaleEffect(0.7)
+                                                .disabled(!workoutManager.canEnableErgMode)
+                                        }
+                                        .padding(.trailing, 8)
+                                        
+                                        if !workoutManager.ergModeEnabled {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "plusminus")
+                                                    .font(.system(size: 8))
+                                                Slider(value: $workoutManager.resistanceLevel, in: 0...100, step: 1)
+                                                    .frame(width: 80)
+                                                    .disabled(!workoutManager.canEnableErgMode)
+                                                Text("\(Int(workoutManager.resistanceLevel))%")
+                                                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                            }
+                                            .padding(.trailing, 8)
+                                        }
+                                        
                                         Button(action: { workoutManager.selectedWorkout = nil }) {
                                             Image(systemName: "xmark.circle.fill")
                                                 .foregroundColor(.secondary)
@@ -334,7 +358,7 @@ struct WorkoutTargetHeader: View {
                 }
             }
             
-            // Legend
+            // Legend & Controls
             HStack(spacing: 12) {
                 Picker("Mode", selection: $workoutManager.currentDataFieldMode) {
                     ForEach(WorkoutSessionManager.DataFieldMode.allCases) { mode in
@@ -342,7 +366,29 @@ struct WorkoutTargetHeader: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 150)
+                .frame(width: 140)
+                
+                Toggle(isOn: $workoutManager.ergModeEnabled) {
+                    Text("ERG")
+                }
+                .toggleStyle(.button)
+                .font(.system(size: 10, weight: .black))
+                .tint(.green)
+                .frame(height: 24)
+                .disabled(!workoutManager.canEnableErgMode)
+                
+                if !workoutManager.ergModeEnabled {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plusminus.circle.fill")
+                            .foregroundColor(.blue)
+                        Slider(value: $workoutManager.resistanceLevel, in: 0...100, step: 1)
+                            .frame(maxWidth: 150)
+                            .disabled(!workoutManager.canEnableErgMode)
+                        Text("\(Int(workoutManager.resistanceLevel))%")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .frame(width: 30)
+                    }
+                }
                 
                 Spacer()
                 

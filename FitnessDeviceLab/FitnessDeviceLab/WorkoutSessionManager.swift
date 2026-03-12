@@ -23,14 +23,33 @@ class WorkoutSessionManager: ObservableObject {
     
     @Published var activeProfile: ActivityProfile = .defaultProfile
     @Published var selectedWorkout: StructuredWorkout?
+    @Published var ergModeEnabled = false
+    @Published var resistanceLevel: Double = 40.0
     
     @Published var currentStepIndex: Int = 0
     @Published var timeInStep: TimeInterval = 0
     
     @Published var laps: [Lap] = []
     
+    private var lastSentTargetPower: Int?
+    private var lastSentResistanceLevel: Double?
+    
     public var recorderA = SessionRecorder()
     public var recorderB = SessionRecorder()
+    
+    var controlDevice: DiscoveredPeripheral? {
+        if let devA = recorderA.powerDevice, devA.capabilities.contains(.fitnessMachine) {
+            return devA
+        }
+        if let devB = recorderB.powerDevice, devB.capabilities.contains(.fitnessMachine) {
+            return devB
+        }
+        return nil
+    }
+    
+    var canEnableErgMode: Bool {
+        controlDevice != nil
+    }
     
     @Published public var engineA: DataFieldEngine
     @Published public var engineB: DataFieldEngine
@@ -134,6 +153,39 @@ class WorkoutSessionManager: ObservableObject {
                 // Workout finished or beyond defined steps
                 currentStepIndex = workout.steps.count - 1
                 timeInStep = workout.steps.last!.duration
+            }
+            
+            // ERG / Resistance Control (Only to one control device)
+            if let trainer = controlDevice {
+                if ergModeEnabled, let step = currentWorkoutStep {
+                    let ftp = SettingsManager.shared.userFTP
+                    let targetWatts = Int(round(step.targetPowerPercent * ftp))
+                    
+                    if targetWatts != lastSentTargetPower {
+                        trainer.setTargetPower(targetWatts)
+                        lastSentTargetPower = targetWatts
+                    }
+                    lastSentResistanceLevel = nil
+                } else {
+                    // Manual Resistance Mode
+                    if lastSentTargetPower != nil || lastSentResistanceLevel != resistanceLevel {
+                        trainer.setResistanceLevel(resistanceLevel)
+                        lastSentResistanceLevel = resistanceLevel
+                        lastSentTargetPower = nil
+                    }
+                }
+            } else {
+                // No trainer connected, reset trackers
+                lastSentTargetPower = nil
+                lastSentResistanceLevel = nil
+            }
+        } else {
+            // Not a structured workout
+            if let trainer = controlDevice {
+                if lastSentResistanceLevel != resistanceLevel {
+                    trainer.setResistanceLevel(resistanceLevel)
+                    lastSentResistanceLevel = resistanceLevel
+                }
             }
         }
         
