@@ -59,7 +59,8 @@ struct WorkoutPlayerView: View {
                                             WorkoutGraphView(
                                                 workout: workout,
                                                 elapsedTime: workoutManager.workoutElapsedTime,
-                                                recorder: workoutManager.recorderA
+                                                recorder: workoutManager.recorderA,
+                                                scale: workoutManager.workoutDifficultyScale
                                             )
                                             .frame(height: 140)
                                             .padding(8)
@@ -94,7 +95,8 @@ struct WorkoutPlayerView: View {
                                             WorkoutGraphView(
                                                 workout: workout,
                                                 elapsedTime: workoutManager.workoutElapsedTime,
-                                                recorder: workoutManager.recorderB
+                                                recorder: workoutManager.recorderB,
+                                                scale: workoutManager.workoutDifficultyScale
                                             )
                                             .frame(height: 140)
                                             .padding(8)
@@ -233,7 +235,7 @@ struct WorkoutPlayerView: View {
                                     Text(workout.name)
                                         .font(.headline)
                                     
-                                    WorkoutGraphView(workout: workout, showAxis: false)
+                                    WorkoutGraphView(workout: workout, showAxis: false, scale: workoutManager.workoutDifficultyScale)
                                         .frame(height: 60)
                                         .padding(.vertical, 4)
                                     
