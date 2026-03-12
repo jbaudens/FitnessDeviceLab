@@ -59,10 +59,26 @@ public class SessionRecorder: ObservableObject {
             }
     }
     
-    func stop(label: String) -> URL? {
+    func stop(label: String, laps: [Lap] = []) -> [URL] {
         rrCancellable?.cancel()
         rrCancellable = nil
-        return generateTCX(label: label)
+        
+        var files: [URL] = []
+        if let tcx = generateTCX(label: label) { files.append(tcx) }
+        if let fit = generateFIT(label: label, laps: laps) { files.append(fit) }
+        return files
+    }
+    
+    private func generateFIT(label: String, laps: [Lap]) -> URL? {
+        let encoder = FitEncoder()
+        let data = encoder.encode(trackpoints: trackpoints, laps: laps)
+        
+        let formatter = ISO8601DateFormatter()
+        let safeDate = formatter.string(from: trackpoints.first?.time ?? Date()).replacingOccurrences(of: ":", with: "-")
+        let filename = "Workout_\(label)_\(safeDate).fit"
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        try? data.write(to: tempURL)
+        return tempURL
     }
     
     func recordPoint(time: Date, altitude: Double?) {

@@ -290,7 +290,7 @@ struct WorkoutPlayerView: View {
                                 
                                 if !workoutManager.exportedFiles.isEmpty {
                                     ShareLink(items: workoutManager.exportedFiles) {
-                                        Label("Export Last Workout (.TCX)", systemImage: "square.and.arrow.up")
+                                        Label("Export Last Workout (.TCX & .FIT)", systemImage: "square.and.arrow.up")
                                             .font(.subheadline)
                                             .frame(maxWidth: .infinity)
                                             .padding()
