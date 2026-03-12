@@ -25,6 +25,7 @@ class WorkoutSessionManager: ObservableObject {
     @Published var selectedWorkout: StructuredWorkout?
     @Published var ergModeEnabled = false
     @Published var resistanceLevel: Double = 40.0
+    @Published var workoutDifficultyScale: Double = 1.0
     
     @Published var currentStepIndex: Int = 0
     @Published var timeInStep: TimeInterval = 0
@@ -36,6 +37,14 @@ class WorkoutSessionManager: ObservableObject {
     
     public var recorderA = SessionRecorder()
     public var recorderB = SessionRecorder()
+    
+    func increaseDifficulty() {
+        workoutDifficultyScale = min(2.0, workoutDifficultyScale + 0.01)
+    }
+    
+    func decreaseDifficulty() {
+        workoutDifficultyScale = max(0.5, workoutDifficultyScale - 0.01)
+    }
     
     var controlDevice: DiscoveredPeripheral? {
         if let devA = recorderA.powerDevice, devA.capabilities.contains(.fitnessMachine) {
@@ -159,7 +168,7 @@ class WorkoutSessionManager: ObservableObject {
             if let trainer = controlDevice {
                 if ergModeEnabled, let step = currentWorkoutStep {
                     let ftp = SettingsManager.shared.userFTP
-                    let targetWatts = Int(round(step.targetPowerPercent * ftp))
+                    let targetWatts = Int(round(step.targetPowerPercent * workoutDifficultyScale * ftp))
                     
                     if targetWatts != lastSentTargetPower {
                         trainer.setTargetPower(targetWatts)
