@@ -20,7 +20,6 @@ class WorkoutSessionManager: ObservableObject {
     @Published var isRecording = false
     @Published var isLoaded = false
     @Published var isPaused = false
-    @Published var isAutoPaused = false
     
     @Published var sessionStartTime: Date?
     @Published var workoutElapsedTime: TimeInterval = 0
@@ -98,7 +97,6 @@ class WorkoutSessionManager: ObservableObject {
         laps = []
         isPaused = false
         isRecording = false
-        isAutoPaused = false
         exportedFiles = []
         
         recorderA.hrDevice = devices.first { $0.id == hrDeviceAId }
@@ -133,7 +131,6 @@ class WorkoutSessionManager: ObservableObject {
         sessionStartTime = Date()
         isRecording = true
         isPaused = false
-        isAutoPaused = false
         
         recorderA.isRecording = true
         recorderB.isRecording = true
@@ -142,7 +139,6 @@ class WorkoutSessionManager: ObservableObject {
     func pauseWorkout() {
         guard isRecording else { return }
         isPaused = true
-        isAutoPaused = false
         recorderA.isRecording = false
         recorderB.isRecording = false
     }
@@ -150,7 +146,6 @@ class WorkoutSessionManager: ObservableObject {
     func resumeWorkout() {
         guard isRecording else { return }
         isPaused = false
-        isAutoPaused = false
         recorderA.isRecording = true
         recorderB.isRecording = true
     }
@@ -185,24 +180,6 @@ class WorkoutSessionManager: ObservableObject {
         engineB.recalculate()
         
         guard isRecording else { return }
-        
-        // Auto-pause logic
-        let currentPower = recorderA.powerDevice?.cyclingPower ?? 0
-        let hasPowerDevice = powerDeviceAId != nil || powerDeviceBId != nil
-        
-        if hasPowerDevice {
-            if currentPower == 0 && !isPaused {
-                isPaused = true
-                isAutoPaused = true
-                recorderA.isRecording = false
-                recorderB.isRecording = false
-            } else if isAutoPaused && currentPower > 0 {
-                isPaused = false
-                isAutoPaused = false
-                recorderA.isRecording = true
-                recorderB.isRecording = true
-            }
-        }
         
         guard !isPaused else { return }
         
@@ -273,7 +250,6 @@ class WorkoutSessionManager: ObservableObject {
         isRecording = false
         isLoaded = false
         isPaused = false
-        isAutoPaused = false
         
         recorderA.isRecording = false
         recorderB.isRecording = false
