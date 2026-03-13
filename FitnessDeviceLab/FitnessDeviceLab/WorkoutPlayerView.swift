@@ -29,419 +29,469 @@ struct WorkoutPlayerView: View {
     
     var body: some View {
         ZStack {
-            Group {
-                if workoutManager.isLoaded || workoutManager.isRecording {
-                    // Recording / Active View
-                    VStack(spacing: 0) {
-                        // Active Workout Header (Summary targets)
-                        if let workout = workoutManager.selectedWorkout {
-                            WorkoutTargetHeader(workout: workout)
-                                .padding()
-                                .background(Color.secondary.opacity(0.05))
-                        }
-                        
-                        TabView {
-                            // Data Pages
-                            ForEach(workoutManager.activeProfile.pages) { page in
-                                ScrollView {
-                                    VStack(spacing: 24) {
-                                        // Primary Sensor Set
-                                        VStack(alignment: .leading, spacing: 8) {
-                                            HStack {
-                                                Label("SET A", systemImage: "1.circle.fill")
-                                                Spacer()
-                                                Text(deviceNames(pwr: powerA, hr: hrA))
-                                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                            }
-                                            .font(.caption)
-                                            .fontWeight(.black)
-                                            .foregroundColor(.blue)
-                                            .padding(.horizontal)
-                                            
-                                            if let workout = workoutManager.selectedWorkout {
-                                                WorkoutGraphView(
-                                                    workout: workout,
-                                                    elapsedTime: workoutManager.workoutElapsedTime,
-                                                    recorder: workoutManager.recorderA,
-                                                    scale: workoutManager.workoutDifficultyScale
-                                                )
-                                                .frame(height: 140)
-                                                .padding(8)
-                                                .background(Color.secondary.opacity(0.05))
-                                                .cornerRadius(12)
-                                                .padding(.horizontal)
-                                            }
-                                            
-                                            DataFieldGrid(
-                                                engine: workoutManager.engineA,
-                                                fields: page.fields
-                                            )
-                                            .padding(.horizontal)
-                                        }
-                                        
-                                        Divider().padding(.horizontal)
-                                        
-                                        // Secondary Sensor Set
-                                        VStack(alignment: .leading, spacing: 8) {
-                                            HStack {
-                                                Label("SET B", systemImage: "2.circle.fill")
-                                                Spacer()
-                                                Text(deviceNames(pwr: powerB, hr: hrB))
-                                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                            }
-                                            .font(.caption)
-                                            .fontWeight(.black)
-                                            .foregroundColor(.purple)
-                                            .padding(.horizontal)
-                                            
-                                            if let workout = workoutManager.selectedWorkout {
-                                                WorkoutGraphView(
-                                                    workout: workout,
-                                                    elapsedTime: workoutManager.workoutElapsedTime,
-                                                    recorder: workoutManager.recorderB,
-                                                    scale: workoutManager.workoutDifficultyScale
-                                                )
-                                                .frame(height: 140)
-                                                .padding(8)
-                                                .background(Color.secondary.opacity(0.05))
-                                                .cornerRadius(12)
-                                                .padding(.horizontal)
-                                            }
-                                            
-                                            DataFieldGrid(
-                                                engine: workoutManager.engineB,
-                                                fields: page.fields
-                                            )
-                                            .padding(.horizontal)
-                                        }
-                                    }
-                                    .padding(.vertical)
-                                }
-                            }
-                            
-                            // Laps View
-                            LapsHistoryView()
-                        }
-                        #if os(iOS)
-                        .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
-                        .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .always))
-                        #endif
-                        
-                        HStack(spacing: 16) {
-                            Button(action: {
-                                workoutManager.manualLap()
-                            }) {
-                                Label("Lap", systemImage: "circle.circle")
-                                    .font(.headline)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(.blue)
-                            .disabled(!workoutManager.isRecording || workoutManager.isPaused)
-                            
-                            Button(action: {
-                                if workoutManager.isPaused {
-                                    workoutManager.resumeWorkout()
-                                } else {
-                                    workoutManager.pauseWorkout()
-                                }
-                            }) {
-                                Label(workoutManager.isPaused ? "Resume" : "Pause", systemImage: workoutManager.isPaused ? "play.fill" : "pause.fill")
-                                    .font(.headline)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(.orange)
-                            .disabled(!workoutManager.isRecording)
-                            
-                            Button(action: {
-                                showingStopConfirmation = true
-                            }) {
-                                Label("Stop", systemImage: "stop.fill")
-                                    .font(.headline)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.red)
-                            .alert("Stop Workout?", isPresented: $showingStopConfirmation) {
-                                Button("Cancel", role: .cancel) { }
-                                Button("Stop & Save", role: .destructive) {
-                                    workoutManager.stopWorkout()
-                                }
-                            } message: {
-                                Text("This will end the current session and save the data.")
-                            }
-                        }
-                        .padding()
-                    }
-                    .navigationTitle(workoutManager.activeProfile.name)
-                    #if os(iOS)
-                    .navigationBarTitleDisplayMode(.inline)
-                    #endif
-                } else {
-                    // Setup View
-                    ScrollView {
-                        VStack(spacing: 24) {
-                            if hrDevices.isEmpty && powerDevices.isEmpty {
-                                VStack(spacing: 20) {
-                                    Image(systemName: "sensor.tag.radiowaves.forward")
-                                        .font(.system(size: 60))
-                                        .foregroundColor(.gray)
-                                    Text("No Connected Sensors")
-                                        .font(.headline)
-                                    Text("Connect to HR monitors or power sources from the Devices tab.")
-                                        .multilineTextAlignment(.center)
-                                        .foregroundColor(.secondary)
-                                        .padding()
-                                }
-                            } else {
-                                // Profile Header
-                                HStack {
-                                    VStack(alignment: .leading) {
-                                        Text("Workout Setup")
-                                            .font(.title2)
-                                            .fontWeight(.bold)
-                                        Text(workoutManager.activeProfile.name)
-                                            .font(.subheadline)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    Spacer()
-                                    Button("Clear All") {
-                                        workoutManager.hrDeviceAId = nil
-                                        workoutManager.powerDeviceAId = nil
-                                        workoutManager.hrDeviceBId = nil
-                                        workoutManager.powerDeviceBId = nil
-                                        workoutManager.selectedWorkout = nil
-                                    }
-                                    .font(.caption)
-                                    .buttonStyle(.bordered)
-                                }
-                                .padding(.bottom, 8)
-                                
-                                // Selected Workout Card
-                                if let workout = workoutManager.selectedWorkout {
-                                    VStack(alignment: .leading, spacing: 12) {
-                                        HStack {
-                                            Text("SELECTED WORKOUT")
-                                                .font(.caption)
-                                                .fontWeight(.black)
-                                                .foregroundColor(.blue)
-                                            Spacer()
-                                            
-                                            // Mode Selection Dropdown
-                                            Menu {
-                                                Button(action: { workoutManager.ergModeEnabled = true }) {
-                                                    HStack {
-                                                        Text("ERG Mode")
-                                                        if workoutManager.ergModeEnabled { Image(systemName: "checkmark") }
-                                                    }
-                                                }
-                                                .disabled(!workoutManager.canEnableErgMode)
-                                                
-                                                Button(action: { workoutManager.ergModeEnabled = false }) {
-                                                    HStack {
-                                                        Text("Resistance Mode")
-                                                        if !workoutManager.ergModeEnabled { Image(systemName: "checkmark") }
-                                                    }
-                                                }
-                                                .disabled(!workoutManager.canEnableErgMode)
-                                            } label: {
-                                                Text(workoutManager.ergModeEnabled ? "ERG" : "RES")
-                                                    .font(.system(size: 10, weight: .black))
-                                                    .padding(.horizontal, 6)
-                                                    .padding(.vertical, 4)
-                                                    .background(workoutManager.ergModeEnabled ? Color.green.opacity(0.8) : Color.orange.opacity(0.8))
-                                                    .foregroundColor(.white)
-                                                    .cornerRadius(4)
-                                            }
-                                            .padding(.trailing, 8)
-                                            
-                                            if !workoutManager.ergModeEnabled {
-                                                HStack(spacing: 4) {
-                                                    Image(systemName: "plusminus")
-                                                        .font(.system(size: 8))
-                                                    Slider(value: $workoutManager.resistanceLevel, in: 0...100, step: 1)
-                                                        .frame(width: 80)
-                                                        .disabled(!workoutManager.canEnableErgMode)
-                                                    Text("\(Int(workoutManager.resistanceLevel))%")
-                                                        .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                                }
-                                                .padding(.trailing, 8)
-                                            }
-                                            
-                                            Button(action: { workoutManager.selectedWorkout = nil }) {
-                                                Image(systemName: "xmark.circle.fill")
-                                                    .foregroundColor(.secondary)
-                                            }
-                                        }
-                                        
-                                        Text(workout.name)
-                                            .font(.headline)
-                                        
-                                        WorkoutGraphView(workout: workout, showAxis: false, scale: workoutManager.workoutDifficultyScale)
-                                            .frame(height: 60)
-                                            .padding(.vertical, 4)
-                                        
-                                        Text(workout.description)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                            .lineLimit(2)
-                                    }
-                                    .padding()
-                                    .background(Color.blue.opacity(0.05))
-                                    .cornerRadius(16)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 16)
-                                            .stroke(Color.blue.opacity(0.2), lineWidth: 1)
-                                    )
-
-                                    // Live Data Preview (Always visible if loaded)
-                                    if workoutManager.isLoaded && !workoutManager.isRecording {
-                                        VStack(alignment: .leading, spacing: 12) {
-                                            Text("LIVE DATA PREVIEW")
-                                                .font(.caption)
-                                                .fontWeight(.black)
-                                                .foregroundColor(.orange)
-
-                                            HStack(spacing: 20) {
-                                                VStack(alignment: .leading) {
-                                                    Text("HEART RATE")
-                                                        .font(.system(size: 8, weight: .black))
-                                                        .foregroundColor(.secondary)
-                                                    HStack(alignment: .lastTextBaseline, spacing: 2) {
-                                                        Text("\(workoutManager.recorderA.hrDevice?.heartRate ?? 0)")
-                                                            .font(.system(size: 24, weight: .bold, design: .rounded))
-                                                        Text("BPM")
-                                                            .font(.system(size: 10, weight: .black))
-                                                            .foregroundColor(.secondary)
-                                                    }
-                                                }
-
-                                                VStack(alignment: .leading) {
-                                                    Text("POWER")
-                                                        .font(.system(size: 8, weight: .black))
-                                                        .foregroundColor(.secondary)
-                                                    HStack(alignment: .lastTextBaseline, spacing: 2) {
-                                                        Text("\(workoutManager.recorderA.powerDevice?.cyclingPower ?? 0)")
-                                                            .font(.system(size: 24, weight: .bold, design: .rounded))
-                                                        Text("W")
-                                                            .font(.system(size: 10, weight: .black))
-                                                            .foregroundColor(.secondary)
-                                                    }
-                                                }
-
-                                                Spacer()
-
-                                                if workoutManager.recorderA.powerDevice?.cyclingPower ?? 0 > 0 {
-                                                    Label("Pedaling Detected", systemImage: "bolt.fill")
-                                                        .font(.caption2)
-                                                        .foregroundColor(.green)
-                                                }
-                                            }
-                                        }
-                                        .padding()
-                                        .background(Color.orange.opacity(0.05))
-                                        .cornerRadius(16)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 16)
-                                                .stroke(Color.orange.opacity(0.2), lineWidth: 1)
-                                        )
-                                    }
-                                    }
-                                // Sensor Selection Cards
-                                SensorSetCard(
-                                    title: "PRIMARY RECORDER (A)",
-                                    subtitle: "Used for primary display & stats",
-                                    color: .blue,
-                                    hrId: $workoutManager.hrDeviceAId,
-                                    powerId: $workoutManager.powerDeviceAId,
-                                    hrDevices: hrDevices,
-                                    powerDevices: powerDevices
-                                )
-                                
-                                SensorSetCard(
-                                    title: "SECONDARY RECORDER (B)",
-                                    subtitle: "Background comparison recording",
-                                    color: .purple,
-                                    hrId: $workoutManager.hrDeviceBId,
-                                    powerId: $workoutManager.powerDeviceBId,
-                                    hrDevices: hrDevices,
-                                    powerDevices: powerDevices
-                                )
-                                
-                                // Recording Controls
-                                VStack(spacing: 12) {
-                                    if workoutManager.isLoaded && !workoutManager.isRecording {
-                                        Button(action: {
-                                            workoutManager.startRecording()
-                                        }) {
-                                            Label("Start Recording", systemImage: "play.fill")
-                                                .font(.headline)
-                                                .frame(maxWidth: .infinity)
-                                                .padding()
-                                        }
-                                        .buttonStyle(.borderedProminent)
-                                        .tint(.green)
-                                    }
-                                    
-                                    Button(action: {
-                                        workoutManager.loadWorkout(devices: bluetoothManager.peripherals)
-                                    }) {
-                                        Label(workoutManager.isLoaded ? "Reload Workout" : "Load Workout", systemImage: "arrow.down.doc.fill")
-                                            .font(.headline)
-                                            .frame(maxWidth: .infinity)
-                                            .padding()
-                                    }
-                                    .buttonStyle(workoutManager.isLoaded ? .bordered : .borderedProminent)
-                                    .tint(.blue)
-                                    .disabled(workoutManager.hrDeviceAId == nil && workoutManager.powerDeviceAId == nil && workoutManager.hrDeviceBId == nil && workoutManager.powerDeviceBId == nil)
-                                    
-                                    if !workoutManager.exportedFiles.isEmpty {
-                                        SessionSummaryCard(files: workoutManager.exportedFiles, engine: workoutManager.engineA)
-                                    }
-                                }
-                                .padding(.top)
-                            }
-                        }
-                        .padding()
-                    }
-                    .navigationTitle("New Session")
-                }
+            if workoutManager.isLoaded || workoutManager.isRecording {
+                activeView
+            } else {
+                setupView
             }
-            .blur(radius: workoutManager.countdownToStart != nil ? 10 : 0)
             
             if let count = workoutManager.countdownToStart {
-                VStack(spacing: 20) {
-                    Text("Starting in...")
-                        .font(.title)
-                        .fontWeight(.black)
-                    Text("\(count)")
-                        .font(.system(size: 120, weight: .black, design: .rounded))
-                        .transition(.scale)
-                        .id("countdown_\(count)")
-                    Text("Keep pedaling!")
-                        .font(.headline)
-                        .foregroundColor(.blue)
-                    
-                    Button(action: {
-                        workoutManager.startRecording()
-                    }) {
-                        Text("Start Now")
-                            .font(.headline)
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 12)
-                            .background(Color.white.opacity(0.2))
-                            .cornerRadius(10)
-                    }
-                    .padding(.top, 20)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.black.opacity(0.4).ignoresSafeArea())
+                countdownOverlay(count: count)
             }
         }
+        .blur(radius: workoutManager.countdownToStart != nil ? 10 : 0)
+    }
+    
+    private var activeView: some View {
+        VStack(spacing: 0) {
+            // Active Workout Header (Summary targets)
+            if let workout = workoutManager.selectedWorkout {
+                WorkoutTargetHeader(workout: workout)
+                    .padding()
+                    .background(Color.secondary.opacity(0.05))
+            }
+            
+            TabView {
+                // Data Pages
+                ForEach(workoutManager.activeProfile.pages) { page in
+                    ScrollView {
+                        VStack(spacing: 24) {
+                            sensorSetSection(title: "SET A", color: .blue, pwr: powerA, hr: hrA, recorder: workoutManager.recorderA, fields: page.fields)
+                            Divider().padding(.horizontal)
+                            sensorSetSection(title: "SET B", color: .purple, pwr: powerB, hr: hrB, recorder: workoutManager.recorderB, fields: page.fields)
+                        }
+                        .padding(.vertical)
+                    }
+                }
+                
+                // Laps View
+                LapsHistoryView()
+            }
+            #if os(iOS)
+            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
+            .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .always))
+            #endif
+            
+            activeControls
+        }
+        .navigationTitle(workoutManager.activeProfile.name)
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+    }
+    
+    private func sensorSetSection(title: String, color: Color, pwr: DiscoveredPeripheral?, hr: DiscoveredPeripheral?, recorder: SessionRecorder, fields: [DataFieldType]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label(title, systemImage: title == "SET A" ? "1.circle.fill" : "2.circle.fill")
+                Spacer()
+                Text(deviceNames(pwr: pwr, hr: hr))
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+            }
+            .font(.caption)
+            .fontWeight(.black)
+            .foregroundColor(color)
+            .padding(.horizontal)
+            
+            if let workout = workoutManager.selectedWorkout {
+                WorkoutGraphView(
+                    workout: workout,
+                    elapsedTime: workoutManager.workoutElapsedTime,
+                    recorder: recorder,
+                    scale: workoutManager.workoutDifficultyScale
+                )
+                .frame(height: 140)
+                .padding(8)
+                .background(Color.secondary.opacity(0.05))
+                .cornerRadius(12)
+                .padding(.horizontal)
+            }
+            
+            DataFieldGrid(
+                engine: title == "SET A" ? workoutManager.engineA : workoutManager.engineB,
+                fields: fields
+            )
+            .padding(.horizontal)
+        }
+    }
+    
+    private var activeControls: some View {
+        HStack(spacing: 16) {
+            Button(action: {
+                workoutManager.manualLap()
+            }) {
+                Label("Lap", systemImage: "circle.circle")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            }
+            .buttonStyle(.bordered)
+            .tint(.blue)
+            .disabled(!workoutManager.isRecording || workoutManager.isPaused)
+            
+            Button(action: {
+                if workoutManager.isPaused {
+                    workoutManager.resumeWorkout()
+                } else {
+                    workoutManager.pauseWorkout()
+                }
+            }) {
+                Label(workoutManager.isPaused ? "Resume" : "Pause", systemImage: workoutManager.isPaused ? "play.fill" : "pause.fill")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            }
+            .buttonStyle(.bordered)
+            .tint(.orange)
+            .disabled(!workoutManager.isRecording)
+            
+            Button(action: {
+                showingStopConfirmation = true
+            }) {
+                Label("Stop", systemImage: "stop.fill")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.red)
+            .alert("Stop Workout?", isPresented: $showingStopConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Stop & Save", role: .destructive) {
+                    workoutManager.stopWorkout()
+                }
+            } message: {
+                Text("This will end the current session and save the data.")
+            }
+        }
+        .padding()
+    }
+    
+    private var setupView: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                if hrDevices.isEmpty && powerDevices.isEmpty {
+                    emptySensorsView
+                } else {
+                    setupContent
+                }
+            }
+            .padding()
+        }
+        .navigationTitle("New Session")
+    }
+    
+    private var emptySensorsView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "sensor.tag.radiowaves.forward")
+                .font(.system(size: 60))
+                .foregroundColor(.gray)
+            Text("No Connected Sensors")
+                .font(.headline)
+            Text("Connect to HR monitors or power sources from the Devices tab.")
+                .multilineTextAlignment(.center)
+                .foregroundColor(.secondary)
+                .padding()
+        }
+    }
+    
+    private var setupContent: some View {
+        VStack(spacing: 24) {
+            setupHeader
+            
+            if let workout = workoutManager.selectedWorkout {
+                selectedWorkoutCard(workout: workout)
+            }
+
+            if workoutManager.isLoaded && !workoutManager.isRecording {
+                liveDataPreview
+            }
+
+            sensorSelectionSection
+            
+            setupControls
+        }
+    }
+    
+    private var setupHeader: some View {
+        HStack {
+            VStack(alignment: .leading) {
+                Text("Workout Setup")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                Text(workoutManager.activeProfile.name)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            Button("Clear All") {
+                workoutManager.hrDeviceAId = nil
+                workoutManager.powerDeviceAId = nil
+                workoutManager.hrDeviceBId = nil
+                workoutManager.powerDeviceBId = nil
+                workoutManager.selectedWorkout = nil
+            }
+            .font(.caption)
+            .buttonStyle(.bordered)
+        }
+        .padding(.bottom, 8)
+    }
+    
+    private var sensorSelectionSection: some View {
+        VStack(spacing: 24) {
+            SensorSetCard(
+                title: "PRIMARY RECORDER (A)",
+                subtitle: "Used for primary display & stats",
+                color: .blue,
+                hrId: $workoutManager.hrDeviceAId,
+                powerId: $workoutManager.powerDeviceAId,
+                hrDevices: hrDevices,
+                powerDevices: powerDevices
+            )
+            
+            SensorSetCard(
+                title: "SECONDARY RECORDER (B)",
+                subtitle: "Background comparison recording",
+                color: .purple,
+                hrId: $workoutManager.hrDeviceBId,
+                powerId: $workoutManager.powerDeviceBId,
+                hrDevices: hrDevices,
+                powerDevices: powerDevices
+            )
+        }
+    }
+    
+    private func selectedWorkoutCard(workout: StructuredWorkout) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("SELECTED WORKOUT")
+                    .font(.caption)
+                    .fontWeight(.black)
+                    .foregroundColor(.blue)
+                Spacer()
+                
+                // Mode Selection Dropdown
+                Menu {
+                    Button(action: { workoutManager.ergModeEnabled = true }) {
+                        HStack {
+                            Text("ERG Mode")
+                            if workoutManager.ergModeEnabled { Image(systemName: "checkmark") }
+                        }
+                    }
+                    .disabled(!workoutManager.canEnableErgMode)
+                    
+                    Button(action: { workoutManager.ergModeEnabled = false }) {
+                        HStack {
+                            Text("Resistance Mode")
+                            if !workoutManager.ergModeEnabled { Image(systemName: "checkmark") }
+                        }
+                    }
+                    .disabled(!workoutManager.canEnableErgMode)
+                } label: {
+                    Text(workoutManager.ergModeEnabled ? "ERG" : "RES")
+                        .font(.system(size: 10, weight: .black))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 4)
+                        .background(workoutManager.ergModeEnabled ? Color.green.opacity(0.8) : Color.orange.opacity(0.8))
+                        .foregroundColor(.white)
+                        .cornerRadius(4)
+                }
+                .padding(.trailing, 8)
+                
+                if !workoutManager.ergModeEnabled {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plusminus")
+                            .font(.system(size: 8))
+                        Slider(value: $workoutManager.resistanceLevel, in: 0...100, step: 1)
+                            .frame(width: 80)
+                            .disabled(!workoutManager.canEnableErgMode)
+                        Text("\(Int(workoutManager.resistanceLevel))%")
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    }
+                    .padding(.trailing, 8)
+                }
+                
+                Button(action: { workoutManager.selectedWorkout = nil }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Text(workout.name)
+                .font(.headline)
+            
+            WorkoutGraphView(workout: workout, showAxis: false, scale: workoutManager.workoutDifficultyScale)
+                .frame(height: 60)
+                .padding(.vertical, 4)
+            
+            Text(workout.description)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+        }
+        .padding()
+        .background(Color.blue.opacity(0.05))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+        )
+    }
+    
+    private var liveDataPreview: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("LIVE DATA PREVIEW")
+                .font(.caption)
+                .fontWeight(.black)
+                .foregroundColor(.orange)
+            
+            HStack(spacing: 20) {
+                VStack(alignment: .leading) {
+                    Text("HEART RATE")
+                        .font(.system(size: 8, weight: .black))
+                        .foregroundColor(.secondary)
+                    HStack(alignment: .lastTextBaseline, spacing: 2) {
+                        Text("\(workoutManager.recorderA.hrDevice?.heartRate ?? 0)")
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                        Text("BPM")
+                            .font(.system(size: 10, weight: .black))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                VStack(alignment: .leading) {
+                    Text("POWER")
+                        .font(.system(size: 8, weight: .black))
+                        .foregroundColor(.secondary)
+                    HStack(alignment: .lastTextBaseline, spacing: 2) {
+                        Text("\(workoutManager.recorderA.powerDevice?.cyclingPower ?? 0)")
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                        Text("W")
+                            .font(.system(size: 10, weight: .black))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                Spacer()
+                
+                if (workoutManager.recorderA.powerDevice?.cyclingPower ?? 0) > 0 {
+                    Label("Pedaling Detected", systemImage: "bolt.fill")
+                        .font(.caption2)
+                        .foregroundColor(.green)
+                }
+            }
+        }
+        .padding()
+        .background(Color.orange.opacity(0.05))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.orange.opacity(0.2), lineWidth: 1)
+        )
+    }
+    
+    private var setupControls: some View {
+        VStack(spacing: 12) {
+            if workoutManager.isLoaded && !workoutManager.isRecording {
+                Button(action: {
+                    workoutManager.startRecording()
+                }) {
+                    Label("Start Recording", systemImage: "play.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+            }
+            
+            if workoutManager.isLoaded {
+                Button(action: {
+                    workoutManager.loadWorkout(devices: bluetoothManager.peripherals)
+                }) {
+                    Label("Reload Workout", systemImage: "arrow.down.doc.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                }
+                .buttonStyle(.bordered)
+                .tint(.blue)
+            } else {
+                Button(action: {
+                    workoutManager.loadWorkout(devices: bluetoothManager.peripherals)
+                }) {
+                    Label("Load Workout", systemImage: "arrow.down.doc.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.blue)
+                .disabled(workoutManager.hrDeviceAId == nil && workoutManager.powerDeviceAId == nil && workoutManager.hrDeviceBId == nil && workoutManager.powerDeviceBId == nil)
+            }
+            
+            if !workoutManager.exportedFiles.isEmpty {
+                SessionSummaryCard(files: workoutManager.exportedFiles, engine: workoutManager.engineA)
+            }
+        }
+        .padding(.top)
+    }
+    
+    private var ButtonStyle_Bordered: some PrimitiveButtonStyle {
+        #if os(macOS)
+        return .bordered
+        #else
+        return .bordered
+        #endif
+    }
+    
+    private func countdownOverlay(count: Int) -> some View {
+        VStack(spacing: 20) {
+            Text("Starting in...")
+                .font(.title)
+                .fontWeight(.black)
+            Text("\(count)")
+                .font(.system(size: 120, weight: .black, design: .rounded))
+                .transition(.scale)
+                .id("countdown_\(count)")
+            Text("Keep pedaling!")
+                .font(.headline)
+                .foregroundColor(.blue)
+            
+            Button(action: {
+                workoutManager.startRecording()
+            }) {
+                Text("Start Now")
+                    .font(.headline)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(Color.white.opacity(0.2))
+                    .cornerRadius(10)
+            }
+            .padding(.top, 20)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black.opacity(0.4).ignoresSafeArea())
+    }
+    
+    func formatDuration(_ interval: TimeInterval) -> String {
+        let mins = Int(interval) / 60
+        let secs = Int(interval) % 60
+        return String(format: "%02d:%02d", mins, secs)
+    }
+}
+
+struct AnyButtonStyle: ButtonStyle {
+    private let _makeBody: (Configuration) -> AnyView
+
+    init<S: ButtonStyle>(_ style: S) {
+        _makeBody = { configuration in
+            AnyView(style.makeBody(configuration: configuration))
+        }
+    }
+
+    func makeBody(configuration: Configuration) -> some View {
+        _makeBody(configuration)
     }
 }
 
