@@ -219,7 +219,7 @@ class WorkoutSessionManager: ObservableObject {
             if let trainer = controlDevice {
                 if ergModeEnabled, let step = currentWorkoutStep {
                     let ftp = SettingsManager.shared.userFTP
-                    let targetWatts = Int(round(step.targetPowerPercent * workoutDifficultyScale * ftp))
+                    let targetWatts = Int(round(step.powerAt(time: timeInStep) * workoutDifficultyScale * ftp))
                     
                     if targetWatts != lastSentTargetPower {
                         trainer.setTargetPower(targetWatts)

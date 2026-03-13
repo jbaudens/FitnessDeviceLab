@@ -19,14 +19,8 @@ public struct DefaultWorkouts {
         steps: {
             var steps: [WorkoutStep] = []
             
-            // Phase 1: 10 min (20 * 30s) ramping from 40% to 60%
-            let rampStart = 0.40
-            let rampEnd = 0.60
-            let rampSteps = 20
-            for i in 0..<rampSteps {
-                let intensity = rampStart + (Double(i) / Double(rampSteps - 1)) * (rampEnd - rampStart)
-                steps.append(WorkoutStep(duration: 30, targetPowerPercent: intensity, type: .warmup))
-            }
+            // Phase 1: 10 min ramping from 40% to 60%
+            steps.append(WorkoutStep(duration: 600, targetPowerPercent: 0.40, endTargetPowerPercent: 0.60, type: .warmup))
             
             // Phase 2: 5 min alternating between 65% and 80% every 30s
             for _ in 0..<5 {
@@ -104,10 +98,7 @@ public struct DefaultWorkouts {
         name: "Blackcap -1",
         description: "3*9min Over-Unders.",
         steps: [
-            WorkoutStep(duration: 180, targetPowerPercent: 0.50, type: .warmup),
-            WorkoutStep(duration: 180, targetPowerPercent: 0.65, type: .warmup),
-            WorkoutStep(duration: 180, targetPowerPercent: 0.80, type: .warmup),
-            WorkoutStep(duration: 180, targetPowerPercent: 0.95, type: .warmup),
+            WorkoutStep(duration: 720, targetPowerPercent: 0.50, endTargetPowerPercent: 0.95, type: .warmup),
             WorkoutStep(duration: 300, targetPowerPercent: 0.40, type: .recovery),
             WorkoutStep(duration: 120, targetPowerPercent: 0.95, type: .work),
             WorkoutStep(duration: 60, targetPowerPercent: 1.10, type: .work),
