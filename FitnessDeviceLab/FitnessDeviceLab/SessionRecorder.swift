@@ -28,10 +28,10 @@ public struct Lap: Identifiable {
     public let startTime: Date
     public var endTime: Date?
     public let type: WorkoutStepType
+    public var activeDuration: TimeInterval = 0
     
     public var duration: TimeInterval {
-        let end = endTime ?? Date()
-        return end.timeIntervalSince(startTime)
+        return activeDuration
     }
 }
 
@@ -39,8 +39,10 @@ public struct Lap: Identifiable {
 public class SessionRecorder: ObservableObject {
     var hrDevice: DiscoveredPeripheral?
     var powerDevice: DiscoveredPeripheral?
+    var isRecording: Bool = false
     
     @Published public var trackpoints: [Trackpoint] = []
+    @Published public var latestPoint: Trackpoint?
     
     private var rrCancellable: AnyCancellable?
     private var pendingRRIntervals: [Double] = []
@@ -97,7 +99,10 @@ public class SessionRecorder: ObservableObject {
             rrIntervals: rrThisSecond
         )
         
-        trackpoints.append(pt)
+        latestPoint = pt
+        if isRecording {
+            trackpoints.append(pt)
+        }
     }
     
     private func generateTCX(label: String) -> URL? {

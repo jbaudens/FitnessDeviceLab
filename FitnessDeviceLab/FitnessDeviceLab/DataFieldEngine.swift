@@ -72,10 +72,28 @@ public class DataFieldEngine: ObservableObject {
     init(recorder: SessionRecorder) {
         self.recorder = recorder
         
+        recorder.$latestPoint
+            .receive(on: RunLoop.main)
+            .sink { [weak self] point in
+                guard let self = self, let point = point else { return }
+                self.currentHR = point.hr
+                self.currentCadence = point.cadence
+                self.powerBalance = point.powerBalance
+                self.currentAltitude = point.altitude
+                
+                // Recalculate local FTPs
+                let settings = SettingsManager.shared
+                let homeRatio = Self.getAltitudeRatio(meters: settings.ftpAltitude)
+                self.slFTP = settings.userFTP / homeRatio
+                let currentRatio = Self.getAltitudeRatio(meters: point.altitude ?? 0.0)
+                self.localFTP = (self.slFTP ?? 0) * currentRatio
+            }
+            .store(in: &cancellables)
+            
         recorder.$trackpoints
             .receive(on: RunLoop.main)
             .sink { [weak self] trackpoints in
-                self?.update(from: trackpoints)
+                self?.updateMetrics(from: trackpoints)
             }
             .store(in: &cancellables)
             
@@ -90,24 +108,13 @@ public class DataFieldEngine: ObservableObject {
     }
     
     public func recalculate() {
-        update(from: recorder.trackpoints)
+        updateMetrics(from: recorder.trackpoints)
     }
     
-    private func update(from trackpoints: [Trackpoint]) {
-        if let latest = trackpoints.last {
-            self.currentHR = latest.hr
-            self.currentCadence = latest.cadence
-            self.powerBalance = latest.powerBalance
-            self.currentAltitude = latest.altitude
-        }
-        
+    private func updateMetrics(from trackpoints: [Trackpoint]) {
         let settings = SettingsManager.shared
         let metricsSettings = settings.metricsSettings
-        let homeRatio = Self.getAltitudeRatio(meters: settings.ftpAltitude)
-        self.slFTP = settings.userFTP / homeRatio
-        let currentRatio = Self.getAltitudeRatio(meters: currentAltitude ?? 0.0)
-        self.localFTP = (self.slFTP ?? 0) * currentRatio
-
+        
         // Offload heavy calculations to background
         let rrHistory = Array(trackpoints.flatMap { $0.rrIntervals }.suffix(600))
         

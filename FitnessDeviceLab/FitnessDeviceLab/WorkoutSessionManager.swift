@@ -18,6 +18,9 @@ class WorkoutSessionManager: ObservableObject {
     @Published var powerDeviceBId: UUID?
     
     @Published var isRecording = false
+    @Published var isLoaded = false
+    @Published var isPaused = false
+    
     @Published var sessionStartTime: Date?
     @Published var workoutElapsedTime: TimeInterval = 0
     
@@ -87,11 +90,14 @@ class WorkoutSessionManager: ObservableObject {
             }
     }
     
-    func startWorkout(devices: [DiscoveredPeripheral]) {
+    func loadWorkout(devices: [DiscoveredPeripheral]) {
         workoutElapsedTime = 0
         currentStepIndex = 0
         timeInStep = 0
         laps = []
+        isPaused = false
+        isRecording = false
+        exportedFiles = []
         
         recorderA.hrDevice = devices.first { $0.id == hrDeviceAId }
         recorderA.powerDevice = devices.first { $0.id == powerDeviceAId }
@@ -102,12 +108,10 @@ class WorkoutSessionManager: ObservableObject {
         recorderA.prepare()
         recorderB.prepare()
         
-        // Initial Lap
-        let initialStepType = selectedWorkout?.steps.first?.type ?? .work
-        startNewLap(type: initialStepType)
+        recorderA.isRecording = false
+        recorderB.isRecording = false
         
-        sessionStartTime = Date()
-        isRecording = true
+        isLoaded = true
         
         timerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
             .autoconnect()
@@ -115,6 +119,35 @@ class WorkoutSessionManager: ObservableObject {
                 guard let self = self else { return }
                 self.tick()
             }
+    }
+    
+    func startRecording() {
+        guard isLoaded, !isRecording else { return }
+        
+        // Initial Lap
+        let initialStepType = selectedWorkout?.steps.first?.type ?? .work
+        startNewLap(type: initialStepType)
+        
+        sessionStartTime = Date()
+        isRecording = true
+        isPaused = false
+        
+        recorderA.isRecording = true
+        recorderB.isRecording = true
+    }
+    
+    func pauseWorkout() {
+        guard isRecording else { return }
+        isPaused = true
+        recorderA.isRecording = false
+        recorderB.isRecording = false
+    }
+    
+    func resumeWorkout() {
+        guard isRecording else { return }
+        isPaused = false
+        recorderA.isRecording = true
+        recorderB.isRecording = true
     }
     
     func manualLap() {
@@ -135,10 +168,28 @@ class WorkoutSessionManager: ObservableObject {
     }
     
     private func tick() {
-        guard let start = sessionStartTime else { return }
         let now = Date()
-        let totalElapsed = now.timeIntervalSince(start)
-        workoutElapsedTime = totalElapsed
+        let altitude = LocationManager.shared.currentAltitude ?? SettingsManager.shared.altitudeOverride
+        
+        // Always record current point for live data display, but recorder handles whether to append to trackpoints
+        recorderA.recordPoint(time: now, altitude: altitude)
+        recorderB.recordPoint(time: now, altitude: altitude)
+        
+        // Ensure data fields update
+        engineA.recalculate()
+        engineB.recalculate()
+        
+        guard isRecording else { return }
+        
+        guard !isPaused else { return }
+        
+        // Increment elapsed time
+        workoutElapsedTime += 1.0
+        let totalElapsed = workoutElapsedTime
+        
+        if !laps.isEmpty {
+            laps[laps.count - 1].activeDuration += 1.0
+        }
         
         if let workout = selectedWorkout {
             // Recalculate current step and time in step based on totalElapsed
@@ -159,12 +210,12 @@ class WorkoutSessionManager: ObservableObject {
             }
             
             if !foundStep && !workout.steps.isEmpty {
-                // Workout finished or beyond defined steps
+                // Workout finished structured steps, keep recording but stop updating steps
                 currentStepIndex = workout.steps.count - 1
                 timeInStep = workout.steps.last!.duration
             }
             
-            // ERG / Resistance Control (Only to one control device)
+            // ERG / Resistance Control
             if let trainer = controlDevice {
                 if ergModeEnabled, let step = currentWorkoutStep {
                     let ftp = SettingsManager.shared.userFTP
@@ -183,10 +234,6 @@ class WorkoutSessionManager: ObservableObject {
                         lastSentTargetPower = nil
                     }
                 }
-            } else {
-                // No trainer connected, reset trackers
-                lastSentTargetPower = nil
-                lastSentResistanceLevel = nil
             }
         } else {
             // Not a structured workout
@@ -197,15 +244,16 @@ class WorkoutSessionManager: ObservableObject {
                 }
             }
         }
-        
-        let altitude = LocationManager.shared.currentAltitude ?? SettingsManager.shared.altitudeOverride
-        
-        recorderA.recordPoint(time: now, altitude: altitude)
-        recorderB.recordPoint(time: now, altitude: altitude)
     }
     
     func stopWorkout() {
         isRecording = false
+        isLoaded = false
+        isPaused = false
+        
+        recorderA.isRecording = false
+        recorderB.isRecording = false
+        
         timerCancellable?.cancel()
         timerCancellable = nil
         
