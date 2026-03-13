@@ -221,16 +221,13 @@ struct WorkoutPlayerView: View {
                                             }
                                             .disabled(!workoutManager.canEnableErgMode)
                                         } label: {
-                                            HStack(spacing: 4) {
-                                                Text(workoutManager.ergModeEnabled ? "ERG" : "RES")
-                                                Image(systemName: "chevron.down")
-                                            }
-                                            .font(.system(size: 10, weight: .black))
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 4)
-                                            .background(workoutManager.ergModeEnabled ? Color.green : Color.orange)
-                                            .foregroundColor(.white)
-                                            .cornerRadius(4)
+                                            Text(workoutManager.ergModeEnabled ? "ERG" : "RES")
+                                                .font(.system(size: 10, weight: .black))
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 4)
+                                                .background(workoutManager.ergModeEnabled ? Color.green.opacity(0.8) : Color.orange.opacity(0.8))
+                                                .foregroundColor(.white)
+                                                .cornerRadius(4)
                                         }
                                         .padding(.trailing, 8)
                                         
@@ -425,16 +422,13 @@ struct WorkoutTargetHeader: View {
                     }
                     .disabled(!workoutManager.canEnableErgMode)
                 } label: {
-                    HStack(spacing: 4) {
-                        Text(workoutManager.ergModeEnabled ? "ERG" : "RES")
-                        Image(systemName: "chevron.down")
-                    }
-                    .font(.system(size: 12, weight: .black))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(workoutManager.ergModeEnabled ? Color.green : Color.orange)
-                    .foregroundColor(.white)
-                    .cornerRadius(6)
+                    Text(workoutManager.ergModeEnabled ? "ERG" : "RES")
+                        .font(.system(size: 12, weight: .black))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(workoutManager.ergModeEnabled ? Color.green.opacity(0.8) : Color.orange.opacity(0.8))
+                        .foregroundColor(.white)
+                        .cornerRadius(6)
                 }
                 
                 // Difficulty Controls
@@ -485,6 +479,7 @@ struct WorkoutTargetHeader: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .labelsHidden()
                 .frame(width: 140)
             }
             .font(.system(size: 10, weight: .bold))
