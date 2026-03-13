@@ -608,36 +608,54 @@ struct WorkoutTargetHeader: View {
                     Spacer()
                     
                     // Target Power / HR
-                    VStack(alignment: .trailing, spacing: 2) {
-                        if let targetWatts = workoutManager.currentTargetPower {
-                            let scale = workoutManager.workoutDifficultyScale
-                            let currentIntensity = (workoutManager.currentWorkoutStep?.powerAt(time: workoutManager.timeInStep) ?? 0) * scale
-                            
-                            Text("\(targetWatts)")
-                                .font(.system(size: 40, weight: .bold, design: .rounded))
-                                .foregroundColor(WorkoutZone.forIntensity(currentIntensity).color)
-                            Text("TARGET WATTS")
-                                .font(.system(size: 10, weight: .black))
-                                .foregroundColor(.secondary)
-                        } else if let targetHR = workoutManager.currentTargetHR {
-                            let scale = workoutManager.workoutDifficultyScale
-                            let currentIntensity = (workoutManager.currentWorkoutStep?.targetHeartRatePercent ?? 0) * scale
-                            
-                            Text("\(targetHR)")
-                                .font(.system(size: 40, weight: .bold, design: .rounded))
-                                .foregroundColor(WorkoutZone.forHRIntensity(currentIntensity).color)
-                            Text("TARGET BPM")
-                                .font(.system(size: 10, weight: .black))
-                                .foregroundColor(.secondary)
+                    HStack(spacing: 20) {
+                        if let targetHR = workoutManager.currentTargetHR {
+                            VStack(alignment: .trailing, spacing: 2) {
+                                let scale = workoutManager.workoutDifficultyScale
+                                let currentIntensity = (workoutManager.currentWorkoutStep?.targetHeartRatePercent ?? 0) * scale
+
+                                Text("\(targetHR)")
+                                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                                    .foregroundColor(WorkoutZone.forHRIntensity(currentIntensity).color)
+                                Text("GOAL BPM")
+                                    .font(.system(size: 10, weight: .black))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            if let commandedWatts = workoutManager.currentTargetPower {
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    Text("\(commandedWatts)")
+                                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                                        .foregroundColor(.secondary)
+                                    Text("TARGET W")
+                                        .font(.system(size: 10, weight: .black))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        } else if let targetWatts = workoutManager.currentTargetPower {
+                            VStack(alignment: .trailing, spacing: 2) {
+                                let scale = workoutManager.workoutDifficultyScale
+                                let currentIntensity = (workoutManager.currentWorkoutStep?.powerAt(time: workoutManager.timeInStep) ?? 0) * scale
+
+                                Text("\(targetWatts)")
+                                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                                    .foregroundColor(WorkoutZone.forIntensity(currentIntensity).color)
+                                Text("TARGET WATTS")
+                                    .font(.system(size: 10, weight: .black))
+                                    .foregroundColor(.secondary)
+                            }
                         } else {
-                            Text("0")
-                                .font(.system(size: 40, weight: .bold, design: .rounded))
-                                .foregroundColor(.secondary)
-                            Text("FINISHED")
-                                .font(.system(size: 10, weight: .black))
-                                .foregroundColor(.secondary)
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text("0")
+                                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                                    .foregroundColor(.secondary)
+                                Text("FINISHED")
+                                    .font(.system(size: 10, weight: .black))
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
+
                 }
             }
             

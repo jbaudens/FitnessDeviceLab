@@ -101,7 +101,9 @@ public struct WorkoutStep: Identifiable, Codable, Hashable {
         if let hr = targetHeartRatePercent {
             return WorkoutZone.forHRIntensity(hr)
         }
-        return WorkoutZone.forIntensity((targetPowerPercent ?? 0 + (endTargetPowerPercent ?? targetPowerPercent ?? 0)) / 2.0)
+        let start = targetPowerPercent ?? 0
+        let end = endTargetPowerPercent ?? start
+        return WorkoutZone.forIntensity((start + end) / 2.0)
     }
 }
 
