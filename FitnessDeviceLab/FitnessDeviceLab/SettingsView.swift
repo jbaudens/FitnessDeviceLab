@@ -7,6 +7,7 @@ struct SettingsView: View {
     @State private var userFTP: String = ""
     @State private var userWeight: String = ""
     @State private var maxHR: String = ""
+    @State private var userLTHR: String = ""
     @State private var ftpAltitude: String = ""
     @State private var altitudeOverride: String = ""
     @State private var useAltitudeOverride: Bool = false
@@ -62,6 +63,23 @@ struct SettingsView: View {
                 .onChange(of: maxHR) { _, newValue in
                     if let val = Int(newValue) {
                         settings.maxHR = val
+                    }
+                }
+
+                HStack {
+                    Text("LTHR (BPM)")
+                    Spacer()
+                    TextField("170", text: $userLTHR)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 80)
+                        .textFieldStyle(.roundedBorder)
+                        #if os(iOS)
+                        .keyboardType(.numberPad)
+                        #endif
+                }
+                .onChange(of: userLTHR) { _, newValue in
+                    if let val = Int(newValue) {
+                        settings.userLTHR = val
                     }
                 }
             }
@@ -134,6 +152,7 @@ struct SettingsView: View {
         userFTP = String(format: "%.0f", settings.userFTP)
         userWeight = String(format: "%.1f", settings.userWeight)
         maxHR = String(format: "%d", settings.maxHR)
+        userLTHR = String(format: "%d", settings.userLTHR)
         ftpAltitude = String(format: "%.0f", settings.ftpAltitude)
         if let over = settings.altitudeOverride {
             altitudeOverride = String(format: "%.0f", over)
