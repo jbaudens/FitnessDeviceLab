@@ -588,14 +588,16 @@ struct WorkoutTargetHeader: View {
             HStack(alignment: .center) {
                 // Time in Interval
                 if let step = workoutManager.currentWorkoutStep {
+                    let isFinished = workoutManager.currentStepIndex >= workout.steps.count - 1 && workoutManager.timeInStep >= workout.steps.last?.duration ?? 0
+                    
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(alignment: .lastTextBaseline, spacing: 4) {
-                            Text(formatDuration(step.duration - workoutManager.timeInStep))
+                            Text(isFinished ? "0:00" : formatDuration(step.duration - workoutManager.timeInStep))
                                 .font(.system(size: 40, weight: .bold, design: .rounded))
                                 .monospacedDigit()
                             
                             VStack(alignment: .leading, spacing: 0) {
-                                Text("LAP \(workoutManager.laps.count)")
+                                Text("LAP \(max(1, workoutManager.laps.count))")
                                     .font(.system(size: 10, weight: .black))
                                     .foregroundColor(.blue)
                                 Text(formatDuration(workoutManager.laps.last?.duration ?? 0))
@@ -636,13 +638,24 @@ struct WorkoutTargetHeader: View {
                     // Target Power
                     VStack(alignment: .trailing, spacing: 2) {
                         let scale = workoutManager.workoutDifficultyScale
-                        let targetWatts = Int(round(step.targetPowerPercent * scale * SettingsManager.shared.userFTP))
-                        Text("\(targetWatts)")
-                            .font(.system(size: 40, weight: .bold, design: .rounded))
-                            .foregroundColor(WorkoutZone.forIntensity(step.targetPowerPercent * scale).color)
-                        Text("TARGET WATTS")
-                            .font(.system(size: 10, weight: .black))
-                            .foregroundColor(.secondary)
+                        let isFinished = workoutManager.currentStepIndex >= workout.steps.count - 1 && workoutManager.timeInStep >= workout.steps.last?.duration ?? 0
+                        
+                        if isFinished {
+                            Text("0")
+                                .font(.system(size: 40, weight: .bold, design: .rounded))
+                                .foregroundColor(.secondary)
+                            Text("FINISHED")
+                                .font(.system(size: 10, weight: .black))
+                                .foregroundColor(.secondary)
+                        } else {
+                            let targetWatts = Int(round(step.targetPowerPercent * scale * SettingsManager.shared.userFTP))
+                            Text("\(targetWatts)")
+                                .font(.system(size: 40, weight: .bold, design: .rounded))
+                                .foregroundColor(WorkoutZone.forIntensity(step.targetPowerPercent * scale).color)
+                            Text("TARGET WATTS")
+                                .font(.system(size: 10, weight: .black))
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
             }

@@ -112,6 +112,9 @@ class WorkoutSessionManager: ObservableObject {
         recorderA.prepare()
         recorderB.prepare()
         
+        recorderA.isRecording = false
+        recorderB.isRecording = false
+        
         isLoaded = true
         
         timerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
@@ -134,18 +137,31 @@ class WorkoutSessionManager: ObservableObject {
         isPaused = false
         isAutoPaused = false
         countdownToStart = nil
+        
+        recorderA.isRecording = true
+        recorderB.isRecording = true
     }
     
     func pauseWorkout() {
         guard isRecording else { return }
         isPaused = true
         isAutoPaused = false
+        // We keep recorder.isRecording = true because we want to record the pause points?
+        // Actually, users usually don't want pause points in the FIT file track.
+        // But the prompt said "display raw data even if paused". 
+        // My new SessionRecorder logic does both: displays raw via latestPoint, 
+        // and appends to trackpoints only if isRecording is true.
+        // Let's stop appending to trackpoints during pause.
+        recorderA.isRecording = false
+        recorderB.isRecording = false
     }
     
     func resumeWorkout() {
         guard isRecording else { return }
         isPaused = false
         isAutoPaused = false
+        recorderA.isRecording = true
+        recorderB.isRecording = true
     }
     
     func manualLap() {
@@ -199,12 +215,16 @@ class WorkoutSessionManager: ObservableObject {
         
         // Auto-pause logic
         let currentPower = recorderA.powerDevice?.cyclingPower ?? 0
-        if currentPower == 0 && !isPaused {
-            isPaused = true
-            isAutoPaused = true
-        } else if isAutoPaused && currentPower > 0 {
-            isPaused = false
-            isAutoPaused = false
+        let hasPowerDevice = powerDeviceAId != nil || powerDeviceBId != nil
+        
+        if hasPowerDevice {
+            if currentPower == 0 && !isPaused {
+                isPaused = true
+                isAutoPaused = true
+            } else if isAutoPaused && currentPower > 0 {
+                isPaused = false
+                isAutoPaused = false
+            }
         }
         
         guard !isPaused else { return }
@@ -232,9 +252,11 @@ class WorkoutSessionManager: ObservableObject {
             }
             
             if !foundStep && !workout.steps.isEmpty {
-                // Workout finished! Auto-stop.
-                stopWorkout()
-                return
+                // Workout finished structured steps, but don't auto-stop recording
+                // Just stay on the last step or transition to a "Post-Workout" state
+                // For now, let's just keep recording but stop updating steps.
+                currentStepIndex = workout.steps.count - 1
+                timeInStep = workout.steps.last!.duration
             }
             
             // ERG / Resistance Control (Only to one control device)
@@ -277,6 +299,10 @@ class WorkoutSessionManager: ObservableObject {
         isLoaded = false
         isPaused = false
         isAutoPaused = false
+        
+        recorderA.isRecording = false
+        recorderB.isRecording = false
+        
         timerCancellable?.cancel()
         timerCancellable = nil
         
