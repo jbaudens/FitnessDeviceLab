@@ -48,9 +48,9 @@ struct WorkoutLibraryView: View {
     }
     
     var body: some View {
-        List {
-            // Filters Section
-            Section {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Filters Header
                 VStack(alignment: .leading, spacing: 12) {
                     // Zone Badges
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -69,6 +69,7 @@ struct WorkoutLibraryView: View {
                                 }
                             }
                         }
+                        .padding(.horizontal)
                     }
                     
                     // Metric Badges (Power / HR)
@@ -77,45 +78,43 @@ struct WorkoutLibraryView: View {
                             selectedMetricFilter = nil
                         }
                         
-                        FilterBadge(name: "Power", color: .yellow, isSelected: selectedMetricFilter == .power) {
+                        FilterBadge(name: "Power Only", color: .yellow, isSelected: selectedMetricFilter == .power) {
                             selectedMetricFilter = .power
                         }
                         
-                        FilterBadge(name: "Heart Rate", color: .red, isSelected: selectedMetricFilter == .heartRate) {
+                        FilterBadge(name: "HR Only", color: .red, isSelected: selectedMetricFilter == .heartRate) {
                             selectedMetricFilter = .heartRate
                         }
                     }
+                    .padding(.horizontal)
                 }
-                .padding(.vertical, 8)
-            }
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
-
-            // Workouts List
-            if filteredWorkouts.isEmpty {
-                ContentUnavailableView("No Workouts Found", systemImage: "magnifyingglass", description: Text("Try adjusting your filters or search terms."))
-            } else {
-                ForEach(filteredWorkouts) { workout in
-                    NavigationLink(destination: WorkoutDetailView(workout: workout)) {
-                        WorkoutRowView(workout: workout)
-                    }
-                }
-            }
-        }
-        .navigationTitle("Workout Library")
-        .searchable(text: $searchText, prompt: "Search workouts...")
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
-                    Picker("Sort By", selection: $sortOrder) {
-                        ForEach(SortOrder.allCases) { order in
-                            Text(order.rawValue).tag(order)
+                .padding(.vertical, 12)
+                .background(Color(UIColor.systemGroupedBackground))
+                
+                List {
+                    if filteredWorkouts.isEmpty {
+                        Section {
+                            ContentUnavailableView("No Workouts Found", systemImage: "magnifyingglass", description: Text("Try adjusting your filters or search terms."))
+                        }
+                    } else {
+                        ForEach(filteredWorkouts) { workout in
+                            NavigationLink(destination: WorkoutDetailView(workout: workout)) {
+                                WorkoutRowView(workout: workout)
+                            }
                         }
                     }
-                } label: {
-                    Label("Sort", systemImage: "arrow.up.arrow.down")
                 }
             }
+            .navigationTitle("Workout Library")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarTitleMenu {
+                Picker("Sort By", selection: $sortOrder) {
+                    ForEach(SortOrder.allCases) { order in
+                        Text("Sort by \(order.rawValue)").tag(order)
+                    }
+                }
+            }
+            .searchable(text: $searchText, prompt: "Search workouts...")
         }
     }
 }
