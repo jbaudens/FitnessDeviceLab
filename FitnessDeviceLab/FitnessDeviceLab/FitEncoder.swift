@@ -1,12 +1,13 @@
 import Foundation
 import FITSwiftSDK
+import CoreBluetooth
 
 /// A FIT file encoder using the official Garmin FIT Swift SDK.
-public class FitEncoder {
+class FitEncoder {
     
-    public init() {}
+    init() {}
     
-    public func encode(trackpoints: [Trackpoint], laps: [Lap]) -> Data? {
+    func encode(trackpoints: [Trackpoint], laps: [Lap], hrDevice: DiscoveredPeripheral?, powerDevice: DiscoveredPeripheral?, userFTP: Double, userWeight: Double) -> Data? {
         guard !trackpoints.isEmpty else { return nil }
         
         let encoder = Encoder()
@@ -24,7 +25,39 @@ public class FitEncoder {
         }
         encoder.write(mesg: fileId)
         
-        // 2. Activity Message
+        // 2. User Profile Message
+        let user = UserProfileMesg()
+        try? user.setWeight(Float64(userWeight))
+        encoder.write(mesg: user)
+        
+        // 3. Device Info Messages (for sensors)
+        if let hr = hrDevice {
+            let info = DeviceInfoMesg()
+            try? info.setTimestamp(DateTime(date: trackpoints.first!.time))
+            try? info.setDeviceIndex(UInt8(1))
+            try? info.setDeviceType(120) // Heart Rate
+            try? info.setManufacturer(Manufacturer.garmin)
+            if let model = hr.modelNumber { try? info.setProductName(model) }
+            if let serial = UInt32(hr.peripheral.identifier.uuidString.prefix(8), radix: 16) {
+                try? info.setSerialNumber(serial)
+            }
+            encoder.write(mesg: info)
+        }
+        
+        if let pwr = powerDevice {
+            let info = DeviceInfoMesg()
+            try? info.setTimestamp(DateTime(date: trackpoints.first!.time))
+            try? info.setDeviceIndex(UInt8(2))
+            try? info.setDeviceType(11) // Power
+            try? info.setManufacturer(Manufacturer.garmin)
+            if let model = pwr.modelNumber { try? info.setProductName(model) }
+            if let serial = UInt32(pwr.peripheral.identifier.uuidString.prefix(8), radix: 16) {
+                try? info.setSerialNumber(serial)
+            }
+            encoder.write(mesg: info)
+        }
+        
+        // 4. Activity Message
         let activity = ActivityMesg()
         try? activity.setNumSessions(1)
         try? activity.setType(.manual)
@@ -32,7 +65,7 @@ public class FitEncoder {
         try? activity.setEventType(.stop)
         encoder.write(mesg: activity)
         
-        // 3. Record Messages
+        // 5. Record Messages
         for pt in trackpoints {
             let record = RecordMesg()
             try? record.setTimestamp(DateTime(date: pt.time))
@@ -56,7 +89,7 @@ public class FitEncoder {
             encoder.write(mesg: record)
         }
         
-        // 4. Lap Messages
+        // 6. Lap Messages
         for lap in laps {
             let lapMesg = LapMesg()
             try? lapMesg.setStartTime(DateTime(date: lap.startTime))
