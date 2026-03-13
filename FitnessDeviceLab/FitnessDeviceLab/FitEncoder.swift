@@ -21,6 +21,7 @@ class FitEncoder {
         if name.contains("shimano") { return .shimano }
         if name.contains("hammerhead") { return .hammerhead }
         if name.contains("specialized") { return .specialized }
+        if name.contains("whoop") { return .whoop }
         
         return .development // Fallback
     }
@@ -33,7 +34,7 @@ class FitEncoder {
         // 1. File ID Message (Required first message)
         let fileId = FileIdMesg()
         try? fileId.setType(.activity)
-        try? fileId.setManufacturer(mapManufacturer(powerDevice?.manufacturerName ?? hrDevice?.manufacturerName))
+        try? fileId.setManufacturer(.development)
         try? fileId.setProduct(1)
         try? fileId.setSerialNumber(UInt32(12345))
         if let firstTime = trackpoints.first?.time {
