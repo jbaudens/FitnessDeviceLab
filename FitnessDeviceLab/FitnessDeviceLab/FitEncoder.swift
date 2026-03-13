@@ -7,6 +7,24 @@ class FitEncoder {
     
     init() {}
     
+    private func mapManufacturer(_ name: String?) -> Manufacturer {
+        guard let name = name?.lowercased() else { return .development }
+        
+        if name.contains("garmin") { return .garmin }
+        if name.contains("wahoo") { return .wahooFitness }
+        if name.contains("tacx") { return .tacx }
+        if name.contains("stages") { return .stagesCycling }
+        if name.contains("zwift") { return .zwift }
+        if name.contains("magene") { return .magene }
+        if name.contains("bryton") { return .bryton }
+        if name.contains("sram") { return .sram }
+        if name.contains("shimano") { return .shimano }
+        if name.contains("hammerhead") { return .hammerhead }
+        if name.contains("specialized") { return .specialized }
+        
+        return .development // Fallback
+    }
+    
     func encode(trackpoints: [Trackpoint], laps: [Lap], hrDevice: DiscoveredPeripheral?, powerDevice: DiscoveredPeripheral?, userFTP: Double, userWeight: Double) -> Data? {
         guard !trackpoints.isEmpty else { return nil }
         
@@ -15,7 +33,7 @@ class FitEncoder {
         // 1. File ID Message (Required first message)
         let fileId = FileIdMesg()
         try? fileId.setType(.activity)
-        try? fileId.setManufacturer(Manufacturer.garmin) // Generic
+        try? fileId.setManufacturer(mapManufacturer(powerDevice?.manufacturerName ?? hrDevice?.manufacturerName))
         try? fileId.setProduct(1)
         try? fileId.setSerialNumber(UInt32(12345))
         if let firstTime = trackpoints.first?.time {
@@ -36,7 +54,7 @@ class FitEncoder {
             try? info.setTimestamp(DateTime(date: trackpoints.first!.time))
             try? info.setDeviceIndex(UInt8(1))
             try? info.setDeviceType(120) // Heart Rate
-            try? info.setManufacturer(Manufacturer.garmin)
+            try? info.setManufacturer(mapManufacturer(hr.manufacturerName))
             if let model = hr.modelNumber { try? info.setProductName(model) }
             if let serial = UInt32(hr.peripheral.identifier.uuidString.prefix(8), radix: 16) {
                 try? info.setSerialNumber(serial)
@@ -49,7 +67,7 @@ class FitEncoder {
             try? info.setTimestamp(DateTime(date: trackpoints.first!.time))
             try? info.setDeviceIndex(UInt8(2))
             try? info.setDeviceType(11) // Power
-            try? info.setManufacturer(Manufacturer.garmin)
+            try? info.setManufacturer(mapManufacturer(pwr.manufacturerName))
             if let model = pwr.modelNumber { try? info.setProductName(model) }
             if let serial = UInt32(pwr.peripheral.identifier.uuidString.prefix(8), radix: 16) {
                 try? info.setSerialNumber(serial)
