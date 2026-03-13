@@ -33,11 +33,17 @@ class WorkoutSessionManager: ObservableObject {
     @Published var currentStepIndex: Int = 0
     @Published var timeInStep: TimeInterval = 0
     @Published var currentTargetPower: Int? = nil
+    @Published var currentTargetHR: Int? = nil
     
     @Published var laps: [Lap] = []
     
     private var lastSentTargetPower: Int?
     private var lastSentResistanceLevel: Double?
+    
+    // HR Control State
+    private var hrControlBaseWatts: Double?
+    private var lastHRUpdate: Date?
+    private var hrErrorAccumulator: Double = 0
     
     public var recorderA = SessionRecorder()
     public var recorderB = SessionRecorder()
@@ -216,29 +222,72 @@ class WorkoutSessionManager: ObservableObject {
                 timeInStep = workout.steps.last!.duration
             }
             
-            // Centralized Target Power Calculation
+            // Centralized Target Power / HR Calculation
             if let step = currentWorkoutStep {
                 let ftp = SettingsManager.shared.userFTP
+                let lthr = Double(SettingsManager.shared.userLTHR)
                 let isFinished = currentStepIndex >= workout.steps.count - 1 && timeInStep >= workout.steps.last?.duration ?? 0
                 
                 if isFinished {
                     currentTargetPower = nil
+                    currentTargetHR = nil
+                    hrControlBaseWatts = nil
+                } else if let targetHRPercent = step.targetHeartRatePercent {
+                    // HR Based Control
+                    let targetHRValue = Int(round(targetHRPercent * workoutDifficultyScale * lthr))
+                    currentTargetHR = targetHRValue
+                    currentTargetPower = nil // Power is dynamic here
+                    
+                    // Simple Integral Control Loop
+                    if ergModeEnabled {
+                        let currentHR = Double(recorderA.hrDevice?.heartRate ?? 0)
+                        if currentHR > 0 {
+                            if hrControlBaseWatts == nil {
+                                // Initialize with a sensible default (e.g., 50% FTP)
+                                hrControlBaseWatts = ftp * 0.5
+                            }
+                            
+                            let error = Double(targetHRValue) - currentHR
+                            // Adjust base power slowly (e.g., small gain to avoid oscillation)
+                            let adjustment = error * 0.15 
+                            hrControlBaseWatts! += adjustment
+                            
+                            // Clamp to sensible ranges
+                            hrControlBaseWatts = max(50, min(hrControlBaseWatts!, ftp * 1.5))
+                        }
+                    }
                 } else {
-                    let watts = Int(round(step.powerAt(time: timeInStep) * workoutDifficultyScale * ftp))
+                    // Power Based Control
+                    let watts = Int(round((step.powerAt(time: timeInStep) ?? 0) * workoutDifficultyScale * ftp))
                     currentTargetPower = watts
+                    currentTargetHR = nil
+                    hrControlBaseWatts = nil
                 }
             } else {
                 currentTargetPower = nil
+                currentTargetHR = nil
+                hrControlBaseWatts = nil
             }
             
             // ERG / Resistance Control
             if let trainer = controlDevice {
-                if ergModeEnabled, let targetWatts = currentTargetPower {
-                    if targetWatts != lastSentTargetPower {
-                        trainer.setTargetPower(targetWatts)
-                        lastSentTargetPower = targetWatts
+                if ergModeEnabled {
+                    if let targetWatts = currentTargetPower {
+                        // Power Mode
+                        if targetWatts != lastSentTargetPower {
+                            trainer.setTargetPower(targetWatts)
+                            lastSentTargetPower = targetWatts
+                        }
+                        lastSentResistanceLevel = nil
+                    } else if let baseWatts = hrControlBaseWatts {
+                        // HR Mode
+                        let targetWattsValue = Int(round(baseWatts))
+                        if targetWattsValue != lastSentTargetPower {
+                            trainer.setTargetPower(targetWattsValue)
+                            lastSentTargetPower = targetWattsValue
+                        }
+                        lastSentResistanceLevel = nil
                     }
-                    lastSentResistanceLevel = nil
                 } else {
                     // Manual Resistance Mode
                     if lastSentTargetPower != nil || lastSentResistanceLevel != resistanceLevel {

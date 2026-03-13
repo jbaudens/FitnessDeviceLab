@@ -46,6 +46,17 @@ public enum WorkoutZone: Int, Codable, CaseIterable, Identifiable {
         if intensity < 1.50 { return .z6 }
         return .z7
     }
+    
+    // Joe Friel HR Zones (% of LTHR)
+    public static func forHRIntensity(_ hrPercent: Double) -> WorkoutZone {
+        if hrPercent < 0.82 { return .z1 } // Recovery
+        if hrPercent < 0.89 { return .z2 } // Aerobic
+        if hrPercent < 0.94 { return .z3 } // Tempo
+        if hrPercent < 1.00 { return .z4 } // Sub-Threshold
+        if hrPercent < 1.03 { return .z5 } // Super-Threshold
+        if hrPercent < 1.06 { return .z6 } // Aerobic Capacity
+        return .z7 // Anaerobic
+    }
 }
 
 public enum WorkoutStepType: String, Codable {
@@ -58,28 +69,39 @@ public enum WorkoutStepType: String, Codable {
 public struct WorkoutStep: Identifiable, Codable, Hashable {
     public let id: UUID
     public let duration: TimeInterval // seconds
-    public let targetPowerPercent: Double // % of FTP (start of step)
-    public let endTargetPowerPercent: Double // % of FTP (end of step)
+    public let targetPowerPercent: Double? // % of FTP (start of step)
+    public let endTargetPowerPercent: Double? // % of FTP (end of step)
+    public let targetHeartRatePercent: Double? // % of LTHR
     public let targetCadence: Int?
     public let type: WorkoutStepType
     
-    public init(id: UUID = UUID(), duration: TimeInterval, targetPowerPercent: Double, endTargetPowerPercent: Double? = nil, type: WorkoutStepType = .work, targetCadence: Int? = nil) {
+    public init(id: UUID = UUID(), duration: TimeInterval, targetPowerPercent: Double? = nil, endTargetPowerPercent: Double? = nil, targetHeartRatePercent: Double? = nil, type: WorkoutStepType = .work, targetCadence: Int? = nil) {
         self.id = id
         self.duration = duration
         self.targetPowerPercent = targetPowerPercent
         self.endTargetPowerPercent = endTargetPowerPercent ?? targetPowerPercent
+        self.targetHeartRatePercent = targetHeartRatePercent
         self.type = type
         self.targetCadence = targetCadence
     }
     
     public var isRamp: Bool {
-        abs(endTargetPowerPercent - targetPowerPercent) > 0.001
+        guard let start = targetPowerPercent, let end = endTargetPowerPercent else { return false }
+        return abs(end - start) > 0.001
     }
     
-    public func powerAt(time: TimeInterval) -> Double {
-        guard duration > 0 else { return targetPowerPercent }
+    public func powerAt(time: TimeInterval) -> Double? {
+        guard let start = targetPowerPercent, let end = endTargetPowerPercent else { return nil }
+        guard duration > 0 else { return start }
         let progress = min(1.0, max(0.0, time / duration))
-        return targetPowerPercent + (endTargetPowerPercent - targetPowerPercent) * progress
+        return start + (end - start) * progress
+    }
+    
+    public var currentZone: WorkoutZone {
+        if let hr = targetHeartRatePercent {
+            return WorkoutZone.forHRIntensity(hr)
+        }
+        return WorkoutZone.forIntensity((targetPowerPercent ?? 0 + (endTargetPowerPercent ?? targetPowerPercent ?? 0)) / 2.0)
     }
 }
 
@@ -102,23 +124,36 @@ public struct StructuredWorkout: Identifiable, Codable, Hashable {
     
     public var averageIntensity: Double {
         guard !steps.isEmpty else { return 0 }
-        let totalWork = steps.reduce(0.0) { $0 + ((($1.targetPowerPercent + $1.endTargetPowerPercent) / 2.0) * $1.duration) }
-        return totalWork / totalDuration
+        let powerSteps = steps.filter { $0.targetPowerPercent != nil }
+        guard !powerSteps.isEmpty else { return 0 }
+        
+        let totalWork = powerSteps.reduce(0.0) { $0 + ((($1.targetPowerPercent! + $1.endTargetPowerPercent!) / 2.0) * $1.duration) }
+        let powerDuration = powerSteps.reduce(0.0) { $0 + $1.duration }
+        return totalWork / powerDuration
     }
     
     public var intensityFactor: Double {
         guard !steps.isEmpty else { return 0 }
         
-        // Generate second-by-second intensity profile
+        // Generate second-by-second intensity profile (using power steps only for now)
         var samples = [Double]()
         for step in steps {
             let count = Int(step.duration)
-            for i in 0..<count {
-                samples.append(step.powerAt(time: Double(i)))
+            if let start = step.targetPowerPercent {
+                for i in 0..<count {
+                    samples.append(step.powerAt(time: Double(i)) ?? start)
+                }
+            } else if let hr = step.targetHeartRatePercent {
+                // Approximate intensity for HR steps to keep NP/IF useful
+                // This is a rough estimate
+                for _ in 0..<count {
+                    samples.append(hr) // Use HR % as a proxy for Power % for NP purposes
+                }
             }
         }
         
-        // Calculate 30s rolling averages with growing window for the first 30 seconds
+        guard !samples.isEmpty else { return 0 }
+        
         var rollingAverages = [Double]()
         var currentSum = 0.0
         for i in 0..<samples.count {
@@ -140,7 +175,13 @@ public struct StructuredWorkout: Identifiable, Codable, Hashable {
         let workSteps = steps.filter { $0.type == .work }
         if workSteps.isEmpty { return .z1 }
         
-        let avgIntensity = workSteps.reduce(0.0) { $0 + (($1.targetPowerPercent + $1.endTargetPowerPercent) / 2.0 * $1.duration) } / workSteps.reduce(0) { $0 + $1.duration }
-        return WorkoutZone.forIntensity(avgIntensity)
+        // Count total duration per zone
+        var zoneDurations: [WorkoutZone: TimeInterval] = [:]
+        for step in workSteps {
+            let zone = step.currentZone
+            zoneDurations[zone, default: 0] += step.duration
+        }
+        
+        return zoneDurations.max(by: { $0.value < $1.value })?.key ?? .z1
     }
 }

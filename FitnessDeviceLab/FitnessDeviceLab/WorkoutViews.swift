@@ -24,10 +24,11 @@ struct WorkoutGraphView: View {
                 let height = geometry.size.height
                 let totalDuration = workout.totalDuration
                 let ftp = SettingsManager.shared.userFTP
-                
                 // Max height is based on the highest interval or highest data point
-                let maxTarget = workout.steps.map { $0.targetPowerPercent * scale }.max() ?? 1.0
+                let scale = scale
+                let maxTarget = workout.steps.map { ($0.targetPowerPercent ?? $0.targetHeartRatePercent ?? 0.0) * scale }.max() ?? 1.0
                 let maxActual = recorder?.trackpoints.compactMap { $0.power }.map { Double($0) / ftp }.max() ?? 0.0
+
                 let maxPercent = max(1.0, max(maxTarget, maxActual)) * 1.1
                 
                 ZStack(alignment: .bottomLeading) {
@@ -74,17 +75,21 @@ struct WorkoutGraphView: View {
                     HStack(alignment: .bottom, spacing: 1) {
                         ForEach(workout.steps) { step in
                             let stepWidth = (CGFloat(step.duration) / CGFloat(totalDuration)) * (width - CGFloat(workout.steps.count))
-                            let startHeight = (CGFloat(step.targetPowerPercent * scale) / CGFloat(maxPercent)) * height
-                            let endHeight = (CGFloat(step.endTargetPowerPercent * scale) / CGFloat(maxPercent)) * height
+                            
+                            let startPct = step.targetPowerPercent ?? step.targetHeartRatePercent ?? 0.0
+                            let endPct = step.endTargetPowerPercent ?? step.targetHeartRatePercent ?? 0.0
+                            
+                            let startHeight = (CGFloat(startPct * scale) / CGFloat(maxPercent)) * height
+                            let endHeight = (CGFloat(endPct * scale) / CGFloat(maxPercent)) * height
                             
                             ZStack(alignment: .top) {
-                                RampShape(startRelativeHeight: step.targetPowerPercent * scale / maxPercent,
-                                          endRelativeHeight: step.endTargetPowerPercent * scale / maxPercent)
+                                RampShape(startRelativeHeight: startPct * scale / maxPercent,
+                                          endRelativeHeight: endPct * scale / maxPercent)
                                     .fill(color(for: step, scale: scale).opacity(0.3))
                                     .frame(width: max(2, stepWidth), height: height)
                                 
                                 if stepWidth > 30 {
-                                    let avgPercent = (step.targetPowerPercent + step.endTargetPowerPercent) / 2.0 * scale
+                                    let avgPercent = (startPct + endPct) / 2.0 * scale
                                     Text("\(Int(round(avgPercent * 100)))%")
                                         .font(.system(size: 8, weight: .black, design: .monospaced))
                                         .foregroundColor(color(for: step, scale: scale).opacity(0.8))
@@ -120,7 +125,12 @@ struct WorkoutGraphView: View {
     }
     
     private func color(for step: WorkoutStep, scale: Double) -> Color {
-        return WorkoutZone.forIntensity(step.targetPowerPercent * scale).color
+        if let hr = step.targetHeartRatePercent {
+            return WorkoutZone.forHRIntensity(hr * scale).color
+        }
+        let start = step.targetPowerPercent ?? 0
+        let end = step.endTargetPowerPercent ?? start
+        return WorkoutZone.forIntensity((start + end) / 2.0 * scale).color
     }
 }
 

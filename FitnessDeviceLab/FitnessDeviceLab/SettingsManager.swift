@@ -14,6 +14,10 @@ class SettingsManager: ObservableObject {
         didSet { defaults.set(maxHR, forKey: "maxHeartRate") }
     }
     
+    @Published var userLTHR: Int {
+        didSet { defaults.set(userLTHR, forKey: "userLTHR") }
+    }
+    
     @Published var altitudeOverride: Double? {
         didSet { 
             if let val = altitudeOverride {
@@ -42,6 +46,9 @@ class SettingsManager: ObservableObject {
         
         let savedHR = defaults.integer(forKey: "maxHeartRate")
         self.maxHR = savedHR > 0 ? savedHR : 190
+        
+        let savedLTHR = defaults.integer(forKey: "userLTHR")
+        self.userLTHR = savedLTHR > 0 ? savedLTHR : 170
         
         let savedAlt = defaults.object(forKey: "altitudeOverride") as? Double
         self.altitudeOverride = savedAlt
