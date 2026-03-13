@@ -167,13 +167,14 @@ class WorkoutSessionManager: ObservableObject {
     
     private func tick() {
         let now = Date()
+        let altitude = LocationManager.shared.currentAltitude ?? SettingsManager.shared.altitudeOverride
         
-        // Always update recorders with raw data if loaded or recording
-        if isLoaded || isRecording {
-            let altitude = LocationManager.shared.currentAltitude ?? SettingsManager.shared.altitudeOverride
-            recorderA.recordPoint(time: now, altitude: altitude)
-            recorderB.recordPoint(time: now, altitude: altitude)
-        }
+        recorderA.recordPoint(time: now, altitude: altitude)
+        recorderB.recordPoint(time: now, altitude: altitude)
+        
+        // Ensure data fields update
+        engineA.recalculate()
+        engineB.recalculate()
         
         // Auto-start logic
         if isLoaded && !isRecording {

@@ -117,51 +117,75 @@ struct WorkoutPlayerView: View {
     
     private var activeControls: some View {
         HStack(spacing: 16) {
-            Button(action: {
-                workoutManager.manualLap()
-            }) {
-                Label("Lap", systemImage: "circle.circle")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            }
-            .buttonStyle(.bordered)
-            .tint(.blue)
-            .disabled(!workoutManager.isRecording || workoutManager.isPaused)
-            
-            Button(action: {
-                if workoutManager.isPaused {
-                    workoutManager.resumeWorkout()
-                } else {
-                    workoutManager.pauseWorkout()
+            if !workoutManager.isRecording {
+                Button(action: {
+                    workoutManager.isLoaded = false
+                    workoutManager.isRecording = false
+                }) {
+                    Label("Cancel", systemImage: "xmark.circle")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
                 }
-            }) {
-                Label(workoutManager.isPaused ? "Resume" : "Pause", systemImage: workoutManager.isPaused ? "play.fill" : "pause.fill")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            }
-            .buttonStyle(.bordered)
-            .tint(.orange)
-            .disabled(!workoutManager.isRecording)
-            
-            Button(action: {
-                showingStopConfirmation = true
-            }) {
-                Label("Stop", systemImage: "stop.fill")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.red)
-            .alert("Stop Workout?", isPresented: $showingStopConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Stop & Save", role: .destructive) {
-                    workoutManager.stopWorkout()
+                .buttonStyle(.bordered)
+                .tint(.secondary)
+                
+                Button(action: {
+                    workoutManager.startRecording()
+                }) {
+                    Label("Start Recording", systemImage: "play.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
                 }
-            } message: {
-                Text("This will end the current session and save the data.")
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+            } else {
+                Button(action: {
+                    workoutManager.manualLap()
+                }) {
+                    Label("Lap", systemImage: "circle.circle")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                }
+                .buttonStyle(.bordered)
+                .tint(.blue)
+                .disabled(workoutManager.isPaused)
+                
+                Button(action: {
+                    if workoutManager.isPaused {
+                        workoutManager.resumeWorkout()
+                    } else {
+                        workoutManager.pauseWorkout()
+                    }
+                }) {
+                    Label(workoutManager.isPaused ? "Resume" : "Pause", systemImage: workoutManager.isPaused ? "play.fill" : "pause.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                }
+                .buttonStyle(.bordered)
+                .tint(.orange)
+                
+                Button(action: {
+                    showingStopConfirmation = true
+                }) {
+                    Label("Stop", systemImage: "stop.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+                .alert("Stop Workout?", isPresented: $showingStopConfirmation) {
+                    Button("Cancel", role: .cancel) { }
+                    Button("Stop & Save", role: .destructive) {
+                        workoutManager.stopWorkout()
+                    }
+                } message: {
+                    Text("This will end the current session and save the data.")
+                }
             }
         }
         .padding()
@@ -392,19 +416,6 @@ struct WorkoutPlayerView: View {
     
     private var setupControls: some View {
         VStack(spacing: 12) {
-            if workoutManager.isLoaded && !workoutManager.isRecording {
-                Button(action: {
-                    workoutManager.startRecording()
-                }) {
-                    Label("Start Recording", systemImage: "play.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-            }
-            
             if workoutManager.isLoaded {
                 Button(action: {
                     workoutManager.loadWorkout(devices: bluetoothManager.peripherals)
