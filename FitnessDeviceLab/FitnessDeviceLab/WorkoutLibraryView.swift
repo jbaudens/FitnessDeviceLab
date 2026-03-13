@@ -4,49 +4,100 @@ struct WorkoutLibraryView: View {
     @EnvironmentObject var workoutManager: WorkoutSessionManager
     let repository = WorkoutRepository.shared
     
+    @State private var searchText = ""
     @State private var selectedZoneFilter: WorkoutZone? = nil
+    @State private var selectedMetricFilter: StructuredWorkout.WorkoutMetric? = nil
+    @State private var sortOrder: SortOrder = .name
+    
+    enum SortOrder: String, CaseIterable, Identifiable {
+        case name = "Name"
+        case duration = "Duration"
+        case intensity = "Intensity"
+        var id: String { rawValue }
+    }
+    
+    var filteredWorkouts: [StructuredWorkout] {
+        var workouts = repository.allWorkouts
+        
+        // Search
+        if !searchText.isEmpty {
+            workouts = workouts.filter { $0.name.localizedCaseInsensitiveContains(searchText) || $0.description.localizedCaseInsensitiveContains(searchText) }
+        }
+        
+        // Zone Filter
+        if let zone = selectedZoneFilter {
+            workouts = workouts.filter { $0.primaryZone == zone }
+        }
+        
+        // Metric Filter
+        if let metric = selectedMetricFilter {
+            workouts = workouts.filter { $0.primaryMetric == metric }
+        }
+        
+        // Sort
+        switch sortOrder {
+        case .name:
+            workouts.sort { $0.name < $1.name }
+        case .duration:
+            workouts.sort { $0.totalDuration < $1.totalDuration }
+        case .intensity:
+            workouts.sort { $0.intensityFactor > $1.intensityFactor }
+        }
+        
+        return workouts
+    }
     
     var body: some View {
-        List {
-            // Zone Filter Picker
-            Section {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        FilterBadge(name: "All", color: .secondary, isSelected: selectedZoneFilter == nil) {
-                            selectedZoneFilter = nil
-                        }
-                        
-                        ForEach(WorkoutZone.allCases) { zone in
-                            FilterBadge(
-                                name: "Z\(zone.rawValue)",
-                                color: zone.color,
-                                isSelected: selectedZoneFilter == zone
-                            ) {
-                                selectedZoneFilter = zone
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Filters Header
+                VStack(alignment: .leading, spacing: 12) {
+                    // Zone Badges
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            FilterBadge(name: "All Zones", color: .secondary, isSelected: selectedZoneFilter == nil) {
+                                selectedZoneFilter = nil
+                            }
+                            
+                            ForEach(WorkoutZone.allCases) { zone in
+                                FilterBadge(
+                                    name: "Z\(zone.rawValue)",
+                                    color: zone.color,
+                                    isSelected: selectedZoneFilter == zone
+                                ) {
+                                    selectedZoneFilter = zone
+                                }
                             }
                         }
+                        .padding(.horizontal)
                     }
-                    .padding(.vertical, 4)
+                    
+                    // Metric Badges (Power / HR)
+                    HStack(spacing: 8) {
+                        FilterBadge(name: "All Metrics", color: .secondary, isSelected: selectedMetricFilter == nil) {
+                            selectedMetricFilter = nil
+                        }
+                        
+                        FilterBadge(name: "Power Only", color: .yellow, isSelected: selectedMetricFilter == .power) {
+                            selectedMetricFilter = .power
+                        }
+                        
+                        FilterBadge(name: "HR Only", color: .red, isSelected: selectedMetricFilter == .heartRate) {
+                            selectedMetricFilter = .heartRate
+                        }
+                    }
+                    .padding(.horizontal)
                 }
-            } header: {
-                Text("Filter by Zone")
-            }
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
-
-            // Workouts Grouped by Zone
-            let groupedWorkouts = repository.workoutsByZone
-            let sortedZones = WorkoutZone.allCases.filter { zone in
-                if let filter = selectedZoneFilter {
-                    return zone == filter
-                }
-                return groupedWorkouts[zone] != nil
-            }
-            
-            ForEach(sortedZones) { zone in
-                if let workouts = groupedWorkouts[zone], !workouts.isEmpty {
-                    Section(header: Text(zone.name.uppercased()).foregroundColor(zone.color).fontWeight(.bold)) {
-                        ForEach(workouts) { workout in
+                .padding(.vertical, 12)
+                .background(Color.secondary.opacity(0.05))
+                
+                List {
+                    if filteredWorkouts.isEmpty {
+                        Section {
+                            ContentUnavailableView("No Workouts Found", systemImage: "magnifyingglass", description: Text("Try adjusting your filters or search terms."))
+                        }
+                    } else {
+                        ForEach(filteredWorkouts) { workout in
                             NavigationLink(destination: WorkoutDetailView(workout: workout)) {
                                 WorkoutRowView(workout: workout)
                             }
@@ -54,8 +105,22 @@ struct WorkoutLibraryView: View {
                     }
                 }
             }
+            .navigationTitle("Workout Library")
+            .searchable(text: $searchText, prompt: "Search workouts...")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Picker("Sort By", selection: $sortOrder) {
+                            ForEach(SortOrder.allCases) { order in
+                                Text("Sort by \(order.rawValue)").tag(order)
+                            }
+                        }
+                    } label: {
+                        Label("Sort", systemImage: "arrow.up.arrow.down")
+                    }
+                }
+            }
         }
-        .navigationTitle("Library")
     }
 }
 
@@ -95,8 +160,22 @@ struct WorkoutDetailView: View {
                 // Large Graph
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        Text("Workout Profile")
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Workout Profile")
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.secondary)
+                            
+                            HStack {
+                                Label(workout.primaryMetric.rawValue, systemImage: workout.primaryMetric == .power ? "bolt.fill" : "heart.fill")
+                                    .font(.caption)
+                                    .fontWeight(.black)
+                                    .foregroundColor(workout.primaryMetric == .power ? .yellow : .red)
+                            }
+                        }
+                        
                         Spacer()
+                        
                         Text("Z\(workout.primaryZone.rawValue)")
                             .font(.system(size: 14, weight: .black))
                             .padding(.horizontal, 8)
@@ -105,9 +184,6 @@ struct WorkoutDetailView: View {
                             .foregroundColor(.white)
                             .cornerRadius(6)
                     }
-                    .font(.subheadline)
-                    .fontWeight(.bold)
-                    .foregroundColor(.secondary)
                     
                     WorkoutGraphView(workout: workout)
                         .frame(height: 200)

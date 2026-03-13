@@ -607,7 +607,7 @@ struct WorkoutTargetHeader: View {
                     
                     Spacer()
                     
-                    // Target Power
+                    // Target Power / HR
                     VStack(alignment: .trailing, spacing: 2) {
                         if let targetWatts = workoutManager.currentTargetPower {
                             let scale = workoutManager.workoutDifficultyScale
@@ -617,6 +617,16 @@ struct WorkoutTargetHeader: View {
                                 .font(.system(size: 40, weight: .bold, design: .rounded))
                                 .foregroundColor(WorkoutZone.forIntensity(currentIntensity).color)
                             Text("TARGET WATTS")
+                                .font(.system(size: 10, weight: .black))
+                                .foregroundColor(.secondary)
+                        } else if let targetHR = workoutManager.currentTargetHR {
+                            let scale = workoutManager.workoutDifficultyScale
+                            let currentIntensity = (workoutManager.currentWorkoutStep?.targetHeartRatePercent ?? 0) * scale
+                            
+                            Text("\(targetHR)")
+                                .font(.system(size: 40, weight: .bold, design: .rounded))
+                                .foregroundColor(WorkoutZone.forHRIntensity(currentIntensity).color)
+                            Text("TARGET BPM")
                                 .font(.system(size: 10, weight: .black))
                                 .foregroundColor(.secondary)
                         } else {
@@ -717,10 +727,10 @@ struct WorkoutTargetHeader: View {
             if workoutManager.currentStepIndex < workout.steps.count - 1 {
                 let nextStep = workout.steps[workoutManager.currentStepIndex + 1]
                 let scale = workoutManager.workoutDifficultyScale
-                let nextWatts = Int(round(nextStep.targetPowerPercent * scale * SettingsManager.shared.userFTP))
+                let nextWatts = Int(round((nextStep.targetPowerPercent ?? 0.0) * scale * SettingsManager.shared.userFTP))
                 HStack {
                     Spacer()
-                    Text("Next: \(nextWatts)W (\(Int(round(nextStep.targetPowerPercent * scale * 100)))%) for \(Int(nextStep.duration / 60))m")
+                    Text("Next: \(nextWatts)W (\(Int(round((nextStep.targetPowerPercent ?? 0.0) * scale * 100)))%) for \(Int(nextStep.duration / 60))m")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
