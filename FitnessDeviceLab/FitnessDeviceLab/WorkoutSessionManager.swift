@@ -18,6 +18,11 @@ class WorkoutSessionManager: ObservableObject {
     @Published var powerDeviceBId: UUID?
     
     @Published var isRecording = false
+    @Published var isLoaded = false
+    @Published var isPaused = false
+    @Published var isAutoPaused = false
+    @Published var countdownToStart: Int? = nil
+    
     @Published var sessionStartTime: Date?
     @Published var workoutElapsedTime: TimeInterval = 0
     
@@ -87,11 +92,14 @@ class WorkoutSessionManager: ObservableObject {
             }
     }
     
-    func startWorkout(devices: [DiscoveredPeripheral]) {
+    func loadWorkout(devices: [DiscoveredPeripheral]) {
         workoutElapsedTime = 0
         currentStepIndex = 0
         timeInStep = 0
         laps = []
+        isPaused = false
+        isRecording = false
+        countdownToStart = nil
         
         recorderA.hrDevice = devices.first { $0.id == hrDeviceAId }
         recorderA.powerDevice = devices.first { $0.id == powerDeviceAId }
@@ -102,12 +110,7 @@ class WorkoutSessionManager: ObservableObject {
         recorderA.prepare()
         recorderB.prepare()
         
-        // Initial Lap
-        let initialStepType = selectedWorkout?.steps.first?.type ?? .work
-        startNewLap(type: initialStepType)
-        
-        sessionStartTime = Date()
-        isRecording = true
+        isLoaded = true
         
         timerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
             .autoconnect()
@@ -115,6 +118,34 @@ class WorkoutSessionManager: ObservableObject {
                 guard let self = self else { return }
                 self.tick()
             }
+    }
+    
+    func startRecording() {
+        guard isLoaded, !isRecording else { return }
+        
+        // Initial Lap
+        let initialStepType = selectedWorkout?.steps.first?.type ?? .work
+        startNewLap(type: initialStepType)
+        
+        sessionStartTime = Date()
+        isRecording = true
+        isPaused = false
+        countdownToStart = nil
+    }
+    
+    func pauseWorkout() {
+        guard isRecording else { return }
+        isPaused = true
+        isAutoPaused = false
+    }
+    
+    func resumeWorkout() {
+        guard isRecording else { return }
+        isPaused = false
+        isAutoPaused = false
+        // Adjust sessionStartTime to account for pause duration if needed, 
+        // but currently we use Date() in recordPoint and calculate elapsed.
+        // Actually, let's just make tick() not increment if paused.
     }
     
     func manualLap() {
@@ -135,10 +166,43 @@ class WorkoutSessionManager: ObservableObject {
     }
     
     private func tick() {
-        guard let start = sessionStartTime else { return }
+        // Auto-start logic
+        if isLoaded && !isRecording {
+            let currentPower = recorderA.powerDevice?.cyclingPower ?? 0
+            if currentPower > 0 {
+                if let cd = countdownToStart {
+                    if cd > 1 {
+                        countdownToStart = cd - 1
+                    } else {
+                        startRecording()
+                    }
+                } else {
+                    countdownToStart = 5
+                }
+            } else {
+                countdownToStart = nil
+            }
+            return
+        }
+        
+        guard isRecording else { return }
+        
+        // Auto-pause logic
+        let currentPower = recorderA.powerDevice?.cyclingPower ?? 0
+        if currentPower == 0 && !isPaused {
+            isPaused = true
+            isAutoPaused = true
+        } else if isAutoPaused && currentPower > 0 {
+            isPaused = false
+            isAutoPaused = false
+        }
+        
+        guard !isPaused else { return }
+        
+        // Increment elapsed time manually since we want to handle pauses
+        workoutElapsedTime += 1.0
+        let totalElapsed = workoutElapsedTime
         let now = Date()
-        let totalElapsed = now.timeIntervalSince(start)
-        workoutElapsedTime = totalElapsed
         
         if let workout = selectedWorkout {
             // Recalculate current step and time in step based on totalElapsed
@@ -159,9 +223,9 @@ class WorkoutSessionManager: ObservableObject {
             }
             
             if !foundStep && !workout.steps.isEmpty {
-                // Workout finished or beyond defined steps
-                currentStepIndex = workout.steps.count - 1
-                timeInStep = workout.steps.last!.duration
+                // Workout finished! Auto-stop.
+                stopWorkout()
+                return
             }
             
             // ERG / Resistance Control (Only to one control device)
@@ -206,6 +270,9 @@ class WorkoutSessionManager: ObservableObject {
     
     func stopWorkout() {
         isRecording = false
+        isLoaded = false
+        isPaused = false
+        isAutoPaused = false
         timerCancellable?.cancel()
         timerCancellable = nil
         
