@@ -318,47 +318,6 @@ struct WorkoutPlayerView: View {
                     .foregroundColor(.blue)
                 Spacer()
                 
-                // Mode Selection Dropdown
-                Menu {
-                    Button(action: { workoutManager.ergModeEnabled = true }) {
-                        HStack {
-                            Text("ERG Mode")
-                            if workoutManager.ergModeEnabled { Image(systemName: "checkmark") }
-                        }
-                    }
-                    .disabled(!workoutManager.canEnableErgMode)
-                    
-                    Button(action: { workoutManager.ergModeEnabled = false }) {
-                        HStack {
-                            Text("Resistance Mode")
-                            if !workoutManager.ergModeEnabled { Image(systemName: "checkmark") }
-                        }
-                    }
-                    .disabled(!workoutManager.canEnableErgMode)
-                } label: {
-                    Text(workoutManager.ergModeEnabled ? "ERG" : "RES")
-                        .font(.system(size: 10, weight: .black))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 4)
-                        .background(workoutManager.ergModeEnabled ? Color.green.opacity(0.8) : Color.orange.opacity(0.8))
-                        .foregroundColor(.white)
-                        .cornerRadius(4)
-                }
-                .padding(.trailing, 8)
-                
-                if !workoutManager.ergModeEnabled {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plusminus")
-                            .font(.system(size: 8))
-                        Slider(value: $workoutManager.resistanceLevel, in: 0...100, step: 1)
-                            .frame(width: 80)
-                            .disabled(!workoutManager.canEnableErgMode)
-                        Text("\(Int(workoutManager.resistanceLevel))%")
-                            .font(.system(size: 8, weight: .bold, design: .monospaced))
-                    }
-                    .padding(.trailing, 8)
-                }
-                
                 Button(action: { workoutManager.selectedWorkout = nil }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.secondary)

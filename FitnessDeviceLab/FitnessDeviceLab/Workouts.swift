@@ -11,8 +11,35 @@ public struct DefaultWorkouts {
         blackcapMinus1,
         vo2max,
         sprints,
-        hrTest
+        hrTest,
+        antelopePlus2,
+        hrQuickTest,
+        powerQuickTest
     ]
+    
+    private static let hrQuickTest = StructuredWorkout(
+        name: "HR Quick Test",
+        description: "Just to test things work.",
+        steps: [
+            WorkoutStep(duration: 60, targetHeartRatePercent: 0.70, type: .warmup),
+            WorkoutStep(duration: 60, targetHeartRatePercent: 0.73, type: .warmup),
+            WorkoutStep(duration: 60, targetHeartRatePercent: 0.76, type: .warmup),
+            WorkoutStep(duration: 60, targetHeartRatePercent: 0.78, type: .warmup),
+            WorkoutStep(duration: 60, targetHeartRatePercent: 0.80, type: .warmup),
+        ]
+    )
+    
+    private static let powerQuickTest = StructuredWorkout(
+        name: "Power Quick Test",
+        description: "Just to test things work.",
+        steps: [
+            WorkoutStep(duration: 60, targetPowerPercent: 0.40, type: .warmup),
+            WorkoutStep(duration: 60, targetPowerPercent: 0.45, type: .warmup),
+            WorkoutStep(duration: 60, targetPowerPercent: 0.50, type: .warmup),
+            WorkoutStep(duration: 60, targetPowerPercent: 0.55, type: .warmup),
+            WorkoutStep(duration: 60, targetPowerPercent: 0.60, type: .warmup),
+        ]
+    )
     
     private static let hrTest = StructuredWorkout(
         name: "HR Target Test",
@@ -168,6 +195,29 @@ public struct DefaultWorkouts {
             WorkoutStep(duration: 270, targetPowerPercent: 0.40, type: .recovery),
             WorkoutStep(duration: 30, targetPowerPercent: 1.50, type: .work),
             WorkoutStep(duration: 600, targetPowerPercent: 0.50, type: .cooldown)
+        ]
+    )
+    
+    
+    private static let antelopePlus2 = StructuredWorkout(
+        name: "Antelope +2",
+        description: "SweetSpot 5*10min 94% FTP",
+        steps: [
+            WorkoutStep(duration: 180, targetPowerPercent: 0.50, type: .warmup),
+            WorkoutStep(duration: 120, targetPowerPercent: 0.65, type: .warmup),
+            WorkoutStep(duration: 120, targetPowerPercent: 0.80, type: .warmup),
+            WorkoutStep(duration: 120, targetPowerPercent: 0.95, type: .warmup),
+            WorkoutStep(duration: 300, targetPowerPercent: 0.40, type: .recovery),
+            WorkoutStep(duration: 600, targetPowerPercent: 0.94, type: .work),
+            WorkoutStep(duration: 360, targetPowerPercent: 0.40, type: .recovery),
+            WorkoutStep(duration: 600, targetPowerPercent: 0.94, type: .work),
+            WorkoutStep(duration: 360, targetPowerPercent: 0.40, type: .recovery),
+            WorkoutStep(duration: 600, targetPowerPercent: 0.94, type: .work),
+            WorkoutStep(duration: 360, targetPowerPercent: 0.40, type: .recovery),
+            WorkoutStep(duration: 600, targetPowerPercent: 0.94, type: .work),
+            WorkoutStep(duration: 360, targetPowerPercent: 0.40, type: .recovery),
+            WorkoutStep(duration: 600, targetPowerPercent: 0.94, type: .work),
+            WorkoutStep(duration: 120, targetPowerPercent: 0.40, type: .cooldown)
         ]
     )
 }
