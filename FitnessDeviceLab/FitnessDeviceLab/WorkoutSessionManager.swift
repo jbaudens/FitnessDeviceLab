@@ -236,7 +236,6 @@ class WorkoutSessionManager: ObservableObject {
                     // HR Based Control
                     let targetHRValue = Int(round(targetHRPercent * workoutDifficultyScale * lthr))
                     currentTargetHR = targetHRValue
-                    currentTargetPower = nil // Power is dynamic here
                     
                     // Simple Integral Control Loop
                     if ergModeEnabled {
@@ -255,6 +254,13 @@ class WorkoutSessionManager: ObservableObject {
                             // Clamp to sensible ranges
                             hrControlBaseWatts = max(50, min(hrControlBaseWatts!, ftp * 1.5))
                         }
+                    }
+                    
+                    // During HR intervals, we can still show the power that is being commanded
+                    if let base = hrControlBaseWatts {
+                        currentTargetPower = Int(round(base))
+                    } else {
+                        currentTargetPower = nil
                     }
                 } else {
                     // Power Based Control
