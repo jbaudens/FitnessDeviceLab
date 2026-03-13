@@ -557,7 +557,7 @@ struct WorkoutTargetHeader: View {
             HStack(alignment: .center) {
                 // Time in Interval
                 if let step = workoutManager.currentWorkoutStep {
-                    let isFinished = workoutManager.currentStepIndex >= workout.steps.count - 1 && workoutManager.timeInStep >= workout.steps.last?.duration ?? 0
+                    let isFinished = workoutManager.currentTargetPower == nil && workoutManager.isRecording
                     
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(alignment: .lastTextBaseline, spacing: 4) {
@@ -609,22 +609,21 @@ struct WorkoutTargetHeader: View {
                     
                     // Target Power
                     VStack(alignment: .trailing, spacing: 2) {
-                        let scale = workoutManager.workoutDifficultyScale
-                        let isFinished = workoutManager.currentStepIndex >= workout.steps.count - 1 && workoutManager.timeInStep >= workout.steps.last?.duration ?? 0
-                        
-                        if isFinished {
+                        if let targetWatts = workoutManager.currentTargetPower {
+                            let scale = workoutManager.workoutDifficultyScale
+                            let currentIntensity = (workoutManager.currentWorkoutStep?.powerAt(time: workoutManager.timeInStep) ?? 0) * scale
+                            
+                            Text("\(targetWatts)")
+                                .font(.system(size: 40, weight: .bold, design: .rounded))
+                                .foregroundColor(WorkoutZone.forIntensity(currentIntensity).color)
+                            Text("TARGET WATTS")
+                                .font(.system(size: 10, weight: .black))
+                                .foregroundColor(.secondary)
+                        } else {
                             Text("0")
                                 .font(.system(size: 40, weight: .bold, design: .rounded))
                                 .foregroundColor(.secondary)
                             Text("FINISHED")
-                                .font(.system(size: 10, weight: .black))
-                                .foregroundColor(.secondary)
-                        } else {
-                            let targetWatts = Int(round(step.targetPowerPercent * scale * SettingsManager.shared.userFTP))
-                            Text("\(targetWatts)")
-                                .font(.system(size: 40, weight: .bold, design: .rounded))
-                                .foregroundColor(WorkoutZone.forIntensity(step.targetPowerPercent * scale).color)
-                            Text("TARGET WATTS")
                                 .font(.system(size: 10, weight: .black))
                                 .foregroundColor(.secondary)
                         }
@@ -721,7 +720,7 @@ struct WorkoutTargetHeader: View {
                 let nextWatts = Int(round(nextStep.targetPowerPercent * scale * SettingsManager.shared.userFTP))
                 HStack {
                     Spacer()
-                    Text("Next: \(nextWatts)W (\(Int(nextStep.targetPowerPercent * scale * 100))%) for \(Int(nextStep.duration / 60))m")
+                    Text("Next: \(nextWatts)W (\(Int(round(nextStep.targetPowerPercent * scale * 100)))%) for \(Int(nextStep.duration / 60))m")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }

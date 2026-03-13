@@ -58,16 +58,28 @@ public enum WorkoutStepType: String, Codable {
 public struct WorkoutStep: Identifiable, Codable, Hashable {
     public let id: UUID
     public let duration: TimeInterval // seconds
-    public let targetPowerPercent: Double // % of FTP
+    public let targetPowerPercent: Double // % of FTP (start of step)
+    public let endTargetPowerPercent: Double // % of FTP (end of step)
     public let targetCadence: Int?
     public let type: WorkoutStepType
     
-    public init(id: UUID = UUID(), duration: TimeInterval, targetPowerPercent: Double, type: WorkoutStepType = .work, targetCadence: Int? = nil) {
+    public init(id: UUID = UUID(), duration: TimeInterval, targetPowerPercent: Double, endTargetPowerPercent: Double? = nil, type: WorkoutStepType = .work, targetCadence: Int? = nil) {
         self.id = id
         self.duration = duration
         self.targetPowerPercent = targetPowerPercent
+        self.endTargetPowerPercent = endTargetPowerPercent ?? targetPowerPercent
         self.type = type
         self.targetCadence = targetCadence
+    }
+    
+    public var isRamp: Bool {
+        abs(endTargetPowerPercent - targetPowerPercent) > 0.001
+    }
+    
+    public func powerAt(time: TimeInterval) -> Double {
+        guard duration > 0 else { return targetPowerPercent }
+        let progress = min(1.0, max(0.0, time / duration))
+        return targetPowerPercent + (endTargetPowerPercent - targetPowerPercent) * progress
     }
 }
 
@@ -90,7 +102,7 @@ public struct StructuredWorkout: Identifiable, Codable, Hashable {
     
     public var averageIntensity: Double {
         guard !steps.isEmpty else { return 0 }
-        let totalWork = steps.reduce(0.0) { $0 + ($1.targetPowerPercent * $1.duration) }
+        let totalWork = steps.reduce(0.0) { $0 + ((($1.targetPowerPercent + $1.endTargetPowerPercent) / 2.0) * $1.duration) }
         return totalWork / totalDuration
     }
     
@@ -101,7 +113,9 @@ public struct StructuredWorkout: Identifiable, Codable, Hashable {
         var samples = [Double]()
         for step in steps {
             let count = Int(step.duration)
-            samples.append(contentsOf: Array(repeating: step.targetPowerPercent, count: count))
+            for i in 0..<count {
+                samples.append(step.powerAt(time: Double(i)))
+            }
         }
         
         // Calculate 30s rolling averages with growing window for the first 30 seconds
@@ -126,7 +140,7 @@ public struct StructuredWorkout: Identifiable, Codable, Hashable {
         let workSteps = steps.filter { $0.type == .work }
         if workSteps.isEmpty { return .z1 }
         
-        let intensity = workSteps.reduce(0.0) { $0 + ($1.targetPowerPercent * $1.duration) } / workSteps.reduce(0) { $0 + $1.duration }
-        return WorkoutZone.forIntensity(intensity)
+        let avgIntensity = workSteps.reduce(0.0) { $0 + (($1.targetPowerPercent + $1.endTargetPowerPercent) / 2.0 * $1.duration) } / workSteps.reduce(0) { $0 + $1.duration }
+        return WorkoutZone.forIntensity(avgIntensity)
     }
 }

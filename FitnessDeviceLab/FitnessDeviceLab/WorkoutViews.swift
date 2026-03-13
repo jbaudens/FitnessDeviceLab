@@ -74,19 +74,21 @@ struct WorkoutGraphView: View {
                     HStack(alignment: .bottom, spacing: 1) {
                         ForEach(workout.steps) { step in
                             let stepWidth = (CGFloat(step.duration) / CGFloat(totalDuration)) * (width - CGFloat(workout.steps.count))
-                            let stepHeight = (CGFloat(step.targetPowerPercent * scale) / CGFloat(maxPercent)) * height
-                            let scaledPercent = step.targetPowerPercent * scale
+                            let startHeight = (CGFloat(step.targetPowerPercent * scale) / CGFloat(maxPercent)) * height
+                            let endHeight = (CGFloat(step.endTargetPowerPercent * scale) / CGFloat(maxPercent)) * height
                             
                             ZStack(alignment: .top) {
-                                RoundedRectangle(cornerRadius: 2)
+                                RampShape(startRelativeHeight: step.targetPowerPercent * scale / maxPercent,
+                                          endRelativeHeight: step.endTargetPowerPercent * scale / maxPercent)
                                     .fill(color(for: step, scale: scale).opacity(0.3))
-                                    .frame(width: max(2, stepWidth), height: max(4, stepHeight))
+                                    .frame(width: max(2, stepWidth), height: height)
                                 
                                 if stepWidth > 30 {
-                                    Text("\(Int(round(scaledPercent * 100)))%")
+                                    let avgPercent = (step.targetPowerPercent + step.endTargetPowerPercent) / 2.0 * scale
+                                    Text("\(Int(round(avgPercent * 100)))%")
                                         .font(.system(size: 8, weight: .black, design: .monospaced))
                                         .foregroundColor(color(for: step, scale: scale).opacity(0.8))
-                                        .padding(.top, 4)
+                                        .padding(.top, height - max(startHeight, endHeight) + 4)
                                 }
                             }
                         }
@@ -119,6 +121,25 @@ struct WorkoutGraphView: View {
     
     private func color(for step: WorkoutStep, scale: Double) -> Color {
         return WorkoutZone.forIntensity(step.targetPowerPercent * scale).color
+    }
+}
+
+struct RampShape: Shape {
+    let startRelativeHeight: Double
+    let endRelativeHeight: Double
+    
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let h = rect.height
+        let w = rect.width
+        
+        path.move(to: CGPoint(x: 0, y: h))
+        path.addLine(to: CGPoint(x: 0, y: h * (1.0 - startRelativeHeight)))
+        path.addLine(to: CGPoint(x: w, y: h * (1.0 - endRelativeHeight)))
+        path.addLine(to: CGPoint(x: w, y: h))
+        path.closeSubpath()
+        
+        return path
     }
 }
 

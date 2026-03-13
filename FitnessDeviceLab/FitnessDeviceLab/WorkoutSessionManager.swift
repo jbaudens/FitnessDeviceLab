@@ -32,6 +32,7 @@ class WorkoutSessionManager: ObservableObject {
     
     @Published var currentStepIndex: Int = 0
     @Published var timeInStep: TimeInterval = 0
+    @Published var currentTargetPower: Int? = nil
     
     @Published var laps: [Lap] = []
     
@@ -215,12 +216,24 @@ class WorkoutSessionManager: ObservableObject {
                 timeInStep = workout.steps.last!.duration
             }
             
+            // Centralized Target Power Calculation
+            if let step = currentWorkoutStep {
+                let ftp = SettingsManager.shared.userFTP
+                let isFinished = currentStepIndex >= workout.steps.count - 1 && timeInStep >= workout.steps.last?.duration ?? 0
+                
+                if isFinished {
+                    currentTargetPower = nil
+                } else {
+                    let watts = Int(round(step.powerAt(time: timeInStep) * workoutDifficultyScale * ftp))
+                    currentTargetPower = watts
+                }
+            } else {
+                currentTargetPower = nil
+            }
+            
             // ERG / Resistance Control
             if let trainer = controlDevice {
-                if ergModeEnabled, let step = currentWorkoutStep {
-                    let ftp = SettingsManager.shared.userFTP
-                    let targetWatts = Int(round(step.targetPowerPercent * workoutDifficultyScale * ftp))
-                    
+                if ergModeEnabled, let targetWatts = currentTargetPower {
                     if targetWatts != lastSentTargetPower {
                         trainer.setTargetPower(targetWatts)
                         lastSentTargetPower = targetWatts
