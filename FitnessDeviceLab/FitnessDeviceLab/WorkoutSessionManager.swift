@@ -166,6 +166,7 @@ class WorkoutSessionManager: ObservableObject {
     }
     
     private func tick() {
+        let now = Date()
         // Auto-start logic
         if isLoaded && !isRecording {
             let currentPower = recorderA.powerDevice?.cyclingPower ?? 0
@@ -197,12 +198,16 @@ class WorkoutSessionManager: ObservableObject {
             isAutoPaused = false
         }
         
+        // Always record data points if recording, even if paused
+        let altitude = LocationManager.shared.currentAltitude ?? SettingsManager.shared.altitudeOverride
+        recorderA.recordPoint(time: now, altitude: altitude)
+        recorderB.recordPoint(time: now, altitude: altitude)
+        
         guard !isPaused else { return }
         
         // Increment elapsed time manually since we want to handle pauses
         workoutElapsedTime += 1.0
         let totalElapsed = workoutElapsedTime
-        let now = Date()
         
         if let workout = selectedWorkout {
             // Recalculate current step and time in step based on totalElapsed
@@ -261,11 +266,6 @@ class WorkoutSessionManager: ObservableObject {
                 }
             }
         }
-        
-        let altitude = LocationManager.shared.currentAltitude ?? SettingsManager.shared.altitudeOverride
-        
-        recorderA.recordPoint(time: now, altitude: altitude)
-        recorderB.recordPoint(time: now, altitude: altitude)
     }
     
     func stopWorkout() {

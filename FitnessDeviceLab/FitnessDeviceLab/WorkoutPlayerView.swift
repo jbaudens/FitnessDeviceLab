@@ -360,6 +360,18 @@ struct WorkoutPlayerView: View {
                     Text("Keep pedaling!")
                         .font(.headline)
                         .foregroundColor(.blue)
+                    
+                    Button(action: {
+                        workoutManager.startRecording()
+                    }) {
+                        Text("Start Now")
+                            .font(.headline)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(Color.white.opacity(0.2))
+                            .cornerRadius(10)
+                    }
+                    .padding(.top, 20)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.black.opacity(0.4).ignoresSafeArea())
