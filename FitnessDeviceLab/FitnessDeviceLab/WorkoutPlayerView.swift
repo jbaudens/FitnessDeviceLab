@@ -20,6 +20,7 @@ struct WorkoutPlayerView: View {
     var powerB: DiscoveredPeripheral? { powerDevices.first { $0.id == workoutManager.powerDeviceBId } }
     
     @State private var showingStopConfirmation = false
+    @State private var showingDiscardConfirmation = false
     
     func deviceNames(pwr: DiscoveredPeripheral?, hr: DiscoveredPeripheral?) -> String {
         let names = [pwr?.name, hr?.name].compactMap { $0 }
@@ -29,7 +30,35 @@ struct WorkoutPlayerView: View {
     
     var body: some View {
         Group {
-            if workoutManager.isLoaded || workoutManager.isRecording {
+            if !workoutManager.exportedFiles.isEmpty {
+                // Focused Post-Workout Summary View
+                VStack {
+                    Spacer()
+                    SessionSummaryCard(files: workoutManager.exportedFiles, engine: workoutManager.engineA)
+                        .padding()
+                    
+                    Button(role: .destructive) {
+                        showingDiscardConfirmation = true
+                    } label: {
+                        Label("Discard Session", systemImage: "trash")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                    }
+                    .buttonStyle(.bordered)
+                    .padding(.horizontal)
+                    .alert("Discard Session?", isPresented: $showingDiscardConfirmation) {
+                        Button("Cancel", role: .cancel) { }
+                        Button("Discard", role: .destructive) {
+                            workoutManager.exportedFiles = []
+                        }
+                    } message: {
+                        Text("This will permanently delete the current session data and return to setup.")
+                    }
+                    
+                    Spacer()
+                }
+                .navigationTitle("Session Summary")
+            } else if workoutManager.isLoaded || workoutManager.isRecording {
                 activeView
             } else {
                 setupView
@@ -434,10 +463,6 @@ struct WorkoutPlayerView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(.blue)
                 .disabled(workoutManager.hrDeviceAId == nil && workoutManager.powerDeviceAId == nil && workoutManager.hrDeviceBId == nil && workoutManager.powerDeviceBId == nil)
-            }
-            
-            if !workoutManager.exportedFiles.isEmpty {
-                SessionSummaryCard(files: workoutManager.exportedFiles, engine: workoutManager.engineA)
             }
         }
         .padding(.top)
