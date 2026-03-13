@@ -46,13 +46,13 @@ struct WorkoutGraphView: View {
                                 .stroke(Color.secondary.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [2]))
                                 
                                 // Left label (Watts)
-                                Text("\(Int(pct * ftp))w")
+                                Text("\(Int(pct * ftp))")
                                     .font(.system(size: 8, weight: .bold, design: .monospaced))
                                     .foregroundColor(.secondary)
                                     .position(x: 20, y: y - 6)
                                 
                                 // Right label (Watts)
-                                Text("\(Int(pct * ftp))w")
+                                Text("\(Int(pct * ftp))")
                                     .font(.system(size: 8, weight: .bold, design: .monospaced))
                                     .foregroundColor(.secondary)
                                     .position(x: width - 20, y: y - 6)

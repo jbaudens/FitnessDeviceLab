@@ -19,9 +19,9 @@ struct WorkoutPlayerView: View {
     var hrB: DiscoveredPeripheral? { hrDevices.first { $0.id == workoutManager.hrDeviceBId } }
     var powerB: DiscoveredPeripheral? { powerDevices.first { $0.id == workoutManager.powerDeviceBId } }
     
-    func deviceNames(hr: DiscoveredPeripheral?, pwr: DiscoveredPeripheral?) -> String {
-        let names = [hr?.name, pwr?.name].compactMap { $0 }
-        let uniqueNames = Array(Set(names))
+    func deviceNames(pwr: DiscoveredPeripheral?, hr: DiscoveredPeripheral?) -> String {
+        let names = [pwr?.name, hr?.name].compactMap { $0 }
+        let uniqueNames = names.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
         return uniqueNames.isEmpty ? "No Sensors" : uniqueNames.joined(separator: " + ")
     }
     
@@ -47,7 +47,7 @@ struct WorkoutPlayerView: View {
                                         HStack {
                                             Label("SET A", systemImage: "1.circle.fill")
                                             Spacer()
-                                            Text(deviceNames(hr: hrA, pwr: powerA))
+                                            Text(deviceNames(pwr: powerA, hr: hrA))
                                                 .font(.system(size: 10, weight: .bold, design: .monospaced))
                                         }
                                         .font(.caption)
@@ -83,7 +83,7 @@ struct WorkoutPlayerView: View {
                                         HStack {
                                             Label("SET B", systemImage: "2.circle.fill")
                                             Spacer()
-                                            Text(deviceNames(hr: hrB, pwr: powerB))
+                                            Text(deviceNames(pwr: powerB, hr: hrB))
                                                 .font(.system(size: 10, weight: .bold, design: .monospaced))
                                         }
                                         .font(.caption)
@@ -203,13 +203,31 @@ struct WorkoutPlayerView: View {
                                             .foregroundColor(.blue)
                                         Spacer()
                                         
-                                        HStack(spacing: 4) {
-                                            Text("ERG")
-                                                .font(.system(size: 8, weight: .black))
-                                            Toggle("ERG Mode", isOn: $workoutManager.ergModeEnabled)
-                                                .labelsHidden()
-                                                .scaleEffect(0.7)
-                                                .disabled(!workoutManager.canEnableErgMode)
+                                        // Mode Selection Dropdown
+                                        Menu {
+                                            Button(action: { workoutManager.ergModeEnabled = true }) {
+                                                HStack {
+                                                    Text("ERG Mode")
+                                                    if workoutManager.ergModeEnabled { Image(systemName: "checkmark") }
+                                                }
+                                            }
+                                            .disabled(!workoutManager.canEnableErgMode)
+                                            
+                                            Button(action: { workoutManager.ergModeEnabled = false }) {
+                                                HStack {
+                                                    Text("Resistance Mode")
+                                                    if !workoutManager.ergModeEnabled { Image(systemName: "checkmark") }
+                                                }
+                                            }
+                                            .disabled(!workoutManager.canEnableErgMode)
+                                        } label: {
+                                            Text(workoutManager.ergModeEnabled ? "ERG" : "RES")
+                                                .font(.system(size: 10, weight: .black))
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 4)
+                                                .background(workoutManager.ergModeEnabled ? Color.green.opacity(0.8) : Color.orange.opacity(0.8))
+                                                .foregroundColor(.white)
+                                                .cornerRadius(4)
                                         }
                                         .padding(.trailing, 8)
                                         
@@ -321,7 +339,7 @@ struct WorkoutTargetHeader: View {
     }()
     
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             HStack(alignment: .center) {
                 // Time in Interval
                 if let step = workoutManager.currentWorkoutStep {
@@ -347,6 +365,29 @@ struct WorkoutTargetHeader: View {
                     
                     Spacer()
                     
+                    // Session Progress in Middle
+                    VStack(spacing: 4) {
+                        if let start = workoutManager.sessionStartTime {
+                            HStack(spacing: 8) {
+                                Text("S: \(timeFormatter.string(from: start))")
+                                Text("E: \(timeFormatter.string(from: start.addingTimeInterval(workout.totalDuration)))")
+                            }
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.secondary)
+                        }
+
+                        Text("\(formatDuration(workoutManager.workoutElapsedTime)) / \(formatDuration(workout.totalDuration))")
+                            .font(.system(size: 14, weight: .black, design: .monospaced))
+                            .foregroundColor(.primary)
+                        
+                        ProgressView(value: min(1.0, workoutManager.workoutElapsedTime / workout.totalDuration))
+                            .tint(.blue)
+                            .frame(width: 120)
+                            .scaleEffect(x: 1, y: 0.5)
+                    }
+                    
+                    Spacer()
+                    
                     // Target Power
                     VStack(alignment: .trailing, spacing: 2) {
                         let scale = workoutManager.workoutDifficultyScale
@@ -362,42 +403,53 @@ struct WorkoutTargetHeader: View {
             }
             
             // Legend & Controls
-            HStack(spacing: 12) {
+            HStack(spacing: 16) {
+                // Mode Selection Dropdown
+                Menu {
+                    Button(action: { workoutManager.ergModeEnabled = true }) {
+                        HStack {
+                            Text("ERG Mode")
+                            if workoutManager.ergModeEnabled { Image(systemName: "checkmark") }
+                        }
+                    }
+                    .disabled(!workoutManager.canEnableErgMode)
+                    
+                    Button(action: { workoutManager.ergModeEnabled = false }) {
+                        HStack {
+                            Text("Resistance Mode")
+                            if !workoutManager.ergModeEnabled { Image(systemName: "checkmark") }
+                        }
+                    }
+                    .disabled(!workoutManager.canEnableErgMode)
+                } label: {
+                    Text(workoutManager.ergModeEnabled ? "ERG" : "RES")
+                        .font(.system(size: 12, weight: .black))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(workoutManager.ergModeEnabled ? Color.green.opacity(0.8) : Color.orange.opacity(0.8))
+                        .foregroundColor(.white)
+                        .cornerRadius(6)
+                }
+                
                 // Difficulty Controls
-                HStack(spacing: 4) {
+                HStack(spacing: 12) {
                     Button(action: { workoutManager.decreaseDifficulty() }) {
                         Image(systemName: "minus.circle.fill")
+                            .font(.system(size: 28))
                     }
                     .buttonStyle(.plain)
                     
                     Text("\(Int(round(workoutManager.workoutDifficultyScale * 100)))%")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .frame(width: 45)
+                        .font(.system(size: 16, weight: .bold, design: .monospaced))
+                        .frame(width: 60)
                     
                     Button(action: { workoutManager.increaseDifficulty() }) {
                         Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 28))
                     }
                     .buttonStyle(.plain)
                 }
                 .foregroundColor(.blue)
-                .padding(.trailing, 4)
-                
-                Picker("Mode", selection: $workoutManager.currentDataFieldMode) {
-                    ForEach(WorkoutSessionManager.DataFieldMode.allCases) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 140)
-                
-                Toggle(isOn: $workoutManager.ergModeEnabled) {
-                    Text("ERG")
-                }
-                .toggleStyle(.button)
-                .font(.system(size: 10, weight: .black))
-                .tint(.green)
-                .frame(height: 24)
-                .disabled(!workoutManager.canEnableErgMode)
                 
                 if !workoutManager.ergModeEnabled {
                     HStack(spacing: 8) {
@@ -414,32 +466,24 @@ struct WorkoutTargetHeader: View {
                 
                 Spacer()
                 
-                Label("Power", systemImage: "bolt.fill").foregroundColor(.yellow)
-                Label("Cadence", systemImage: "bicycle").foregroundColor(.blue)
-                Label("HR", systemImage: "heart.fill").foregroundColor(.red)
+                HStack(spacing: 12) {
+                    Label("Power", systemImage: "bolt.fill").foregroundColor(.yellow)
+                    Label("Cadence", systemImage: "bicycle").foregroundColor(.blue)
+                    Label("HR", systemImage: "heart.fill").foregroundColor(.red)
+                }
+                .font(.system(size: 10, weight: .bold))
+                
+                Picker("Mode", selection: $workoutManager.currentDataFieldMode) {
+                    ForEach(WorkoutSessionManager.DataFieldMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 140)
             }
             .font(.system(size: 10, weight: .bold))
             .foregroundColor(.secondary)
-            
-            VStack(spacing: 4) {
-                HStack {
-                    if let start = workoutManager.sessionStartTime {
-                        Text("Started: \(timeFormatter.string(from: start))")
-                        Spacer()
-                        let expectedEnd = start.addingTimeInterval(workout.totalDuration)
-                        Text("Ends: \(timeFormatter.string(from: expectedEnd))")
-                    }
-                }
-                .font(.system(size: 10, weight: .bold))
-                .foregroundColor(.secondary)
-
-                HStack {
-                    Spacer()
-                    Text("Total: \(formatDuration(workoutManager.workoutElapsedTime)) / \(formatDuration(workout.totalDuration))")
-                        .font(.system(size: 12, weight: .black))
-                        .foregroundColor(.primary)
-                }
-            }
             
             if workoutManager.currentStepIndex < workout.steps.count - 1 {
                 let nextStep = workout.steps[workoutManager.currentStepIndex + 1]
