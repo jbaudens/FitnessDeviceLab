@@ -28,18 +28,13 @@ struct WorkoutPlayerView: View {
     }
     
     var body: some View {
-        ZStack {
+        Group {
             if workoutManager.isLoaded || workoutManager.isRecording {
                 activeView
             } else {
                 setupView
             }
-            
-            if let count = workoutManager.countdownToStart {
-                countdownOverlay(count: count)
-            }
         }
-        .blur(radius: workoutManager.countdownToStart != nil ? 10 : 0)
     }
     
     private var activeView: some View {
@@ -448,61 +443,10 @@ struct WorkoutPlayerView: View {
         .padding(.top)
     }
     
-    private var ButtonStyle_Bordered: some PrimitiveButtonStyle {
-        #if os(macOS)
-        return .bordered
-        #else
-        return .bordered
-        #endif
-    }
-    
-    private func countdownOverlay(count: Int) -> some View {
-        VStack(spacing: 20) {
-            Text("Starting in...")
-                .font(.title)
-                .fontWeight(.black)
-            Text("\(count)")
-                .font(.system(size: 120, weight: .black, design: .rounded))
-                .transition(.scale)
-                .id("countdown_\(count)")
-            Text("Keep pedaling!")
-                .font(.headline)
-                .foregroundColor(.blue)
-            
-            Button(action: {
-                workoutManager.startRecording()
-            }) {
-                Text("Start Now")
-                    .font(.headline)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(Color.white.opacity(0.2))
-                    .cornerRadius(10)
-            }
-            .padding(.top, 20)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.opacity(0.4).ignoresSafeArea())
-    }
-    
     func formatDuration(_ interval: TimeInterval) -> String {
         let mins = Int(interval) / 60
         let secs = Int(interval) % 60
         return String(format: "%02d:%02d", mins, secs)
-    }
-}
-
-struct AnyButtonStyle: ButtonStyle {
-    private let _makeBody: (Configuration) -> AnyView
-
-    init<S: ButtonStyle>(_ style: S) {
-        _makeBody = { configuration in
-            AnyView(style.makeBody(configuration: configuration))
-        }
-    }
-
-    func makeBody(configuration: Configuration) -> some View {
-        _makeBody(configuration)
     }
 }
 

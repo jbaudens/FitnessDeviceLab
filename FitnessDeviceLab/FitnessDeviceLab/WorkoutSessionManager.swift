@@ -21,7 +21,6 @@ class WorkoutSessionManager: ObservableObject {
     @Published var isLoaded = false
     @Published var isPaused = false
     @Published var isAutoPaused = false
-    @Published var countdownToStart: Int? = nil
     
     @Published var sessionStartTime: Date?
     @Published var workoutElapsedTime: TimeInterval = 0
@@ -100,7 +99,6 @@ class WorkoutSessionManager: ObservableObject {
         isPaused = false
         isRecording = false
         isAutoPaused = false
-        countdownToStart = nil
         exportedFiles = []
         
         recorderA.hrDevice = devices.first { $0.id == hrDeviceAId }
@@ -136,7 +134,6 @@ class WorkoutSessionManager: ObservableObject {
         isRecording = true
         isPaused = false
         isAutoPaused = false
-        countdownToStart = nil
         
         recorderA.isRecording = true
         recorderB.isRecording = true
@@ -146,12 +143,6 @@ class WorkoutSessionManager: ObservableObject {
         guard isRecording else { return }
         isPaused = true
         isAutoPaused = false
-        // We keep recorder.isRecording = true because we want to record the pause points?
-        // Actually, users usually don't want pause points in the FIT file track.
-        // But the prompt said "display raw data even if paused". 
-        // My new SessionRecorder logic does both: displays raw via latestPoint, 
-        // and appends to trackpoints only if isRecording is true.
-        // Let's stop appending to trackpoints during pause.
         recorderA.isRecording = false
         recorderB.isRecording = false
     }
@@ -185,31 +176,13 @@ class WorkoutSessionManager: ObservableObject {
         let now = Date()
         let altitude = LocationManager.shared.currentAltitude ?? SettingsManager.shared.altitudeOverride
         
+        // Always record current point for live data display, but recorder handles whether to append to trackpoints
         recorderA.recordPoint(time: now, altitude: altitude)
         recorderB.recordPoint(time: now, altitude: altitude)
         
         // Ensure data fields update
         engineA.recalculate()
         engineB.recalculate()
-        
-        // Auto-start logic
-        if isLoaded && !isRecording {
-            let currentPower = recorderA.powerDevice?.cyclingPower ?? 0
-            if currentPower > 0 {
-                if let cd = countdownToStart {
-                    if cd > 1 {
-                        countdownToStart = cd - 1
-                    } else {
-                        startRecording()
-                    }
-                } else {
-                    countdownToStart = 5
-                }
-            } else {
-                countdownToStart = nil
-            }
-            return
-        }
         
         guard isRecording else { return }
         
@@ -221,15 +194,19 @@ class WorkoutSessionManager: ObservableObject {
             if currentPower == 0 && !isPaused {
                 isPaused = true
                 isAutoPaused = true
+                recorderA.isRecording = false
+                recorderB.isRecording = false
             } else if isAutoPaused && currentPower > 0 {
                 isPaused = false
                 isAutoPaused = false
+                recorderA.isRecording = true
+                recorderB.isRecording = true
             }
         }
         
         guard !isPaused else { return }
         
-        // Increment elapsed time manually since we want to handle pauses
+        // Increment elapsed time
         workoutElapsedTime += 1.0
         let totalElapsed = workoutElapsedTime
         
@@ -256,14 +233,12 @@ class WorkoutSessionManager: ObservableObject {
             }
             
             if !foundStep && !workout.steps.isEmpty {
-                // Workout finished structured steps, but don't auto-stop recording
-                // Just stay on the last step or transition to a "Post-Workout" state
-                // For now, let's just keep recording but stop updating steps.
+                // Workout finished structured steps, keep recording but stop updating steps
                 currentStepIndex = workout.steps.count - 1
                 timeInStep = workout.steps.last!.duration
             }
             
-            // ERG / Resistance Control (Only to one control device)
+            // ERG / Resistance Control
             if let trainer = controlDevice {
                 if ergModeEnabled, let step = currentWorkoutStep {
                     let ftp = SettingsManager.shared.userFTP
@@ -282,10 +257,6 @@ class WorkoutSessionManager: ObservableObject {
                         lastSentTargetPower = nil
                     }
                 }
-            } else {
-                // No trainer connected, reset trackers
-                lastSentTargetPower = nil
-                lastSentResistanceLevel = nil
             }
         } else {
             // Not a structured workout
