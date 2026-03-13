@@ -89,7 +89,7 @@ struct WorkoutLibraryView: View {
                     .padding(.horizontal)
                 }
                 .padding(.vertical, 12)
-                .background(Color(UIColor.systemGroupedBackground))
+                .background(Color.secondary.opacity(0.05))
                 
                 List {
                     if filteredWorkouts.isEmpty {
@@ -106,15 +106,20 @@ struct WorkoutLibraryView: View {
                 }
             }
             .navigationTitle("Workout Library")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarTitleMenu {
-                Picker("Sort By", selection: $sortOrder) {
-                    ForEach(SortOrder.allCases) { order in
-                        Text("Sort by \(order.rawValue)").tag(order)
+            .searchable(text: $searchText, prompt: "Search workouts...")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Picker("Sort By", selection: $sortOrder) {
+                            ForEach(SortOrder.allCases) { order in
+                                Text("Sort by \(order.rawValue)").tag(order)
+                            }
+                        }
+                    } label: {
+                        Label("Sort", systemImage: "arrow.up.arrow.down")
                     }
                 }
             }
-            .searchable(text: $searchText, prompt: "Search workouts...")
         }
     }
 }
