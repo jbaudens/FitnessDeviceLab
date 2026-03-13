@@ -28,10 +28,10 @@ public struct Lap: Identifiable {
     public let startTime: Date
     public var endTime: Date?
     public let type: WorkoutStepType
+    public var activeDuration: TimeInterval = 0
     
     public var duration: TimeInterval {
-        let end = endTime ?? Date()
-        return end.timeIntervalSince(startTime)
+        return activeDuration
     }
 }
 

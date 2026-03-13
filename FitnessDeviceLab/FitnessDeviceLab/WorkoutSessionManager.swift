@@ -233,6 +233,10 @@ class WorkoutSessionManager: ObservableObject {
         workoutElapsedTime += 1.0
         let totalElapsed = workoutElapsedTime
         
+        if !laps.isEmpty {
+            laps[laps.count - 1].activeDuration += 1.0
+        }
+        
         if let workout = selectedWorkout {
             // Recalculate current step and time in step based on totalElapsed
             var accumulated: TimeInterval = 0

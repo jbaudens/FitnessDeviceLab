@@ -115,7 +115,7 @@ class FitEncoder {
             let endTime = lap.endTime ?? Date()
             try? lapMesg.setTimestamp(DateTime(date: endTime))
             try? lapMesg.setTotalElapsedTime(Float64(endTime.timeIntervalSince(lap.startTime)))
-            try? lapMesg.setTotalTimerTime(Float64(endTime.timeIntervalSince(lap.startTime)))
+            try? lapMesg.setTotalTimerTime(Float64(lap.duration))
             
             // Calculate averages for the lap from trackpoints
             let lapPoints = trackpoints.filter { $0.time >= lap.startTime && $0.time <= endTime }
