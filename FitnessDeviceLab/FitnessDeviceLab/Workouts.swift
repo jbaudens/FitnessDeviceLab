@@ -18,9 +18,9 @@ public struct DefaultWorkouts {
         name: "HR Target Test",
         description: "A workout focused on maintaining specific heart rate targets. The trainer will adjust power to hit the HR goals.",
         steps: [
-            WorkoutStep(duration: 300, targetPowerPercent: 0.50, type: .warmup),
+            WorkoutStep(duration: 300, targetHeartRatePercent: 0.50, type: .warmup),
             WorkoutStep(duration: 600, targetHeartRatePercent: 0.85, type: .work), // 85% LTHR
-            WorkoutStep(duration: 300, targetPowerPercent: 0.50, type: .cooldown)
+            WorkoutStep(duration: 300, targetHeartRatePercent: 0.50, type: .cooldown)
         ]
     )
     

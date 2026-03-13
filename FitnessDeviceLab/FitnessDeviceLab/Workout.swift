@@ -122,6 +122,17 @@ public struct StructuredWorkout: Identifiable, Codable, Hashable {
         steps.reduce(0) { $0 + $1.duration }
     }
     
+    public enum WorkoutMetric: String {
+        case power = "Power"
+        case heartRate = "Heart Rate"
+    }
+    
+    public var primaryMetric: WorkoutMetric {
+        let hrSteps = steps.filter { $0.targetHeartRatePercent != nil }.count
+        let powerSteps = steps.filter { $0.targetPowerPercent != nil }.count
+        return hrSteps > powerSteps ? .heartRate : .power
+    }
+    
     public var averageIntensity: Double {
         guard !steps.isEmpty else { return 0 }
         let powerSteps = steps.filter { $0.targetPowerPercent != nil }

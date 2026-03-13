@@ -240,9 +240,16 @@ struct WorkoutRowView: View {
                             .cornerRadius(4)
                     }
                     
-                    Text("\(Int(workout.totalDuration / 60)) min • IF \(String(format: "%.2f", workout.intensityFactor))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    HStack(spacing: 6) {
+                        Text("\(Int(workout.totalDuration / 60)) min")
+                        Text("•")
+                        Text("IF \(String(format: "%.2f", workout.intensityFactor))")
+                        Text("•")
+                        Label(workout.primaryMetric.rawValue, systemImage: workout.primaryMetric == .power ? "bolt.fill" : "heart.fill")
+                            .imageScale(.small)
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
