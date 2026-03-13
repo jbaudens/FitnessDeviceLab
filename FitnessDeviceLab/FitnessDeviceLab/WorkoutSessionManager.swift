@@ -99,7 +99,9 @@ class WorkoutSessionManager: ObservableObject {
         laps = []
         isPaused = false
         isRecording = false
+        isAutoPaused = false
         countdownToStart = nil
+        exportedFiles = []
         
         recorderA.hrDevice = devices.first { $0.id == hrDeviceAId }
         recorderA.powerDevice = devices.first { $0.id == powerDeviceAId }
@@ -130,6 +132,7 @@ class WorkoutSessionManager: ObservableObject {
         sessionStartTime = Date()
         isRecording = true
         isPaused = false
+        isAutoPaused = false
         countdownToStart = nil
     }
     
@@ -143,9 +146,6 @@ class WorkoutSessionManager: ObservableObject {
         guard isRecording else { return }
         isPaused = false
         isAutoPaused = false
-        // Adjust sessionStartTime to account for pause duration if needed, 
-        // but currently we use Date() in recordPoint and calculate elapsed.
-        // Actually, let's just make tick() not increment if paused.
     }
     
     func manualLap() {
@@ -167,6 +167,14 @@ class WorkoutSessionManager: ObservableObject {
     
     private func tick() {
         let now = Date()
+        
+        // Always update recorders with raw data if loaded or recording
+        if isLoaded || isRecording {
+            let altitude = LocationManager.shared.currentAltitude ?? SettingsManager.shared.altitudeOverride
+            recorderA.recordPoint(time: now, altitude: altitude)
+            recorderB.recordPoint(time: now, altitude: altitude)
+        }
+        
         // Auto-start logic
         if isLoaded && !isRecording {
             let currentPower = recorderA.powerDevice?.cyclingPower ?? 0
@@ -197,11 +205,6 @@ class WorkoutSessionManager: ObservableObject {
             isPaused = false
             isAutoPaused = false
         }
-        
-        // Always record data points if recording, even if paused
-        let altitude = LocationManager.shared.currentAltitude ?? SettingsManager.shared.altitudeOverride
-        recorderA.recordPoint(time: now, altitude: altitude)
-        recorderB.recordPoint(time: now, altitude: altitude)
         
         guard !isPaused else { return }
         

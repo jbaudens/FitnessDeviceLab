@@ -297,8 +297,60 @@ struct WorkoutPlayerView: View {
                                         RoundedRectangle(cornerRadius: 16)
                                             .stroke(Color.blue.opacity(0.2), lineWidth: 1)
                                     )
-                                }
 
+                                    // Live Data Preview (Always visible if loaded)
+                                    if workoutManager.isLoaded && !workoutManager.isRecording {
+                                        VStack(alignment: .leading, spacing: 12) {
+                                            Text("LIVE DATA PREVIEW")
+                                                .font(.caption)
+                                                .fontWeight(.black)
+                                                .foregroundColor(.orange)
+
+                                            HStack(spacing: 20) {
+                                                VStack(alignment: .leading) {
+                                                    Text("HEART RATE")
+                                                        .font(.system(size: 8, weight: .black))
+                                                        .foregroundColor(.secondary)
+                                                    HStack(alignment: .lastTextBaseline, spacing: 2) {
+                                                        Text("\(workoutManager.recorderA.hrDevice?.heartRate ?? 0)")
+                                                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                                                        Text("BPM")
+                                                            .font(.system(size: 10, weight: .black))
+                                                            .foregroundColor(.secondary)
+                                                    }
+                                                }
+
+                                                VStack(alignment: .leading) {
+                                                    Text("POWER")
+                                                        .font(.system(size: 8, weight: .black))
+                                                        .foregroundColor(.secondary)
+                                                    HStack(alignment: .lastTextBaseline, spacing: 2) {
+                                                        Text("\(workoutManager.recorderA.powerDevice?.cyclingPower ?? 0)")
+                                                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                                                        Text("W")
+                                                            .font(.system(size: 10, weight: .black))
+                                                            .foregroundColor(.secondary)
+                                                    }
+                                                }
+
+                                                Spacer()
+
+                                                if workoutManager.recorderA.powerDevice?.cyclingPower ?? 0 > 0 {
+                                                    Label("Pedaling Detected", systemImage: "bolt.fill")
+                                                        .font(.caption2)
+                                                        .foregroundColor(.green)
+                                                }
+                                            }
+                                        }
+                                        .padding()
+                                        .background(Color.orange.opacity(0.05))
+                                        .cornerRadius(16)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .stroke(Color.orange.opacity(0.2), lineWidth: 1)
+                                        )
+                                    }
+                                    }
                                 // Sensor Selection Cards
                                 SensorSetCard(
                                     title: "PRIMARY RECORDER (A)",
@@ -322,15 +374,28 @@ struct WorkoutPlayerView: View {
                                 
                                 // Recording Controls
                                 VStack(spacing: 12) {
+                                    if workoutManager.isLoaded && !workoutManager.isRecording {
+                                        Button(action: {
+                                            workoutManager.startRecording()
+                                        }) {
+                                            Label("Start Recording", systemImage: "play.fill")
+                                                .font(.headline)
+                                                .frame(maxWidth: .infinity)
+                                                .padding()
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                        .tint(.green)
+                                    }
+                                    
                                     Button(action: {
                                         workoutManager.loadWorkout(devices: bluetoothManager.peripherals)
                                     }) {
-                                        Label("Load Workout", systemImage: "arrow.down.doc.fill")
+                                        Label(workoutManager.isLoaded ? "Reload Workout" : "Load Workout", systemImage: "arrow.down.doc.fill")
                                             .font(.headline)
                                             .frame(maxWidth: .infinity)
                                             .padding()
                                     }
-                                    .buttonStyle(.borderedProminent)
+                                    .buttonStyle(workoutManager.isLoaded ? .bordered : .borderedProminent)
                                     .tint(.blue)
                                     .disabled(workoutManager.hrDeviceAId == nil && workoutManager.powerDeviceAId == nil && workoutManager.hrDeviceBId == nil && workoutManager.powerDeviceBId == nil)
                                     
