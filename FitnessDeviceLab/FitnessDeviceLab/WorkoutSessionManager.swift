@@ -210,8 +210,8 @@ class WorkoutSessionManager: ObservableObject {
         timerCancellable = nil
         
         var files: [URL] = []
-        if let urlA = recorderA.stop(label: "ProfileA") { files.append(urlA) }
-        if let urlB = recorderB.stop(label: "ProfileB") { files.append(urlB) }
+        files.append(contentsOf: recorderA.stop(label: "ProfileA", laps: laps))
+        files.append(contentsOf: recorderB.stop(label: "ProfileB", laps: laps))
         
         if !files.isEmpty {
             exportedFiles = files
