@@ -148,8 +148,10 @@ struct PerformanceChart: View {
     
     var body: some View {
         Chart {
-            ForEach(downsampledTrackpoints) { pt in
-                let timeOffset = pt.time.timeIntervalSince(startTime ?? pt.time)
+            ForEach(Array(downsampledTrackpoints.enumerated()), id: \.element.id) { index, pt in
+                // Find the original index to use as the time offset (1pt = 1s)
+                let originalIndex = recorder.trackpoints.firstIndex(where: { $0.id == pt.id }) ?? index
+                let timeOffset = Double(originalIndex)
                 
                 if let pwr = pt.power {
                     LineMark(

@@ -558,14 +558,17 @@ struct WorkoutTargetHeader: View {
                     
                     // Session Progress in Middle
                     VStack(spacing: 4) {
-                        if let start = workoutManager.sessionStartTime {
-                            HStack(spacing: 8) {
+                        HStack(spacing: 8) {
+                            if let start = workoutManager.sessionStartTime {
                                 Text("S: \(timeFormatter.string(from: start))")
-                                Text("E: \(timeFormatter.string(from: start.addingTimeInterval(workout.totalDuration)))")
                             }
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.secondary)
+                            
+                            let remaining = workout.totalDuration - workoutManager.workoutElapsedTime
+                            let estimatedEnd = Date().addingTimeInterval(remaining)
+                            Text("E: \(timeFormatter.string(from: estimatedEnd))")
                         }
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.secondary)
 
                         Text("\(formatDuration(workoutManager.workoutElapsedTime)) / \(formatDuration(workout.totalDuration))")
                             .font(.system(size: 14, weight: .black, design: .monospaced))
