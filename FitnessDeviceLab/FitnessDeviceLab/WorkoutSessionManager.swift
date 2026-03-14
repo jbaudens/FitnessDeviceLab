@@ -183,8 +183,9 @@ class WorkoutSessionManager: ObservableObject {
         recorderB.recordPoint(time: now, altitude: altitude)
         
         // Ensure data fields update
-        engineA.recalculate()
-        engineB.recalculate()
+        let lapStart = laps.last?.startTime
+        engineA.updateMetrics(from: recorderA.trackpoints, lapStartTime: lapStart)
+        engineB.updateMetrics(from: recorderB.trackpoints, lapStartTime: lapStart)
         
         guard isRecording else { return }
         

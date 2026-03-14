@@ -64,10 +64,9 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     case altitude = "Altitude"
     
     // Lap Metrics
-    case lapPower = "Lap Power"
     case lapAvgPower = "Lap Avg Pwr"
     case lapNP = "Lap NP®"
-    case lapHR = "Lap HR"
+    case lapAvgHR = "Lap Avg HR"
     case lapCadence = "Lap Cad"
     case lapTime = "Lap Time"
     
@@ -75,23 +74,22 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     
     var isHR: Bool {
         switch self {
-        case .currentHR, .avgHR, .maxHR, .dfaAlpha1, .avnn, .sdnn, .rmssd, .pnn50, .lapHR: return true
+        case .currentHR, .avgHR, .maxHR, .dfaAlpha1, .avnn, .sdnn, .rmssd, .pnn50, .lapAvgHR: return true
         default: return false
         }
     }
     
     func value(for engine: DataFieldEngine, workoutManager: WorkoutSessionManager? = nil) -> Double? {
         let sessionMetrics = engine.calculatedMetrics
+        let lapMetrics = engine.currentLapMetrics
         let hrv = engine.hrvMetrics
         
         // Mode-aware metrics (either Session or Lap)
         let m: CalculatedMetrics = {
-            let settings = SettingsManager.shared.metricsSettings
-            guard let wm = workoutManager, wm.currentDataFieldMode == .lap, let currentLap = wm.laps.last else {
+            guard let wm = workoutManager, wm.currentDataFieldMode == .lap else {
                 return sessionMetrics
             }
-            let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
-            return DataFieldEngine.calculate(from: points, settings: settings)
+            return lapMetrics
         }()
         
         switch self {
@@ -147,23 +145,10 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         
         case .altitude: return engine.currentAltitude
         
-        case .lapPower: return engine.calculatedMetrics.standard.instantPower.map { Double($0) }
-        case .lapAvgPower:
-            guard let wm = workoutManager, let currentLap = wm.laps.last else { return nil }
-            let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
-            return DataFieldEngine.calculate(from: points, settings: SettingsManager.shared.metricsSettings).standard.avgPower
-        case .lapNP:
-            guard let wm = workoutManager, let currentLap = wm.laps.last else { return nil }
-            let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
-            return DataFieldEngine.calculate(from: points, settings: SettingsManager.shared.metricsSettings).standard.normalizedPower
-        case .lapHR:
-            guard let wm = workoutManager, let currentLap = wm.laps.last else { return nil }
-            let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
-            return DataFieldEngine.calculate(from: points, settings: SettingsManager.shared.metricsSettings).hr.avg
-        case .lapCadence:
-            guard let wm = workoutManager, let currentLap = wm.laps.last else { return nil }
-            let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
-            return DataFieldEngine.calculate(from: points, settings: SettingsManager.shared.metricsSettings).cadence.avg
+        case .lapAvgPower: return lapMetrics.standard.avgPower
+        case .lapNP: return lapMetrics.standard.normalizedPower
+        case .lapAvgHR: return lapMetrics.hr.avg
+        case .lapCadence: return lapMetrics.cadence.avg
         case .lapTime:
             if let start = workoutManager?.laps.last?.startTime {
                 return Date().timeIntervalSince(start)
@@ -174,11 +159,11 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     
     var unit: String {
         switch self {
-        case .currentHR, .avgHR, .maxHR, .lapHR: return "bpm"
+        case .currentHR, .avgHR, .maxHR, .lapAvgHR: return "bpm"
         case .dfaAlpha1: return "idx"
         case .avnn, .sdnn, .rmssd: return "ms"
         case .pnn50: return "%"
-        case .currentPower, .power3s, .power10s, .power30s, .avgPower, .maxPower, .normalizedPower, .localFTP, .slPower, .slPower3s, .slPower10s, .slPower30s, .slAvgPower, .slMaxPower, .slNP, .slFTP, .homePower, .homePower3s, .homePower10s, .homePower30s, .homeAvgPower, .homeMaxPower, .homeNP, .homeFTP, .lapPower, .lapAvgPower, .lapNP: return "W"
+        case .currentPower, .power3s, .power10s, .power30s, .avgPower, .maxPower, .normalizedPower, .localFTP, .slPower, .slPower3s, .slPower10s, .slPower30s, .slAvgPower, .slMaxPower, .slNP, .slFTP, .homePower, .homePower3s, .homePower10s, .homePower30s, .homeAvgPower, .homeMaxPower, .homeNP, .homeFTP, .lapAvgPower, .lapNP: return "W"
         case .intensityFactor, .slIF, .homeIF: return "IF"
         case .tss, .slTSS, .homeTSS: return "TSS"
         case .cadence, .avgCadence, .maxCadence, .lapCadence: return "rpm"
@@ -191,7 +176,7 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     
     var color: Color {
         switch self {
-        case .currentHR, .avgHR, .maxHR, .lapHR: return .red
+        case .currentHR, .avgHR, .maxHR, .lapAvgHR: return .red
         case .dfaAlpha1, .avnn, .sdnn, .rmssd, .pnn50: return .purple
         case .intensityFactor, .tss, .slIF, .slTSS, .homeIF, .homeTSS, .lapNP: return .orange
         case .cadence, .avgCadence, .maxCadence, .lapCadence: return .blue

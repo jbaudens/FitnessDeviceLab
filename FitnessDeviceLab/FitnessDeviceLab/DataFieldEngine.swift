@@ -65,9 +65,12 @@ public class DataFieldEngine: ObservableObject {
     
     @Published public var hrvMetrics = HRVMetrics()
     @Published public var calculatedMetrics = CalculatedMetrics()
+    @Published public var currentLapMetrics = CalculatedMetrics()
     
     private var cancellables = Set<AnyCancellable>()
     public let recorder: SessionRecorder
+    
+    private var calculationTask: Task<Void, Never>?
     
     init(recorder: SessionRecorder) {
         self.recorder = recorder
@@ -93,7 +96,8 @@ public class DataFieldEngine: ObservableObject {
         recorder.$trackpoints
             .receive(on: RunLoop.main)
             .sink { [weak self] trackpoints in
-                self?.updateMetrics(from: trackpoints)
+                // Standard session update (no lap filter)
+                self?.updateMetrics(from: trackpoints, lapStartTime: nil)
             }
             .store(in: &cancellables)
             
@@ -108,25 +112,39 @@ public class DataFieldEngine: ObservableObject {
     }
     
     public func recalculate() {
-        updateMetrics(from: recorder.trackpoints)
+        updateMetrics(from: recorder.trackpoints, lapStartTime: nil)
     }
     
-    private func updateMetrics(from trackpoints: [Trackpoint]) {
+    public func updateMetrics(from trackpoints: [Trackpoint], lapStartTime: Date?) {
+        calculationTask?.cancel()
+        
         let settings = SettingsManager.shared
         let metricsSettings = settings.metricsSettings
-        
-        // Offload heavy calculations to background
         let rrHistory = Array(trackpoints.flatMap { $0.rrIntervals }.suffix(600))
         
-        Task.detached(priority: .userInitiated) {
-            // Calculate standard metrics
+        calculationTask = Task.detached(priority: .userInitiated) {
+            if Task.isCancelled { return }
+            
+            // Calculate standard metrics for entire session
             let m = Self.calculate(from: trackpoints, settings: metricsSettings)
+            
+            // Calculate metrics for current lap
+            let lapMetrics: CalculatedMetrics
+            if let start = lapStartTime {
+                let lapPoints = trackpoints.filter { $0.time >= start }
+                lapMetrics = Self.calculate(from: lapPoints, settings: metricsSettings)
+            } else {
+                lapMetrics = CalculatedMetrics()
+            }
             
             // Calculate HRV metrics
             let newHRV = HRVEngine.calculateMetrics(rawRRIntervals: rrHistory)
             
+            if Task.isCancelled { return }
+            
             await MainActor.run {
                 self.calculatedMetrics = m
+                self.currentLapMetrics = lapMetrics
                 self.hrvMetrics = newHRV
             }
         }

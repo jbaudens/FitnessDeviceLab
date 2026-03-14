@@ -14,7 +14,7 @@ public struct DefaultWorkouts {
         hrTest,
         antelopePlus2,
         hrQuickTest,
-        powerQuickTest
+        powerQuickTest  
     ]
     
     private static let hrQuickTest = StructuredWorkout(
