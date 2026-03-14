@@ -218,9 +218,9 @@ class WorkoutSessionManager: ObservableObject {
             }
             
             if !foundStep && !workout.steps.isEmpty {
-                // Workout finished structured steps, keep recording but stop updating steps
-                currentStepIndex = workout.steps.count - 1
-                timeInStep = workout.steps.last!.duration
+                // Workout finished! Auto-stop.
+                stopWorkout()
+                return
             }
             
             // Centralized Target Power / HR Calculation
