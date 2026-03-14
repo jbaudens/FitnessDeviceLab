@@ -2,12 +2,12 @@ import Foundation
 import CoreBluetooth
 import Combine
 
-nonisolated enum DeviceCapability: String, CaseIterable, Identifiable {
+public enum DeviceCapability: String, CaseIterable, Identifiable {
     case heartRate = "Heart Rate"
     case cyclingPower = "Power Meter"
     case fitnessMachine = "Smart Trainer"
     
-    var id: String { rawValue }
+    public var id: String { rawValue }
 }
 
 nonisolated public struct TimeSeriesDataPoint: Identifiable, Equatable {
@@ -20,49 +20,49 @@ nonisolated public struct TimeSeriesDataPoint: Identifiable, Equatable {
     }
 }
 
-class DiscoveredPeripheral: NSObject, Identifiable, ObservableObject {
-    let id: UUID
-    let peripheral: CBPeripheral
+public class DiscoveredPeripheral: NSObject, Identifiable, ObservableObject, SensorPeripheral {
+    public let id: UUID
+    public let peripheral: CBPeripheral
     
-    @Published var name: String
-    @Published var rssi: NSNumber
-    @Published var isConnected: Bool = false
+    @Published public var name: String
+    @Published public var rssi: NSNumber
+    @Published public var isConnected: Bool = false
     
     // Static Data
-    @Published var manufacturerName: String?
-    @Published var modelNumber: String?
-    @Published var firmwareRevision: String?
+    @Published public var manufacturerName: String?
+    @Published public var modelNumber: String?
+    @Published public var firmwareRevision: String?
     
     // Dynamic Data
-    @Published var heartRate: Int?
-    @Published var cyclingPower: Int?
-    @Published var cadence: Int?
-    @Published var batteryLevel: Int?
+    @Published public var heartRate: Int?
+    @Published public var cyclingPower: Int?
+    @Published public var cadence: Int?
+    @Published public var batteryLevel: Int?
     
     // Cadence State
-    var lastCrankRevs: Int?
-    var lastCrankTime: Int?
-    @Published var powerBalance: Double? // 0.0 to 100.0% (Left)
+    public var lastCrankRevs: Int?
+    public var lastCrankTime: Int?
+    @Published public var powerBalance: Double? // 0.0 to 100.0% (Left)
     
     // Capabilities
-    @Published var capabilities: Set<DeviceCapability> = []
+    @Published public var capabilities: Set<DeviceCapability> = []
     
     // Connectivity State
-    @Published var lastSeen: Date = Date()
+    @Published public var lastSeen: Date = Date()
     
     // Debug Data
-    @Published var rawDataHex: String?
+    @Published public var rawDataHex: String?
     
     // Latest RR Intervals (for external consumption)
-    @Published var latestRRIntervals: [Double] = []
+    @Published public var latestRRIntervals: [Double] = []
     
     // FTMS State
-    var controlPointCharacteristic: CBCharacteristic?
-    var isControlRequested = false
+    public var controlPointCharacteristic: CBCharacteristic?
+    public var isControlRequested = false
     
     private var cancellables = Set<AnyCancellable>()
     
-    init(peripheral: CBPeripheral, rssi: NSNumber) {
+    public init(peripheral: CBPeripheral, rssi: NSNumber) {
         self.id = peripheral.identifier
         self.peripheral = peripheral
         self.name = peripheral.name ?? "Unknown Device"
@@ -93,7 +93,7 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
     private static let firmwareRevisionUUID = CBUUID(string: "2A26")
     private static let batteryLevelUUID = CBUUID(string: "2A19")
     
-    func discoverServices() {
+    public func discoverServices() {
         peripheral.discoverServices([
             Self.heartRateServiceUUID,
             Self.cyclingPowerServiceUUID,
@@ -103,7 +103,7 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
         ])
     }
     
-    func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
+    public func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         guard let services = peripheral.services else { return }
         for service in services {
             DispatchQueue.main.async {
@@ -133,7 +133,7 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
         }
     }
     
-    func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+    public func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         guard let characteristics = service.characteristics else { return }
         for characteristic in characteristics {
             if characteristic.uuid == Self.fitnessMachineControlPointUUID {
@@ -150,7 +150,7 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
         }
     }
     
-    func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+    public func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         guard let data = characteristic.value else { return }
         
         DispatchQueue.main.async {

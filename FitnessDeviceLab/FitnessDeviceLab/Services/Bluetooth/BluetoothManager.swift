@@ -3,16 +3,16 @@ import CoreBluetooth
 import Combine
 import AudioToolbox
 
-class BluetoothManager: NSObject, ObservableObject {
-    static let shared = BluetoothManager()
+public class BluetoothManager: NSObject, ObservableObject, BluetoothProvider {
+    public static let shared = BluetoothManager()
     private override init() {
         super.init()
         centralManager = CBCentralManager(delegate: self, queue: nil)
     }
     private var centralManager: CBCentralManager!
     
-    @Published var isScanning = false
-    @Published var peripherals: [DiscoveredPeripheral] = []
+    @Published public var isScanning = false
+    @Published public var peripherals: [DiscoveredPeripheral] = []
     
     private var cleanupTimer: AnyCancellable?
     
@@ -22,7 +22,7 @@ class BluetoothManager: NSObject, ObservableObject {
         CBUUID(string: "1826")  // Fitness Machine
     ]
 
-    func startScanning() {
+    public func startScanning() {
         guard centralManager.state == .poweredOn else { return }
         peripherals.removeAll()
         isScanning = true
@@ -36,24 +36,24 @@ class BluetoothManager: NSObject, ObservableObject {
             }
     }
 
-    func stopScanning() {
+    public func stopScanning() {
         centralManager.stopScan()
         isScanning = false
         cleanupTimer?.cancel()
         cleanupTimer = nil
     }
 
-    func connect(peripheral: DiscoveredPeripheral) {
+    public func connect(peripheral: DiscoveredPeripheral) {
         centralManager.connect(peripheral.peripheral, options: nil)
     }
 
-    func disconnect(peripheral: DiscoveredPeripheral) {
+    public func disconnect(peripheral: DiscoveredPeripheral) {
         centralManager.cancelPeripheralConnection(peripheral.peripheral)
     }
 }
 
 extension BluetoothManager: CBCentralManagerDelegate {
-    func centralManagerDidUpdateState(_ central: CBCentralManager) {
+    public func centralManagerDidUpdateState(_ central: CBCentralManager) {
         if central.state == .poweredOn {
             // Ready to scan
         } else {
@@ -61,7 +61,7 @@ extension BluetoothManager: CBCentralManagerDelegate {
         }
     }
 
-    func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
+    public func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
         DispatchQueue.main.async {
             var discoveredCapabilities: Set<DeviceCapability> = []
             if let serviceUUIDs = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] {
@@ -88,7 +88,7 @@ extension BluetoothManager: CBCentralManagerDelegate {
         }
     }
 
-    func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+    public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         DispatchQueue.main.async {
             if let discovered = self.peripherals.first(where: { $0.id == peripheral.identifier }) {
                 discovered.isConnected = true
@@ -97,7 +97,7 @@ extension BluetoothManager: CBCentralManagerDelegate {
         }
     }
 
-    func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
+    public func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         DispatchQueue.main.async {
             if let discovered = self.peripherals.first(where: { $0.id == peripheral.identifier }) {
                 let wasConnected = discovered.isConnected
