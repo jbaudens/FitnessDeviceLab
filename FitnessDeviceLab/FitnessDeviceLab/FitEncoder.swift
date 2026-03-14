@@ -28,7 +28,7 @@ class FitEncoder {
     
     /// Estimated speed in m/s based on Power (W) and Weight (kg)
     /// Simple physics model assuming flat road, no wind, and typical rolling resistance/drag.
-    private func estimateSpeed(power: Double, totalWeight: Double) -> Double {
+    public static func estimateSpeed(power: Double, totalWeight: Double) -> Double {
         guard power > 0 else { return 0 }
         
         // Constants for a typical road bike on flats
@@ -122,7 +122,7 @@ class FitEncoder {
             
             // Speed and Distance Estimation
             let power = Double(pt.power ?? 0)
-            let speed = estimateSpeed(power: power, totalWeight: totalWeight)
+            let speed = Self.estimateSpeed(power: power, totalWeight: totalWeight)
             speeds.append(speed)
             
             if i > 0 {
@@ -167,7 +167,7 @@ class FitEncoder {
                     try? lapMesg.setMaxHeartRate(UInt8(hrSamples.max() ?? 0))
                 }
                 
-                let lapSpeeds = lapPoints.map { estimateSpeed(power: Double($0.power ?? 0), totalWeight: totalWeight) }
+                let lapSpeeds = lapPoints.map { Self.estimateSpeed(power: Double($0.power ?? 0), totalWeight: totalWeight) }
                 if !lapSpeeds.isEmpty {
                     try? lapMesg.setAvgSpeed(Float64(lapSpeeds.reduce(0, +) / Double(lapSpeeds.count)))
                     try? lapMesg.setMaxSpeed(Float64(lapSpeeds.max() ?? 0))
@@ -188,7 +188,7 @@ class FitEncoder {
         try? session.setFirstLapIndex(0)
         try? session.setNumLaps(UInt16(laps.count))
         
-        let totalSpeeds = trackpoints.map { estimateSpeed(power: Double($0.power ?? 0), totalWeight: totalWeight) }
+        let totalSpeeds = trackpoints.map { Self.estimateSpeed(power: Double($0.power ?? 0), totalWeight: totalWeight) }
         if !totalSpeeds.isEmpty {
             try? session.setAvgSpeed(Float64(totalSpeeds.reduce(0, +) / Double(totalSpeeds.count)))
             try? session.setMaxSpeed(Float64(totalSpeeds.max() ?? 0))
