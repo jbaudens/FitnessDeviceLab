@@ -64,7 +64,7 @@ public class DataFieldEngine: ObservableObject {
     @Published public var slFTP: Double?
     
     @Published public var hrvMetrics = HRVMetrics()
-    @Published public var calculatedMetrics = CalculatedMetrics()
+    @Published public var calcul    atedMetrics = CalculatedMetrics()
     @Published public var currentLapMetrics = CalculatedMetrics()
     
     private var cancellables = Set<AnyCancellable>()
