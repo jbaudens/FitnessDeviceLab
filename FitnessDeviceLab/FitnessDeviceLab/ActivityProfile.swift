@@ -11,10 +11,16 @@ nonisolated struct ActivityProfile: Identifiable, Codable, Hashable {
             // Page 1: General
             DataPage(fields: [
                 .currentPower, .power3s, .powerBalance, .currentHR, .cadence,
-                .tss, .normalizedPower, .avgPower
+                .speed, .distance, .normalizedPower, .avgPower
             ]),
             
-            // Page 2: Power Focus
+            // Page 2: Lap Metrics
+            DataPage(fields: [
+                .lapAvgPower, .lapNP, .lapAvgHR, .lapCadence,
+                .lapSpeed, .lapDistance, .lapTime, .intensityFactor, .tss
+            ]),
+            
+            // Page 3: Power Focus
             DataPage(fields: [
                 .currentPower, .power3s,
                 .power10s, .power30s,
@@ -24,7 +30,7 @@ nonisolated struct ActivityProfile: Identifiable, Codable, Hashable {
                 .localFTP
             ]),
             
-            // Page 3: Home Equivalents (Normalized to ftpAltitude)
+            // Page 4: Home Equivalents (Normalized to ftpAltitude)
             DataPage(fields: [
                 .homePower, .homePower3s,
                 .homePower10s, .homePower30s,

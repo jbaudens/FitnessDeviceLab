@@ -125,7 +125,7 @@ public class SessionRecorder: ObservableObject {
         for i in 0..<trackpoints.count {
             let pt = trackpoints[i]
             let power = Double(pt.power ?? 0)
-            let speed = FitEncoder.estimateSpeed(power: power, totalWeight: totalWeight)
+            let speed = PhysicsUtilities.estimateSpeed(power: power, totalWeight: totalWeight)
             
             if i > 0 {
                 let dt = pt.time.timeIntervalSince(trackpoints[i-1].time)
