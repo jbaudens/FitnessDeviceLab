@@ -10,7 +10,7 @@ nonisolated struct ActivityProfile: Identifiable, Codable, Hashable {
         pages: [
             // Page 1: General
             DataPage(fields: [
-                .currentPower, .power3s, .currentHR, .cadence,
+                .currentPower, .power3s, .powerBalance, .currentHR, .cadence,
                 .speed, .distance, .normalizedPower, .avgPower
             ]),
             

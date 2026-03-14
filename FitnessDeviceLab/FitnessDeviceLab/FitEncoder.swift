@@ -26,36 +26,6 @@ class FitEncoder {
         return .development // Fallback
     }
     
-    /// Estimated speed in m/s based on Power (W) and Weight (kg)
-    /// Simple physics model assuming flat road, no wind, and typical rolling resistance/drag.
-    nonisolated public static func estimateSpeed(power: Double, totalWeight: Double) -> Double {
-        guard power > 0 else { return 0 }
-        
-        // Constants for a typical road bike on flats
-        let frontalArea = 0.5 // m^2
-        let dragCoefficient = 0.63
-        let airDensity = 1.225 // kg/m^3
-        let rollingResistanceCoeff = 0.005
-        let gravity = 9.81
-        
-        // P = (Rolling Resistance + Drag) * Speed
-        // P = (Crr * m * g + 0.5 * Cd * A * rho * v^2) * v
-        // This is a cubic equation: v^3 * (0.5*Cd*A*rho) + v * (Crr*m*g) - P = 0
-        
-        let a = 0.5 * dragCoefficient * frontalArea * airDensity
-        let b = rollingResistanceCoeff * totalWeight * gravity
-        
-        // Simple iterative solver for v (Newton's method or binary search)
-        var v = 5.0 // start guess 18km/h
-        for _ in 0..<5 {
-            let f = a * pow(v, 3) + b * v - power
-            let df = 3 * a * pow(v, 2) + b
-            v = v - f / df
-        }
-        
-        return max(0, v)
-    }
-    
     func encode(trackpoints: [Trackpoint], laps: [Lap], hrDevice: DiscoveredPeripheral?, powerDevice: DiscoveredPeripheral?, userFTP: Double, userWeight: Double) -> Data? {
         guard !trackpoints.isEmpty else { return nil }
         
@@ -122,7 +92,7 @@ class FitEncoder {
             
             // Speed and Distance Estimation
             let power = Double(pt.power ?? 0)
-            let speed = Self.estimateSpeed(power: power, totalWeight: totalWeight)
+            let speed = PhysicsUtilities.estimateSpeed(power: power, totalWeight: totalWeight)
             speeds.append(speed)
             
             if i > 0 {
@@ -167,7 +137,7 @@ class FitEncoder {
                     try? lapMesg.setMaxHeartRate(UInt8(hrSamples.max() ?? 0))
                 }
                 
-                let lapSpeeds = lapPoints.map { Self.estimateSpeed(power: Double($0.power ?? 0), totalWeight: totalWeight) }
+                let lapSpeeds = lapPoints.map { PhysicsUtilities.estimateSpeed(power: Double($0.power ?? 0), totalWeight: totalWeight) }
                 if !lapSpeeds.isEmpty {
                     try? lapMesg.setAvgSpeed(Float64(lapSpeeds.reduce(0, +) / Double(lapSpeeds.count)))
                     try? lapMesg.setMaxSpeed(Float64(lapSpeeds.max() ?? 0))
@@ -188,7 +158,7 @@ class FitEncoder {
         try? session.setFirstLapIndex(0)
         try? session.setNumLaps(UInt16(laps.count))
         
-        let totalSpeeds = trackpoints.map { Self.estimateSpeed(power: Double($0.power ?? 0), totalWeight: totalWeight) }
+        let totalSpeeds = trackpoints.map { PhysicsUtilities.estimateSpeed(power: Double($0.power ?? 0), totalWeight: totalWeight) }
         if !totalSpeeds.isEmpty {
             try? session.setAvgSpeed(Float64(totalSpeeds.reduce(0, +) / Double(totalSpeeds.count)))
             try? session.setMaxSpeed(Float64(totalSpeeds.max() ?? 0))

@@ -184,7 +184,7 @@ public class DataFieldEngine: ObservableObject {
         var allSpeeds: [Double] = []
         for i in 0..<trackpoints.count {
             let pt = trackpoints[i]
-            let s = FitEncoder.estimateSpeed(power: Double(pt.power ?? 0), totalWeight: totalWeight)
+            let s = PhysicsUtilities.estimateSpeed(power: Double(pt.power ?? 0), totalWeight: totalWeight)
             allSpeeds.append(s)
             if i > 0 {
                 let dt = pt.time.timeIntervalSince(trackpoints[i-1].time)
