@@ -96,7 +96,8 @@ public class DataFieldEngine: ObservableObject {
         recorder.$trackpoints
             .receive(on: RunLoop.main)
             .sink { [weak self] trackpoints in
-                self?.scheduleMetricsUpdate(from: trackpoints)
+                // Standard session update (no lap filter)
+                self?.updateMetrics(from: trackpoints, lapStartTime: nil)
             }
             .store(in: &cancellables)
             
@@ -111,14 +112,7 @@ public class DataFieldEngine: ObservableObject {
     }
     
     public func recalculate() {
-        scheduleMetricsUpdate(from: recorder.trackpoints)
-    }
-    
-    private func scheduleMetricsUpdate(from trackpoints: [Trackpoint]) {
-        // Find current lap start time from the recorder's session manager context
-        // In this architecture, we'll let the manager trigger updates with the explicit lap time
-        // but we can also check the recorder's trackpoints if we wanted to.
-        // For simplicity and correctness, the manager's tick already calls updateMetrics(from:lapStartTime:)
+        updateMetrics(from: recorder.trackpoints, lapStartTime: nil)
     }
     
     public func updateMetrics(from trackpoints: [Trackpoint], lapStartTime: Date?) {
