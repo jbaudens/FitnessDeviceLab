@@ -82,16 +82,15 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     
     func value(for engine: DataFieldEngine, workoutManager: WorkoutSessionManager? = nil) -> Double? {
         let sessionMetrics = engine.calculatedMetrics
+        let lapMetrics = engine.currentLapMetrics
         let hrv = engine.hrvMetrics
         
         // Mode-aware metrics (either Session or Lap)
         let m: CalculatedMetrics = {
-            let settings = SettingsManager.shared.metricsSettings
-            guard let wm = workoutManager, wm.currentDataFieldMode == .lap, let currentLap = wm.laps.last else {
+            guard let wm = workoutManager, wm.currentDataFieldMode == .lap else {
                 return sessionMetrics
             }
-            let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
-            return DataFieldEngine.calculate(from: points, settings: settings)
+            return lapMetrics
         }()
         
         switch self {
@@ -147,23 +146,11 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         
         case .altitude: return engine.currentAltitude
         
-        case .lapPower: return engine.calculatedMetrics.standard.instantPower.map { Double($0) }
-        case .lapAvgPower:
-            guard let wm = workoutManager, let currentLap = wm.laps.last else { return nil }
-            let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
-            return DataFieldEngine.calculate(from: points, settings: SettingsManager.shared.metricsSettings).standard.avgPower
-        case .lapNP:
-            guard let wm = workoutManager, let currentLap = wm.laps.last else { return nil }
-            let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
-            return DataFieldEngine.calculate(from: points, settings: SettingsManager.shared.metricsSettings).standard.normalizedPower
-        case .lapHR:
-            guard let wm = workoutManager, let currentLap = wm.laps.last else { return nil }
-            let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
-            return DataFieldEngine.calculate(from: points, settings: SettingsManager.shared.metricsSettings).hr.avg
-        case .lapCadence:
-            guard let wm = workoutManager, let currentLap = wm.laps.last else { return nil }
-            let points = engine.recorder.trackpoints.filter { $0.time >= currentLap.startTime }
-            return DataFieldEngine.calculate(from: points, settings: SettingsManager.shared.metricsSettings).cadence.avg
+        case .lapPower: return sessionMetrics.standard.instantPower.map { Double($0) }
+        case .lapAvgPower: return lapMetrics.standard.avgPower
+        case .lapNP: return lapMetrics.standard.normalizedPower
+        case .lapHR: return lapMetrics.hr.avg
+        case .lapCadence: return lapMetrics.cadence.avg
         case .lapTime:
             if let start = workoutManager?.laps.last?.startTime {
                 return Date().timeIntervalSince(start)
