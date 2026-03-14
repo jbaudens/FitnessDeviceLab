@@ -110,6 +110,7 @@ public class SessionRecorder: ObservableObject {
         let formatter = ISO8601DateFormatter()
         let startTimeStr = formatter.string(from: trackpoints.first!.time)
         let totalTime = trackpoints.last!.time.timeIntervalSince(trackpoints.first!.time)
+        let totalWeight = SettingsManager.shared.userWeight + 6.8
         
         var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
         xml += "<TrainingCenterDatabase xmlns=\"http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2\" xmlns:ns3=\"http://www.garmin.com/xmlschemas/ActivityExtension/v2\">\n"
@@ -118,27 +119,45 @@ public class SessionRecorder: ObservableObject {
         xml += "      <Id>\(startTimeStr)</Id>\n"
         xml += "      <Lap StartTime=\"\(startTimeStr)\">\n"
         xml += "        <TotalTimeSeconds>\(Int(totalTime))</TotalTimeSeconds>\n"
-        xml += "        <Track>\n"
         
-        for pt in trackpoints {
-            xml += "          <Trackpoint>\n"
-            xml += "            <Time>\(formatter.string(from: pt.time))</Time>\n"
-            if let alt = pt.altitude { xml += "            <AltitudeMeters>\(alt)</AltitudeMeters>\n" }
-            if let hr = pt.hr { xml += "            <HeartRateBpm><Value>\(hr)</Value></HeartRateBpm>\n" }
-            if let cad = pt.cadence { xml += "            <Cadence>\(cad)</Cadence>\n" }
-            if let pwr = pt.power {
-                xml += "            <Extensions>\n"
-                xml += "              <ns3:TPX>\n"
-                xml += "                <ns3:Watts>\(pwr)</ns3:Watts>\n"
-                if let balance = pt.powerBalance {
-                    xml += "                <ns3:Value>\(Int(round(balance)))</ns3:Value>\n" // Simplified balance tag
+        var totalDistance: Double = 0
+        var xmlPoints = ""
+        for i in 0..<trackpoints.count {
+            let pt = trackpoints[i]
+            let power = Double(pt.power ?? 0)
+            let speed = FitEncoder.estimateSpeed(power: power, totalWeight: totalWeight)
+            
+            if i > 0 {
+                let dt = pt.time.timeIntervalSince(trackpoints[i-1].time)
+                if dt > 0 && dt < 10 {
+                    totalDistance += speed * dt
                 }
-                xml += "              </ns3:TPX>\n"
-                xml += "            </Extensions>\n"
             }
-            xml += "          </Trackpoint>\n"
+            
+            xmlPoints += "          <Trackpoint>\n"
+            xmlPoints += "            <Time>\(formatter.string(from: pt.time))</Time>\n"
+            xmlPoints += "            <DistanceMeters>\(String(format: "%.2f", totalDistance))</DistanceMeters>\n"
+            if let alt = pt.altitude { xmlPoints += "            <AltitudeMeters>\(alt)</AltitudeMeters>\n" }
+            if let hr = pt.hr { xmlPoints += "            <HeartRateBpm><Value>\(hr)</Value></HeartRateBpm>\n" }
+            if let cad = pt.cadence { xmlPoints += "            <Cadence>\(cad)</Cadence>\n" }
+            
+            xmlPoints += "            <Extensions>\n"
+            xmlPoints += "              <ns3:TPX>\n"
+            xmlPoints += "                <ns3:Speed>\(String(format: "%.3f", speed))</ns3:Speed>\n"
+            if let pwr = pt.power {
+                xmlPoints += "                <ns3:Watts>\(pwr)</ns3:Watts>\n"
+            }
+            if let balance = pt.powerBalance {
+                xmlPoints += "                <ns3:Value>\(Int(round(balance)))</ns3:Value>\n"
+            }
+            xmlPoints += "              </ns3:TPX>\n"
+            xmlPoints += "            </Extensions>\n"
+            xmlPoints += "          </Trackpoint>\n"
         }
         
+        xml += "        <DistanceMeters>\(String(format: "%.2f", totalDistance))</DistanceMeters>\n"
+        xml += "        <Track>\n"
+        xml += xmlPoints
         xml += "        </Track>\n"
         xml += "      </Lap>\n"
         xml += "    </Activity>\n"
