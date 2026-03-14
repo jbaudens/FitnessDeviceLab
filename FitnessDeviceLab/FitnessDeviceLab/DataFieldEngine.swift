@@ -8,6 +8,14 @@ nonisolated public struct HeartRateMetrics {
     public init() {}
 }
 
+nonisolated public struct SpeedMetrics {
+    public var current: Double? // m/s
+    public var avg: Double?
+    public var max: Double?
+    public var distance: Double? // m
+    public init() {}
+}
+
 nonisolated public struct CadenceMetrics {
     public var avg: Double?
     public var max: Int?
@@ -35,6 +43,7 @@ nonisolated public struct PowerMetrics {
 nonisolated public struct CalculatedMetrics {
     public var hr = HeartRateMetrics()
     public var cadence = CadenceMetrics()
+    public var speed = SpeedMetrics()
     public var standard = PowerMetrics()
     public var seaLevel = PowerMetrics()
     public var home = PowerMetrics()
@@ -166,8 +175,31 @@ public class DataFieldEngine: ObservableObject {
         let currentAlt = trackpoints.last?.altitude ?? 0.0
         let currentRatio = getAltitudeRatio(meters: currentAlt)
         let localFTP = slFTPValue * currentRatio
+        let totalWeight = userWeight + 6.8
         
         var m = CalculatedMetrics()
+        
+        // Speed and Distance Estimation
+        var totalDist: Double = 0
+        var allSpeeds: [Double] = []
+        for i in 0..<trackpoints.count {
+            let pt = trackpoints[i]
+            let s = FitEncoder.estimateSpeed(power: Double(pt.power ?? 0), totalWeight: totalWeight)
+            allSpeeds.append(s)
+            if i > 0 {
+                let dt = pt.time.timeIntervalSince(trackpoints[i-1].time)
+                if dt > 0 && dt < 10 {
+                    totalDist += s * dt
+                }
+            }
+        }
+        
+        if !allSpeeds.isEmpty {
+            m.speed.current = allSpeeds.last
+            m.speed.avg = allSpeeds.reduce(0, +) / Double(allSpeeds.count)
+            m.speed.max = allSpeeds.max()
+            m.speed.distance = totalDist
+        }
         
         if !powerSamples.isEmpty {
             let lastPower = Double(trackpoints.last?.power ?? 0)

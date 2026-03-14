@@ -28,7 +28,7 @@ class FitEncoder {
     
     /// Estimated speed in m/s based on Power (W) and Weight (kg)
     /// Simple physics model assuming flat road, no wind, and typical rolling resistance/drag.
-    public static func estimateSpeed(power: Double, totalWeight: Double) -> Double {
+    nonisolated public static func estimateSpeed(power: Double, totalWeight: Double) -> Double {
         guard power > 0 else { return 0 }
         
         // Constants for a typical road bike on flats

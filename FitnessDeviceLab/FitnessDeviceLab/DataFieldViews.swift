@@ -62,6 +62,9 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     
     // Environment
     case altitude = "Altitude"
+    case speed = "Speed"
+    case avgSpeed = "Avg Speed"
+    case distance = "Distance"
     
     // Lap Metrics
     case lapAvgPower = "Lap Avg Pwr"
@@ -69,6 +72,8 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     case lapAvgHR = "Lap Avg HR"
     case lapCadence = "Lap Cad"
     case lapTime = "Lap Time"
+    case lapSpeed = "Lap Speed"
+    case lapDistance = "Lap Dist"
     
     var id: String { rawValue }
     
@@ -144,11 +149,16 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         case .maxCadence: return m.cadence.max.map { Double($0) }
         
         case .altitude: return engine.currentAltitude
+        case .speed: return m.speed.current
+        case .avgSpeed: return m.speed.avg
+        case .distance: return m.speed.distance
         
         case .lapAvgPower: return lapMetrics.standard.avgPower
         case .lapNP: return lapMetrics.standard.normalizedPower
         case .lapAvgHR: return lapMetrics.hr.avg
         case .lapCadence: return lapMetrics.cadence.avg
+        case .lapSpeed: return lapMetrics.speed.avg
+        case .lapDistance: return lapMetrics.speed.distance
         case .lapTime:
             if let start = workoutManager?.laps.last?.startTime {
                 return Date().timeIntervalSince(start)
@@ -169,6 +179,8 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         case .cadence, .avgCadence, .maxCadence, .lapCadence: return "rpm"
         case .powerBalance: return "%L"
         case .altitude: return "m"
+        case .speed, .avgSpeed, .lapSpeed: return "km/h"
+        case .distance, .lapDistance: return "km"
         case .wattsPerKg, .slWkg, .homeWkg: return "W/kg"
         case .lapTime: return "min"
         }
@@ -180,6 +192,7 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         case .dfaAlpha1, .avnn, .sdnn, .rmssd, .pnn50: return .purple
         case .intensityFactor, .tss, .slIF, .slTSS, .homeIF, .homeTSS, .lapNP: return .orange
         case .cadence, .avgCadence, .maxCadence, .lapCadence: return .blue
+        case .speed, .avgSpeed, .lapSpeed, .distance, .lapDistance: return .green
         case .powerBalance: return .orange
         case .altitude: return .green
         case .lapTime: return .secondary
@@ -250,6 +263,8 @@ struct DataFieldTile: View {
         case .dfaAlpha1, .intensityFactor, .wattsPerKg, .slWkg, .homeWkg, .slIF, .homeIF: return String(format: "%.2f", val)
         case .tss, .slTSS, .homeTSS: return String(format: "%.1f", val)
         case .altitude: return String(format: "%.0f", val)
+        case .speed, .avgSpeed, .lapSpeed: return String(format: "%.1f", val * 3.6) // m/s to km/h
+        case .distance, .lapDistance: return String(format: "%.2f", val / 1000.0) // m to km
         case .lapTime:
             let m = Int(val) / 60
             let s = Int(val) % 60
