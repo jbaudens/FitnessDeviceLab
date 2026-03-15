@@ -5,7 +5,6 @@ import AudioToolbox
 
 @Observable
 public class BluetoothManager: NSObject {
-    public static let shared = BluetoothManager()
     
     // MARK: - Observable State for UI
     public var state: CBManagerState = .unknown
@@ -19,7 +18,7 @@ public class BluetoothManager: NSObject {
     private let settings: SettingsProvider
     private var simulatedPeripherals: [SimulatedPeripheral] = []
     
-    private init(settings: SettingsProvider = SettingsManager.shared) {
+    public init(settings: SettingsProvider) {
         let rd = RealBluetoothDriver()
         self.realDriver = rd
         self.settings = settings

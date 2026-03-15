@@ -13,8 +13,8 @@ public class WorkoutSessionManager {
     public var currentDataFieldMode: DataFieldMode = .session
     
     // MARK: - Recorders (Injected from outside)
-    public var recorderA = SessionRecorder()
-    public var recorderB = SessionRecorder()
+    public var recorderA: SessionRecorder
+    public var recorderB: SessionRecorder
     
     // MARK: - Global Workout Control
     public var controlSource: ControllableTrainer?
@@ -57,8 +57,8 @@ public class WorkoutSessionManager {
     
     public init(settings: SettingsProvider) {
         self.settings = settings
-        let recA = SessionRecorder()
-        let recB = SessionRecorder()
+        let recA = SessionRecorder(settings: settings)
+        let recB = SessionRecorder(settings: settings)
         self.recorderA = recA
         self.recorderB = recB
         self.engineA = DataFieldEngine(recorder: recA, settings: settings)

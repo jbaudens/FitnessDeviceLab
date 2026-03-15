@@ -14,10 +14,6 @@ public protocol SettingsProvider: AnyObject, Observation.Observable {
 
 @Observable
 public class SettingsManager: SettingsProvider {
-    /// Use Dependency Injection instead of this shared instance whenever possible.
-    @available(*, deprecated, message: "Inject a SettingsProvider instead.")
-    public static let shared = SettingsManager()
-
     private let defaults = UserDefaults.standard
 
     public private(set) var userFTP: Double {

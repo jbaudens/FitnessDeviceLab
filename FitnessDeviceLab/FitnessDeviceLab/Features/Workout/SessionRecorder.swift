@@ -55,7 +55,7 @@ public class SessionRecorder {
     
     private let settings: SettingsProvider
     
-    public init(settings: SettingsProvider = SettingsManager.shared) {
+    public init(settings: SettingsProvider) {
         self.settings = settings
     }
     
