@@ -53,7 +53,11 @@ public class SessionRecorder {
     public var trackpoints: [Trackpoint] = []
     public var latestPoint: Trackpoint?
     
-    public init() {}
+    private let settings: SettingsManager
+    
+    public init(settings: SettingsManager = .shared) {
+        self.settings = settings
+    }
     
     public func prepare() {
         trackpoints.removeAll()
@@ -68,8 +72,8 @@ public class SessionRecorder {
     
     private func generateFIT(label: String, laps: [Lap]) -> URL? {
         let encoder = FitEncoder()
-        let ftp = SettingsManager.shared.userFTP
-        let weight = SettingsManager.shared.userWeight
+        let ftp = settings.userFTP
+        let weight = settings.userWeight
         
         guard let data = encoder.encode(
             trackpoints: trackpoints, 
@@ -115,7 +119,7 @@ public class SessionRecorder {
         let formatter = ISO8601DateFormatter()
         let startTimeStr = formatter.string(from: trackpoints.first!.time)
         let totalTime = trackpoints.last!.time.timeIntervalSince(trackpoints.first!.time)
-        let totalWeight = SettingsManager.shared.userWeight + 6.8
+        let totalWeight = settings.userWeight + 6.8
         
         var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
         xml += "<TrainingCenterDatabase xmlns=\"http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2\" xmlns:ns3=\"http://www.garmin.com/xmlschemas/ActivityExtension/v2\">\n"

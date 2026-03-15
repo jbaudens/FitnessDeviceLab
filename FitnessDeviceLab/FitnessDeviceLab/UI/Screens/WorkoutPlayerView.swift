@@ -3,6 +3,7 @@ import SwiftUI
 struct WorkoutPlayerView: View {
     @Environment(BluetoothManager.self) var bluetoothManager
     @Environment(WorkoutSessionManager.self) var workoutManager
+    @Environment(SettingsManager.self) var settings
     
     @State private var viewModel: WorkoutPlayerViewModel?
     
@@ -12,7 +13,7 @@ struct WorkoutPlayerView: View {
                 WorkoutPlayerContentView(viewModel: viewModel)
             } else {
                 ProgressView().onAppear {
-                    viewModel = WorkoutPlayerViewModel(workoutManager: workoutManager, bluetoothManager: bluetoothManager)
+                    viewModel = WorkoutPlayerViewModel(workoutManager: workoutManager, bluetoothManager: bluetoothManager, settings: settings)
                 }
             }
         }
@@ -489,6 +490,7 @@ struct SummaryMetric: View {
 
 struct WorkoutTargetHeader: View {
     @Environment(WorkoutSessionManager.self) var workoutManager
+    @Environment(SettingsManager.self) var settings
     let workout: StructuredWorkout
     
     private let timeFormatter: DateFormatter = {
@@ -691,7 +693,7 @@ struct WorkoutTargetHeader: View {
             if workoutManager.currentStepIndex < workout.steps.count - 1 {
                 let nextStep = workout.steps[workoutManager.currentStepIndex + 1]
                 let scale = workoutManager.workoutDifficultyScale
-                let nextWatts = Int(round((nextStep.targetPowerPercent ?? 0.0) * scale * SettingsManager.shared.userFTP))
+                let nextWatts = Int(round((nextStep.targetPowerPercent ?? 0.0) * scale * settings.userFTP))
                 HStack {
                     Spacer()
                     Text("Next: \(nextWatts)W (\(Int(round((nextStep.targetPowerPercent ?? 0.0) * scale * 100)))%) for \(Int(nextStep.duration / 60))m")
@@ -802,13 +804,14 @@ struct LapSummaryColumn: View {
     let lapIndex: Int
     let color: Color
     @Environment(WorkoutSessionManager.self) var workoutManager
+    @Environment(SettingsManager.self) var settings
     
     var body: some View {
         let lap = workoutManager.laps[lapIndex]
         let points = recorder.trackpoints.filter { 
             $0.time >= lap.startTime && (lap.endTime == nil || $0.time < lap.endTime!)
         }
-        let m = DataFieldEngine.calculate(from: points, settings: SettingsManager.shared.metricsSettings)
+        let m = DataFieldEngine.calculate(from: points, settings: settings.metricsSettings)
         
         VStack(alignment: .leading, spacing: 6) {
             Text(label)

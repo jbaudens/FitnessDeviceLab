@@ -29,21 +29,23 @@ public class SimulatedPeripheral: NSObject, SensorPeripheral, HeartRateProviding
     private var commandedResistance: Double = 40.0
     
     var startTime = Date()
-    
-    public init(name: String) {
+    private let settings: SettingsManager
+
+    public init(name: String, settings: SettingsManager) {
         self.id = UUID()
         self.name = name
+        self.settings = settings
         super.init()
         startSimulation()
     }
-    
+
     public func startSimulation() {
         // Start a new structured concurrency loop isolated to @MainActor
         simulationTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 guard let self = self else { break }
                 self.updateValues()
-                
+
                 // Sleep for 1 second (1Hz update rate)
                 do {
                     try await Task.sleep(nanoseconds: 1_000_000_000)
@@ -53,19 +55,18 @@ public class SimulatedPeripheral: NSObject, SensorPeripheral, HeartRateProviding
             }
         }
     }
-    
+
     private func updateValues() {
         guard isConnected else { 
             cyclingPower = 0
             cadence = 0
             return 
         }
-        
-        let settings = SettingsManager.shared
+
         let ftp = settings.userFTP
         let maxHR = Double(settings.maxHR)
         let restHR: Double = 60.0
-        
+
         // 1. Determine Target Power
         let targetPwr: Double
         if let commanded = commandedTargetPower {

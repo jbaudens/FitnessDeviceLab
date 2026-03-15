@@ -16,11 +16,13 @@ public class BluetoothManager: NSObject {
     
     // MARK: - Internal State
     private let realDriver: RealBluetoothDriver
+    private let settings: SettingsManager
     private var simulatedPeripherals: [SimulatedPeripheral] = []
     
-    private override init() {
+    private init(settings: SettingsManager = .shared) {
         let rd = RealBluetoothDriver()
         self.realDriver = rd
+        self.settings = settings
         super.init()
         
         // Link the real driver's state to our orchestrator
@@ -49,7 +51,7 @@ public class BluetoothManager: NSObject {
     // MARK: - Simulation Controls
     
     public func addSimulatedDevice(name: String) {
-        let sim = SimulatedPeripheral(name: name)
+        let sim = SimulatedPeripheral(name: name, settings: settings)
         simulatedPeripherals.append(sim)
         refreshCombinedPeripherals()
     }

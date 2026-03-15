@@ -53,9 +53,10 @@ public class WorkoutSessionManager {
     public var exportedFiles: [URL] = []
     
     private var timerCancellable: AnyCancellable?
-    private let settings = SettingsManager.shared
+    private let settings: SettingsManager
     
-    public init() {
+    public init(settings: SettingsManager) {
+        self.settings = settings
         let recA = SessionRecorder()
         let recB = SessionRecorder()
         self.recorderA = recA
