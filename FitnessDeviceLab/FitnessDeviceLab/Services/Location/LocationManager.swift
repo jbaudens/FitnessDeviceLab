@@ -1,9 +1,7 @@
 import Foundation
 import CoreLocation
-import Observation
 
-public class LocationManager: NSObject, Observation.Observable, CLLocationManagerDelegate {
-    public static let shared = LocationManager()
+public class LocationManager: NSObject, LocationProvider, CLLocationManagerDelegate {
     
     private let manager = CLLocationManager()
     
