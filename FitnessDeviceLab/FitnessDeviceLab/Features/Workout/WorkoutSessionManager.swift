@@ -203,51 +203,59 @@ public class WorkoutSessionManager {
             if let step = currentWorkoutStep {
                 let isFinished = currentStepIndex >= workout.steps.count - 1 && timeInStep >= workout.steps.last?.duration ?? 0
                 
-                let input = TargetPowerCalculator.Input(
-                    step: step,
+                // 1. Determine the "Goal" for UI
+                let ftp = settings.userFTP
+                let lthr = Double(settings.userLTHR)
+                if let hrPercent = step.targetHeartRatePercent {
+                    currentTargetHR = Int(round(hrPercent * workoutDifficultyScale * lthr))
+                    currentTargetPower = nil
+                } else {
+                    currentTargetPower = Int(round((step.powerAt(time: timeInStep) ?? 0) * workoutDifficultyScale * ftp))
+                    currentTargetHR = nil
+                }
+                
+                // 2. Determine the "Setpoint" for Hardware
+                let nextStep: WorkoutStep? = (currentStepIndex < workout.steps.count - 1) ? workout.steps[currentStepIndex + 1] : nil
+                
+                let input = TrainerSetpointCalculator.Input(
+                    currentStep: step,
+                    nextStep: nextStep,
                     timeInStep: timeInStep,
                     isFinished: isFinished,
-                    ftp: settings.userFTP,
-                    lthr: Double(settings.userLTHR),
+                    ftp: ftp,
+                    lthr: lthr,
                     difficultyScale: workoutDifficultyScale,
                     ergModeEnabled: ergModeEnabled,
                     currentHR: recorderA.hrSource?.heartRate,
                     previousHRControlBaseWatts: hrControlBaseWatts
                 )
                 
-                let result = TargetPowerCalculator.calculate(input: input)
-                self.currentTargetPower = result.targetPower
-                self.currentTargetHR = result.targetHR
+                let result = TrainerSetpointCalculator.calculate(input: input)
+                let setpointWatts = result.setpointWatts
                 self.hrControlBaseWatts = result.newHRControlBaseWatts
+                
+                // 3. Command the Trainer
+                if let trainer = controlSource {
+                    if ergModeEnabled {
+                        if let targetWatts = setpointWatts {
+                            if targetWatts != lastSentTargetPower {
+                                trainer.setTargetPower(targetWatts)
+                                lastSentTargetPower = targetWatts
+                            }
+                            lastSentResistanceLevel = nil
+                        }
+                    } else {
+                        if lastSentTargetPower != nil || lastSentResistanceLevel != resistanceLevel {
+                            trainer.setResistanceLevel(resistanceLevel)
+                            lastSentResistanceLevel = resistanceLevel
+                            lastSentTargetPower = nil
+                        }
+                    }
+                }
             } else {
                 currentTargetPower = nil
                 currentTargetHR = nil
                 hrControlBaseWatts = nil
-            }
-            
-            if let trainer = controlSource {
-                if ergModeEnabled {
-                    if let targetWatts = currentTargetPower {
-                        if targetWatts != lastSentTargetPower {
-                            trainer.setTargetPower(targetWatts)
-                            lastSentTargetPower = targetWatts
-                        }
-                        lastSentResistanceLevel = nil
-                    } else if let baseWatts = hrControlBaseWatts {
-                        let targetWattsValue = Int(round(baseWatts))
-                        if targetWattsValue != lastSentTargetPower {
-                            trainer.setTargetPower(targetWattsValue)
-                            lastSentTargetPower = targetWattsValue
-                        }
-                        lastSentResistanceLevel = nil
-                    }
-                } else {
-                    if lastSentTargetPower != nil || lastSentResistanceLevel != resistanceLevel {
-                        trainer.setResistanceLevel(resistanceLevel)
-                        lastSentResistanceLevel = resistanceLevel
-                        lastSentTargetPower = nil
-                    }
-                }
             }
         } else {
             if let trainer = controlSource {
