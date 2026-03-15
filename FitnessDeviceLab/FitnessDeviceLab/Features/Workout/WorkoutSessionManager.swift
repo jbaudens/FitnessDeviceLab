@@ -96,10 +96,8 @@ public class WorkoutSessionManager {
         isRecording = false
         exportedFiles = []
         
-        // NOTE: We DO NOT call recorder.prepare() here if it clears sources.
-        // We only clear the data points.
-        recorderA.trackpoints.removeAll()
-        recorderB.trackpoints.removeAll()
+        recorderA.prepare()
+        recorderB.prepare()
         
         isLoaded = true
         
