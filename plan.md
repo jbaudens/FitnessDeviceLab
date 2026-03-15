@@ -43,7 +43,7 @@ To ensure high-quality code reviews and maintain stability, the remaining refact
 ### Phase 3B: Decoupling `WorkoutSessionManager`
 *   [x] **Step 3.4: Extract `TargetPowerCalculator`**: Move the complex ERG and HR-control logic (found in `tick()`) into a pure, stateless struct. 
 *   [x] **Step 3.5: [TEST] `TargetPowerCalculator`**: Add unit tests for all workout step types (Power, %FTP, %HR) and difficulty scaling.
-*   [ ] **Step 3.6: Extract `WorkoutTimer`**: Move the `Timer.publish` logic into a dedicated class to allow for easier testing of "time-skipped" workouts in the future.
+*   [x] **Step 3.6: Extract `WorkoutTimer`**: Move the `Timer.publish` logic into a dedicated class to allow for easier testing of "time-skipped" workouts in the future.
 *   [ ] **Step 3.7: Extract `TrainerController`**: Move the logic that commands the `controlSource` (trainer) into a dedicated component.
 
 ### Phase 3C: Export & Persistence Improvements

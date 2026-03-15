@@ -46,22 +46,34 @@ public class WorkoutSessionManager {
     public var engineA: DataFieldEngine
     public var engineB: DataFieldEngine
     private let setpointCalculator = TrainerSetpointCalculator()
+    private let workoutTimer: WorkoutTimer
     
     public var exportedFiles: [URL] = []
     
-    private var timerCancellable: AnyCancellable?
     private let settings: SettingsProvider
     private let locationProvider: LocationProvider
     
-    public init(settings: SettingsProvider, locationProvider: LocationProvider) {
+    public init(settings: SettingsProvider, locationProvider: LocationProvider, workoutTimer: WorkoutTimer) {
         self.settings = settings
         self.locationProvider = locationProvider
+        self.workoutTimer = workoutTimer
+        
         let recA = SessionRecorder(settings: settings)
         let recB = SessionRecorder(settings: settings)
         self.recorderA = recA
         self.recorderB = recB
         self.engineA = DataFieldEngine(recorder: recA, settings: settings)
         self.engineB = DataFieldEngine(recorder: recB, settings: settings)
+        
+        setupTimerCallback()
+    }
+    
+    private func setupTimerCallback() {
+        workoutTimer.onTick = { [weak self] in
+            Task { @MainActor in
+                self?.tick()
+            }
+        }
     }
     
     /// Starts the workout orchestration with the provided recorders and control source.
@@ -88,14 +100,8 @@ public class WorkoutSessionManager {
         
         isLoaded = true
         
-        // Start the master clock
-        timerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                Task { @MainActor in
-                    self?.tick()
-                }
-            }
+        // Start the timer
+        workoutTimer.start()
     }
     
     public func startRecording() {
@@ -117,6 +123,7 @@ public class WorkoutSessionManager {
         isPaused = true
         recorderA.isRecording = false
         recorderB.isRecording = false
+        workoutTimer.pause()
     }
     
     public func resumeWorkout() {
@@ -124,6 +131,7 @@ public class WorkoutSessionManager {
         isPaused = false
         recorderA.isRecording = true
         recorderB.isRecording = true
+        workoutTimer.resume()
     }
     
     public func manualLap() {
@@ -265,8 +273,7 @@ public class WorkoutSessionManager {
         recorderB.isRecording = false
         
         setpointCalculator.reset()
-        timerCancellable?.cancel()
-        timerCancellable = nil
+        workoutTimer.stop()
         
         Task { @MainActor in
             var files: [URL] = []
