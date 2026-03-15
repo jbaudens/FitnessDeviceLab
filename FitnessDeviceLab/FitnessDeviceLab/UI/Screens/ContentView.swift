@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Bindable var devicesViewModel: DevicesViewModel
+    @Bindable var workoutPlayerViewModel: WorkoutPlayerViewModel
+
     @Environment(BluetoothManager.self) var bluetoothManager
     @Environment(WorkoutSessionManager.self) var workoutManager
 
@@ -8,12 +11,12 @@ struct ContentView: View {
         TabView {
             // Tab 1: Devices
             NavigationStack {
-                DevicesTabView()
+                DevicesTabView(viewModel: devicesViewModel)
             }
             .tabItem {
                 Label("Devices", systemImage: "antenna.radiowaves.left.and.right")
             }
-            
+
             // Tab 2: Library
             NavigationStack {
                 WorkoutLibraryView()
@@ -21,15 +24,15 @@ struct ContentView: View {
             .tabItem {
                 Label("Library", systemImage: "books.vertical")
             }
-            
+
             // Tab 3: Workout
             NavigationStack {
-                WorkoutPlayerView()
+                WorkoutPlayerView(viewModel: workoutPlayerViewModel)
             }
             .tabItem {
                 Label("Workout", systemImage: "play.circle")
             }
-            
+
             // Tab 4: Settings
             NavigationStack {
                 SettingsView()

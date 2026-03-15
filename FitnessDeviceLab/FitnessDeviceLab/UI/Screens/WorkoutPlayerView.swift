@@ -1,22 +1,10 @@
 import SwiftUI
 
 struct WorkoutPlayerView: View {
-    @Environment(BluetoothManager.self) var bluetoothManager
-    @Environment(WorkoutSessionManager.self) var workoutManager
-    @Environment(SettingsManager.self) var settings
-    
-    @State private var viewModel: WorkoutPlayerViewModel?
+    @Bindable var viewModel: WorkoutPlayerViewModel
     
     var body: some View {
-        Group {
-            if let viewModel = viewModel {
-                WorkoutPlayerContentView(viewModel: viewModel)
-            } else {
-                ProgressView().onAppear {
-                    viewModel = WorkoutPlayerViewModel(workoutManager: workoutManager, bluetoothManager: bluetoothManager, settings: settings)
-                }
-            }
-        }
+        WorkoutPlayerContentView(viewModel: viewModel)
     }
 }
 
