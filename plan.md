@@ -45,6 +45,7 @@ To ensure high-quality code reviews and maintain stability, the remaining refact
 *   [x] **Step 3.5: [TEST] `TargetPowerCalculator`**: Add unit tests for all workout step types (Power, %FTP, %HR) and difficulty scaling.
 *   [x] **Step 3.6: Extract `WorkoutTimer`**: Move the `Timer.publish` logic into a dedicated class to allow for easier testing of "time-skipped" workouts in the future.
 *   [x] **Step 3.7: Extract `TrainerController`**: Move the logic that commands the `controlSource` (trainer) into a dedicated component.
+*   [x] **Step 3.7.1: [TEST] `WorkoutSessionManager`**: Add unit tests for workout orchestration, step transitions, and timer-based state changes using the decoupled `WorkoutTimer`.
 
 ### Phase 3C: Export & Persistence Improvements
 *   [ ] **Step 3.8: Structured TCX Export**: Replace manual string concatenation in `SessionRecorder` with a proper XML builder or Codable-based approach.

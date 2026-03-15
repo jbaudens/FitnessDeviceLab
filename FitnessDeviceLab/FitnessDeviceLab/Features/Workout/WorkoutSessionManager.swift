@@ -68,9 +68,7 @@ public class WorkoutSessionManager {
     
     private func setupTimerCallback() {
         workoutTimer.onTick = { [weak self] in
-            Task { @MainActor in
-                self?.tick()
-            }
+            self?.tick()
         }
     }
     
