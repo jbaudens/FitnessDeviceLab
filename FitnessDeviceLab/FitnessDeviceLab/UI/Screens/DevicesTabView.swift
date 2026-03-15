@@ -1,7 +1,8 @@
 import SwiftUI
+import CoreBluetooth
 
 struct DevicesTabView: View {
-    @Environment(\.bluetoothProvider) var bluetoothProvider
+    @Environment(BluetoothManager.self) var bluetoothManager
     @State private var viewModel: DevicesViewModel?
     
     var body: some View {
@@ -10,7 +11,7 @@ struct DevicesTabView: View {
                 DevicesListContent(viewModel: viewModel)
             } else {
                 ProgressView().onAppear {
-                    viewModel = DevicesViewModel(bluetoothProvider: bluetoothProvider)
+                    viewModel = DevicesViewModel(bluetoothManager: bluetoothManager)
                 }
             }
         }
@@ -21,268 +22,213 @@ struct DevicesListContent: View {
     @Bindable var viewModel: DevicesViewModel
     
     var body: some View {
-        VStack {
-            if viewModel.bluetoothProvider.isScanning {
-                ProgressView("Scanning for devices...")
-                    .padding()
-            } else {
-                Button("Scan for Devices") {
-                    viewModel.startScanning()
+        VStack(spacing: 0) {
+            headerSection
+            
+            ScrollView {
+                VStack(spacing: 12) {
+                    if viewModel.peripherals.isEmpty {
+                        emptyStateView
+                    } else {
+                        ForEach(viewModel.peripherals, id: \.id) { peripheral in
+                            PeripheralCardView(peripheral: peripheral, viewModel: viewModel)
+                        }
+                    }
                 }
                 .padding()
-                .buttonStyle(.borderedProminent)
-            }
-
-            List {
-                if !viewModel.hrDevices.isEmpty {
-                    Section("Heart Rate Monitors") {
-                        ForEach(viewModel.hrDevices, id: \.id) { peripheral in
-                            AnyDeviceRowView(peripheral: peripheral, viewModel: viewModel)
-                        }
-                    }
-                }
-                
-                if !viewModel.powerDevices.isEmpty {
-                    Section("Power Meters") {
-                        ForEach(viewModel.powerDevices, id: \.id) { peripheral in
-                            AnyDeviceRowView(peripheral: peripheral, viewModel: viewModel)
-                        }
-                    }
-                }
-                
-                if !viewModel.trainerDevices.isEmpty {
-                    Section("Smart Trainers") {
-                        ForEach(viewModel.trainerDevices, id: \.id) { peripheral in
-                            AnyDeviceRowView(peripheral: peripheral, viewModel: viewModel)
-                        }
-                    }
-                }
-                
-                if !viewModel.otherDevices.isEmpty {
-                    Section("Other Devices") {
-                        ForEach(viewModel.otherDevices, id: \.id) { peripheral in
-                            AnyDeviceRowView(peripheral: peripheral, viewModel: viewModel)
-                        }
-                    }
-                }
             }
         }
         .navigationTitle("Devices")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                if viewModel.bluetoothProvider.isScanning {
-                    Button("Stop") {
-                        viewModel.stopScanning()
+        .background(Color.gray.opacity(0.05))
+    }
+    
+    private var headerSection: some View {
+        VStack(spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("BLUETOOTH STATUS")
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundColor(.secondary)
+                    
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(viewModel.bluetoothManager.state == .poweredOn ? Color.green : Color.red)
+                            .frame(width: 8, height: 8)
+                        Text(stateDescription.uppercased())
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
                     }
                 }
+                
+                Spacer()
+                
+                #if DEBUG
+                // Dev-only Add Fake Device Button
+                Button(action: { viewModel.addSimulatedDevice(name: "Virtual Trainer \(viewModel.peripherals.count + 1)") }) {
+                    Label("Add Virtual", systemImage: "plus.circle")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                }
+                .buttonStyle(.bordered)
+                .tint(.orange)
+                .controlSize(.small)
+                #endif
             }
+            
+            HStack {
+                if viewModel.isScanning {
+                    Button(role: .destructive, action: { viewModel.stopScanning() }) {
+                        Label("Stop Scanning", systemImage: "stop.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                } else {
+                    Button(action: { viewModel.startScanning() }) {
+                        Label("Search for Devices", systemImage: "magnifyingglass")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(viewModel.bluetoothManager.state != .poweredOn)
+                }
+            }
+        }
+        .padding()
+        .background(Color.white)
+        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 5)
+    }
+    
+    private var emptyStateView: some View {
+        VStack(spacing: 20) {
+            Spacer().frame(height: 100)
+            Image(systemName: "antenna.radiowaves.left.and.right")
+                .font(.system(size: 50))
+                .foregroundColor(.secondary.opacity(0.5))
+            Text("No Devices Discovered")
+                .font(.headline)
+                .foregroundColor(.secondary)
+            Text("Ensure your sensors are awake and nearby, then tap Search.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+        }
+    }
+    
+    private var stateDescription: String {
+        switch viewModel.bluetoothManager.state {
+        case .poweredOn: return "Ready"
+        case .poweredOff: return "Powered Off"
+        case .unauthorized: return "Unauthorized"
+        case .unsupported: return "Unsupported"
+        case .resetting: return "Resetting..."
+        default: return "Initializing..."
         }
     }
 }
 
-struct AnyDeviceRowView: View {
+struct PeripheralCardView: View {
     let peripheral: any SensorPeripheral
     let viewModel: DevicesViewModel
     
     var body: some View {
-        if let disc = peripheral as? DiscoveredPeripheral {
-            DeviceRowView(peripheral: disc, viewModel: viewModel)
-        } else if let sim = peripheral as? SimulatedPeripheral {
-            SimDeviceRowView(peripheral: sim, viewModel: viewModel)
-        }
-    }
-}
-
-struct DeviceRowView: View {
-    @Bindable var peripheral: DiscoveredPeripheral
-    let viewModel: DevicesViewModel
-    
-    var body: some View {
-        NavigationLink(destination: DeviceDetailView(peripheral: peripheral, viewModel: viewModel)) {
-            HStack {
-                VStack(alignment: .leading) {
-                    Text(peripheral.name)
-                        .font(.headline)
-                    Text(peripheral.id.uuidString)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                Spacer()
-                
-                connectionButton(for: peripheral)
-            }
-        }
-    }
-    
-    @ViewBuilder
-    func connectionButton(for p: any SensorPeripheral) -> some View {
-        Button {
-            viewModel.toggleConnection(for: p)
-        } label: {
-            Text(p.isConnected ? "Disconnect" : "Connect")
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(p.isConnected ? Color.red.opacity(0.1) : Color.blue.opacity(0.1))
-                .foregroundColor(p.isConnected ? .red : .blue)
-                .cornerRadius(8)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-struct SimDeviceRowView: View {
-    @Bindable var peripheral: SimulatedPeripheral
-    let viewModel: DevicesViewModel
-    
-    var body: some View {
-        NavigationLink(destination: SimDeviceDetailView(peripheral: peripheral, viewModel: viewModel)) {
-            HStack {
-                VStack(alignment: .leading) {
-                    Text(peripheral.name)
-                        .font(.headline)
-                    Text("SIMULATED")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                }
-                Spacer()
-                
-                Button {
-                    viewModel.toggleConnection(for: peripheral)
-                } label: {
-                    Text(peripheral.isConnected ? "Disconnect" : "Connect")
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(peripheral.isConnected ? Color.red.opacity(0.1) : Color.blue.opacity(0.1))
-                        .foregroundColor(peripheral.isConnected ? .red : .blue)
-                        .cornerRadius(8)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-}
-
-struct DeviceDetailView: View {
-    @Bindable var peripheral: DiscoveredPeripheral
-    let viewModel: DevicesViewModel
-    @State private var showDebug = false
-
-    var body: some View {
-        List {
-            Section("Status") {
-                HStack {
-                    Text("State")
-                    Spacer()
-                    if peripheral.isConnected {
-                        Text("Connected").foregroundColor(.green).bold()
-                    } else {
-                        Text("Disconnected").foregroundColor(.secondary)
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(peripheral.name)
+                            .font(.headline)
+                        
+                        if peripheral is SimulatedPeripheral {
+                            Text("VIRTUAL")
+                                .font(.system(size: 8, weight: .black))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(Color.orange.opacity(0.2))
+                                .foregroundColor(.orange)
+                                .cornerRadius(4)
+                        }
+                    }
+                    
+                    HStack(spacing: 8) {
+                        if peripheral.capabilities.contains(.heartRate) { capabilityBadge(icon: "heart.fill", color: .red) }
+                        if peripheral.capabilities.contains(.cyclingPower) { capabilityBadge(icon: "bolt.fill", color: .yellow) }
+                        if peripheral.capabilities.contains(.cadence) { capabilityBadge(icon: "bicycle", color: .blue) }
+                        if peripheral.capabilities.contains(.fitnessMachine) { capabilityBadge(icon: "cpu", color: .green) }
                     }
                 }
                 
-                Button(peripheral.isConnected ? "Disconnect" : "Connect") {
-                    viewModel.toggleConnection(for: peripheral)
+                Spacer()
+                
+                HStack(spacing: 8) {
+                    if peripheral is SimulatedPeripheral {
+                        Button(role: .destructive, action: { viewModel.removeSimulatedDevice(id: peripheral.id) }) {
+                            Image(systemName: "trash")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                    
+                    Button(action: { viewModel.toggleConnection(for: peripheral) }) {
+                        Text(peripheral.isConnected ? "Disconnect" : "Connect")
+                            .fontWeight(.bold)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(peripheral.isConnected ? .red : .blue)
+                    .controlSize(.small)
                 }
-                .foregroundColor(peripheral.isConnected ? .red : .blue)
             }
+            .padding()
             
             if peripheral.isConnected {
-                Section("Live Data") {
-                    if let hr = peripheral.heartRate {
-                        MetricRow(label: "Heart Rate", value: "\(hr) BPM", icon: "heart.fill", color: .red)
-                    }
-                    if let power = peripheral.cyclingPower {
-                        MetricRow(label: "Cycling Power", value: "\(power) W", icon: "bolt.fill", color: .yellow)
-                    }
-                    if let balance = peripheral.powerBalance {
-                        MetricRow(label: "Balance", value: String(format: "%.1f%% L/R", balance), icon: "scale.3d", color: .orange)
-                    }
-                    if let cadence = peripheral.cadence {
-                        MetricRow(label: "Cadence", value: "\(cadence) RPM", icon: "bicycle", color: .blue)
-                    }
-                }
+                Divider().padding(.horizontal)
                 
-                Section("Device Information") {
-                    InfoRow(label: "Manufacturer", value: peripheral.manufacturerName)
-                    InfoRow(label: "Model", value: peripheral.modelNumber)
-                    InfoRow(label: "Firmware", value: peripheral.firmwareRevision)
-                    if let battery = peripheral.batteryLevel {
-                        HStack {
-                            Text("Battery Level")
-                            Spacer()
-                            Text("\(battery)%").foregroundColor(battery > 20 ? .green : .red)
+                HStack(spacing: 20) {
+                    if let hr = viewModel.hrSensor(for: peripheral) {
+                        inlineMetric(value: "\(hr.heartRate ?? 0)", unit: "bpm", icon: "heart.fill", color: .red)
+                    }
+                    if let pwr = viewModel.powerSensor(for: peripheral) {
+                        inlineMetric(value: "\(pwr.cyclingPower ?? 0)", unit: "w", icon: "bolt.fill", color: .yellow)
+                    }
+                    if let cad = viewModel.cadenceSensor(for: peripheral) {
+                        inlineMetric(value: "\(cad.cadence ?? 0)", unit: "rpm", icon: "bicycle", color: .blue)
+                    }
+                    
+                    Spacer()
+                    
+                    if let disc = peripheral as? DiscoveredPeripheral, let battery = disc.batteryLevel {
+                        VStack(spacing: 2) {
+                            Image(systemName: "battery.100")
+                                .foregroundColor(battery > 20 ? .green : .red)
+                            Text("\(battery)%").font(.system(size: 8, weight: .bold))
                         }
                     }
                 }
-                
-                Toggle("Show Debug Info", isOn: $showDebug)
-                
-                if showDebug, let hex = peripheral.rawDataHex {
-                    Section("Debug Information") {
-                        Text(hex).font(.system(.caption, design: .monospaced))
-                    }
-                }
+                .padding()
+                .background(Color.secondary.opacity(0.03))
             }
         }
-        .navigationTitle(peripheral.name)
+        .background(Color.white)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(peripheral.isConnected ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.03), radius: 2, x: 0, y: 2)
     }
-}
-
-struct SimDeviceDetailView: View {
-    @Bindable var peripheral: SimulatedPeripheral
-    let viewModel: DevicesViewModel
-
-    var body: some View {
-        List {
-            Section("Status") {
-                HStack {
-                    Text("State")
-                    Spacer()
-                    Text(peripheral.isConnected ? "Connected" : "Disconnected")
-                        .foregroundColor(peripheral.isConnected ? .green : .secondary)
-                }
-                Button(peripheral.isConnected ? "Disconnect" : "Connect") {
-                    viewModel.toggleConnection(for: peripheral)
-                }
-                .foregroundColor(peripheral.isConnected ? .red : .blue)
-            }
-            
-            if peripheral.isConnected {
-                Section("Simulated Live Data") {
-                    MetricRow(label: "Heart Rate", value: "\(peripheral.heartRate ?? 0) BPM", icon: "heart.fill", color: .red)
-                    MetricRow(label: "Cycling Power", value: "\(peripheral.cyclingPower ?? 0) W", icon: "bolt.fill", color: .yellow)
-                    MetricRow(label: "Cadence", value: "\(peripheral.cadence ?? 0) RPM", icon: "bicycle", color: .blue)
-                }
-            }
-        }
-        .navigationTitle(peripheral.name)
+    
+    private func capabilityBadge(icon: String, color: Color) -> some View {
+        Image(systemName: icon)
+            .font(.system(size: 8))
+            .padding(4)
+            .background(color.opacity(0.1))
+            .foregroundColor(color)
+            .clipShape(Circle())
     }
-}
-
-struct MetricRow: View {
-    let label: String
-    let value: String
-    let icon: String
-    let color: Color
-    var body: some View {
-        HStack {
-            Label(label, systemImage: icon).foregroundColor(color)
-            Spacer()
-            Text(value).font(.title3).bold()
-        }
-    }
-}
-
-struct InfoRow: View {
-    let label: String
-    let value: String?
-    var body: some View {
-        if let value = value {
-            HStack {
-                Text(label)
-                Spacer()
-                Text(value).foregroundColor(.secondary)
-            }
+    
+    private func inlineMetric(value: String, unit: String, icon: String, color: Color) -> some View {
+        HStack(alignment: .lastTextBaseline, spacing: 2) {
+            Image(systemName: icon).font(.system(size: 10)).foregroundColor(color)
+            Text(value).font(.system(size: 18, weight: .bold, design: .rounded))
+            Text(unit).font(.system(size: 10, weight: .black)).foregroundColor(.secondary)
         }
     }
 }

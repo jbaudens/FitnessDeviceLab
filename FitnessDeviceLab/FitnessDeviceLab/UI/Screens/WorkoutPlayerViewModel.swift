@@ -7,7 +7,7 @@ import Combine
 @MainActor
 public class WorkoutPlayerViewModel {
     public var workoutManager: WorkoutSessionManager
-    public var bluetoothProvider: any BluetoothProvider
+    public var bluetoothManager: BluetoothManager
     
     public var recorderA = SessionRecorder()
     public var recorderB = SessionRecorder()
@@ -16,27 +16,27 @@ public class WorkoutPlayerViewModel {
     public var showingStopConfirmation = false
     public var showingDiscardConfirmation = false
     
-    public init(workoutManager: WorkoutSessionManager, bluetoothProvider: any BluetoothProvider) {
+    public init(workoutManager: WorkoutSessionManager, bluetoothManager: BluetoothManager) {
         self.workoutManager = workoutManager
-        self.bluetoothProvider = bluetoothProvider
+        self.bluetoothManager = bluetoothManager
     }
     
     // MARK: - Role-Specific Adaptor Lists for UI Pickers
     
     public var availableHRSensors: [HeartRateSensor] {
-        bluetoothProvider.peripherals.compactMap { HeartRateSensor(peripheral: $0) }
+        bluetoothManager.peripherals.compactMap { HeartRateSensor(peripheral: $0) }
     }
     
     public var availablePowerSensors: [PowerSensor] {
-        bluetoothProvider.peripherals.compactMap { PowerSensor(peripheral: $0) }
+        bluetoothManager.peripherals.compactMap { PowerSensor(peripheral: $0) }
     }
     
     public var availableCadenceSensors: [CadenceSensor] {
-        bluetoothProvider.peripherals.compactMap { CadenceSensor(peripheral: $0) }
+        bluetoothManager.peripherals.compactMap { CadenceSensor(peripheral: $0) }
     }
     
     public var availableTrainers: [ControllableTrainer] {
-        bluetoothProvider.peripherals.compactMap { ControllableTrainer(peripheral: $0) }
+        bluetoothManager.peripherals.compactMap { ControllableTrainer(peripheral: $0) }
     }
     
     // UI Helpers for Sources from Recorders
@@ -75,7 +75,7 @@ public class WorkoutPlayerViewModel {
         // Resolve Control Source from Recorder A's power selection if it's a trainer
         if let pwrA = recorderA.powerSource {
             // Find the peripheral that matches Power A and see if it's also a trainer
-            if let peripheral = bluetoothProvider.peripherals.first(where: { $0.id == pwrA.id }),
+            if let peripheral = bluetoothManager.peripherals.first(where: { $0.id == pwrA.id }),
                let trainer = ControllableTrainer(peripheral: peripheral) {
                 self.controlSource = trainer
             }

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct WorkoutPlayerView: View {
-    @Environment(\.bluetoothProvider) var bluetoothProvider
+    @Environment(BluetoothManager.self) var bluetoothManager
     @Environment(WorkoutSessionManager.self) var workoutManager
     
     @State private var viewModel: WorkoutPlayerViewModel?
@@ -12,7 +12,7 @@ struct WorkoutPlayerView: View {
                 WorkoutPlayerContentView(viewModel: viewModel)
             } else {
                 ProgressView().onAppear {
-                    viewModel = WorkoutPlayerViewModel(workoutManager: workoutManager, bluetoothProvider: bluetoothProvider)
+                    viewModel = WorkoutPlayerViewModel(workoutManager: workoutManager, bluetoothManager: bluetoothManager)
                 }
             }
         }

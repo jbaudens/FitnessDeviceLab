@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @Environment(\.bluetoothProvider) var bluetoothManager
+    @Environment(BluetoothManager.self) var bluetoothManager
     @Environment(WorkoutSessionManager.self) var workoutManager
 
     var body: some View {

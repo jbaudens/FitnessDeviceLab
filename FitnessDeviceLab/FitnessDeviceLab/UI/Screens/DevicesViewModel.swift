@@ -5,45 +5,63 @@ import SwiftUI
 @Observable
 @MainActor
 public class DevicesViewModel {
-    public var bluetoothProvider: any BluetoothProvider
+    public var bluetoothManager: BluetoothManager
     
-    public init(bluetoothProvider: any BluetoothProvider) {
-        self.bluetoothProvider = bluetoothProvider
+    public init(bluetoothManager: BluetoothManager) {
+        self.bluetoothManager = bluetoothManager
     }
     
-    // MARK: - Categorized Devices
+    // MARK: - Proxy Properties
     
-    public var hrDevices: [any SensorPeripheral] {
-        bluetoothProvider.peripherals.filter { $0.capabilities.contains(.heartRate) }
+    public var peripherals: [any SensorPeripheral] {
+        bluetoothManager.peripherals
     }
     
-    public var powerDevices: [any SensorPeripheral] {
-        bluetoothProvider.peripherals.filter { $0.capabilities.contains(.cyclingPower) }
+    public var isScanning: Bool {
+        bluetoothManager.isScanning
     }
     
-    public var trainerDevices: [any SensorPeripheral] {
-        bluetoothProvider.peripherals.filter { $0.capabilities.contains(.fitnessMachine) }
+    // MARK: - Role-Specific Adaptors
+    
+    public func hrSensor(for peripheral: any SensorPeripheral) -> HeartRateSensor? {
+        HeartRateSensor(peripheral: peripheral)
     }
     
-    public var otherDevices: [any SensorPeripheral] {
-        bluetoothProvider.peripherals.filter { $0.capabilities.isEmpty }
+    public func powerSensor(for peripheral: any SensorPeripheral) -> PowerSensor? {
+        PowerSensor(peripheral: peripheral)
+    }
+    
+    public func cadenceSensor(for peripheral: any SensorPeripheral) -> CadenceSensor? {
+        CadenceSensor(peripheral: peripheral)
+    }
+    
+    public func controllableTrainer(for peripheral: any SensorPeripheral) -> ControllableTrainer? {
+        ControllableTrainer(peripheral: peripheral)
     }
     
     // MARK: - Actions
     
+    public func addSimulatedDevice(name: String) {
+        bluetoothManager.addSimulatedDevice(name: name)
+    }
+    
+    public func removeSimulatedDevice(id: UUID) {
+        bluetoothManager.removeSimulatedDevice(id: id)
+    }
+    
     public func startScanning() {
-        bluetoothProvider.startScanning()
+        bluetoothManager.startScanning()
     }
     
     public func stopScanning() {
-        bluetoothProvider.stopScanning()
+        bluetoothManager.stopScanning()
     }
     
     public func toggleConnection(for peripheral: any SensorPeripheral) {
         if peripheral.isConnected {
-            bluetoothProvider.disconnect(peripheral: peripheral)
+            bluetoothManager.disconnect(peripheral: peripheral)
         } else {
-            bluetoothProvider.connect(peripheral: peripheral)
+            bluetoothManager.connect(peripheral: peripheral)
         }
     }
 }

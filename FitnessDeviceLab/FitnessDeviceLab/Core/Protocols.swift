@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Observation
+import CoreBluetooth
 
 // MARK: - Core Capability Protocols
 
@@ -43,7 +44,6 @@ public protocol SensorPeripheral: AnyObject, Observation.Observable {
     
     var capabilities: Set<DeviceCapability> { get }
     
-    // Raw properties for adaptors to consume
     var heartRate: Int? { get }
     var cyclingPower: Int? { get }
     var cadence: Int? { get }
@@ -54,9 +54,10 @@ public protocol SensorPeripheral: AnyObject, Observation.Observable {
     func setResistanceLevel(_ level: Double)
 }
 
-// MARK: - Bluetooth Provider
+// MARK: - Internal Bluetooth Driver Protocol
 
-public protocol BluetoothProvider: AnyObject {
+public protocol BluetoothDriver: AnyObject {
+    var state: CBManagerState { get }
     var isScanning: Bool { get }
     var peripherals: [any SensorPeripheral] { get }
     
@@ -64,15 +65,6 @@ public protocol BluetoothProvider: AnyObject {
     func stopScanning()
     func connect(peripheral: any SensorPeripheral)
     func disconnect(peripheral: any SensorPeripheral)
-}
-
-public struct BluetoothProviderKey: EnvironmentKey {
-    public static let defaultValue: any BluetoothProvider = BluetoothManager.shared
-}
-
-extension EnvironmentValues {
-    public var bluetoothProvider: any BluetoothProvider {
-        get { self[BluetoothProviderKey.self] }
-        set { self[BluetoothProviderKey.self] = newValue }
-    }
+    
+    var onUpdate: (() -> Void)? { get set }
 }

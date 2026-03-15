@@ -2,59 +2,124 @@ import Foundation
 import Observation
 
 @Observable @MainActor
-public class SimulatedPeripheral: SensorPeripheral, HeartRateProviding, PowerProviding, CadenceProviding, ResistanceControllable {
+public class SimulatedPeripheral: NSObject, SensorPeripheral, HeartRateProviding, PowerProviding, CadenceProviding, ResistanceControllable {
     public let id: UUID
     public let name: String
-    public var isConnected: Bool = true
+    public var isConnected: Bool = false
     
     public var manufacturerName: String? = "FitnessDeviceLab"
-    public var modelNumber: String? = "Simulated v1"
+    public var modelNumber: String? = "Digital Twin v1"
     
-    public var heartRate: Int?
-    public var cyclingPower: Int?
-    public var cadence: Int?
-    public var powerBalance: Double?
-    
+    // MARK: - Live Metrics
+    public var heartRate: Int? = 60
+    public var cyclingPower: Int? = 0
+    public var cadence: Int? = 0
+    public var powerBalance: Double? = 50.0
     public var latestRRIntervals: [Double] = []
-    public var capabilities: Set<DeviceCapability> = [.heartRate, .cyclingPower, .fitnessMachine, .cadence]
     
-    private var timer: Timer?
-    private var startTime = Date()
+    public var capabilities: Set<DeviceCapability> = [.heartRate, .cyclingPower, .cadence, .fitnessMachine]
     
-    public init(name: String = "Virtual Bike") {
+    // MARK: - Simulation Internal State
+    private var simulationTask: Task<Void, Never>?
+    private var internalPower: Double = 0
+    private var internalHR: Double = 60
+    private var internalCadence: Double = 0
+    
+    private var commandedTargetPower: Double?
+    private var commandedResistance: Double = 40.0
+    
+    var startTime = Date()
+    
+    public init(name: String) {
         self.id = UUID()
         self.name = name
+        super.init()
         startSimulation()
     }
     
     public func startSimulation() {
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.updateValues()
+        // Start a new structured concurrency loop isolated to @MainActor
+        simulationTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                guard let self = self else { break }
+                self.updateValues()
+                
+                // Sleep for 1 second (1Hz update rate)
+                do {
+                    try await Task.sleep(nanoseconds: 1_000_000_000)
+                } catch {
+                    break
+                }
             }
         }
     }
     
     private func updateValues() {
-        let elapsed = Date().timeIntervalSince(startTime)
+        guard isConnected else { 
+            cyclingPower = 0
+            cadence = 0
+            return 
+        }
         
-        // Generate some realistic-ish drifting data
-        heartRate = 120 + Int(20 * sin(elapsed / 60.0)) + Int.random(in: -2...2)
-        cyclingPower = 200 + Int(50 * sin(elapsed / 30.0)) + Int.random(in: -10...10)
-        cadence = 85 + Int(5 * sin(elapsed / 45.0)) + Int.random(in: -2...2)
-        powerBalance = 50.0 + Double.random(in: -1.0...1.0)
+        let settings = SettingsManager.shared
+        let ftp = settings.userFTP
+        let maxHR = Double(settings.maxHR)
+        let restHR: Double = 60.0
         
-        if let hr = heartRate {
+        // 1. Determine Target Power
+        let targetPwr: Double
+        if let commanded = commandedTargetPower {
+            // ERG Mode behavior
+            targetPwr = commanded
+            let targetCad = 90.0 + Double.random(in: -2...2)
+            internalCadence += (targetCad - internalCadence) * 0.2
+        } else {
+            // Resistance Mode behavior
+            let targetCad = 85.0 + (commandedResistance / 10.0)
+            internalCadence += (targetCad - internalCadence) * 0.1
+            targetPwr = (commandedResistance / 100.0) * ftp * (internalCadence / 90.0)
+        }
+        
+        // 2. Drift Power (Inertia + Noise)
+        internalPower += (targetPwr - internalPower) * 0.3
+        let powerJitter = Double.random(in: -5...5) 
+        cyclingPower = Int(round(max(0, internalPower + powerJitter)))
+        
+        // 3. Drift Cadence + Noise
+        let cadenceJitter = Double.random(in: -1...1)
+        cadence = Int(round(max(0, internalCadence + cadenceJitter)))
+        
+        // 4. Physiological Coupling (Heart Rate)
+        let intensity = internalPower / ftp
+        let aerobicCeiling = maxHR * 0.9
+        let baseTargetHR = restHR + (aerobicCeiling - restHR) * intensity
+        
+        let totalElapsed = Date().timeIntervalSince(startTime)
+        let driftAmount = min(15.0, (totalElapsed / 600.0) * 5.0) 
+        let targetHR = baseTargetHR + driftAmount
+        
+        let hrChangeRate = (targetHR > internalHR) ? 0.05 : 0.02
+        internalHR += (targetHR - internalHR) * hrChangeRate
+        
+        let hrJitter = Double.random(in: -1...1)
+        heartRate = Int(round(internalHR + hrJitter))
+        
+        // 5. Secondary Metrics
+        powerBalance = 50.0 + Double.random(in: -0.5...0.5)
+        if let hr = heartRate, hr > 0 {
             let rr = 60.0 / Double(hr)
-            latestRRIntervals = [rr + Double.random(in: -0.01...0.01)]
+            latestRRIntervals = [rr + Double.random(in: -0.005...0.005)]
         }
     }
     
+    // MARK: - Control Point Implementation
+    
     public func setTargetPower(_ watts: Int) {
-        print("Simulated Trainer: Target Power set to \(watts)W")
+        commandedTargetPower = Double(watts)
     }
     
     public func setResistanceLevel(_ level: Double) {
-        print("Simulated Trainer: Resistance set to \(level)%")
+        commandedTargetPower = nil 
+        commandedResistance = level
     }
 }

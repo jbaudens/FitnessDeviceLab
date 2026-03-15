@@ -109,7 +109,7 @@ struct FilterBadge: View {
 struct WorkoutDetailView: View {
     let workout: StructuredWorkout
     @Environment(WorkoutSessionManager.self) var workoutManager
-    @Environment(\.bluetoothProvider) var bluetoothManager
+    @Environment(BluetoothManager.self) var bluetoothManager
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
