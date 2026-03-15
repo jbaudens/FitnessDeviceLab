@@ -16,8 +16,10 @@ public class WorkoutSessionManager {
     public var recorderA: SessionRecorder
     public var recorderB: SessionRecorder
     
-    // MARK: - Global Workout Control
-    public var controlSource: ControllableTrainer?
+    // MARK: - Controller Components
+    public let trainerController = TrainerController()
+    private let setpointCalculator = TrainerSetpointCalculator()
+    private let workoutTimer: WorkoutTimer
     
     // MARK: - Workout State
     public var isRecording = false
@@ -40,13 +42,9 @@ public class WorkoutSessionManager {
     
     public var laps: [Lap] = []
     
-    private var lastSentTargetPower: Int?
-    private var lastSentResistanceLevel: Double?
-    
+    // Engine components
     public var engineA: DataFieldEngine
     public var engineB: DataFieldEngine
-    private let setpointCalculator = TrainerSetpointCalculator()
-    private let workoutTimer: WorkoutTimer
     
     public var exportedFiles: [URL] = []
     
@@ -81,12 +79,13 @@ public class WorkoutSessionManager {
         // We use the passed recorders (usually the ones owned by the manager or VM)
         self.recorderA = recA
         self.recorderB = recB
-        self.controlSource = control
+        self.trainerController.trainer = control
         
         // Link recorders to engines
         self.engineA = DataFieldEngine(recorder: recA, settings: settings)
         self.engineB = DataFieldEngine(recorder: recB, settings: settings)
         setpointCalculator.reset()
+        trainerController.reset()
         
         workoutElapsedTime = 0
         currentStepIndex = 0
@@ -150,7 +149,7 @@ public class WorkoutSessionManager {
     }
     
     public var canEnableErgMode: Bool {
-        controlSource != nil
+        trainerController.trainer != nil
     }
     
     private func startNewLap(type: WorkoutStepType) {
@@ -227,7 +226,7 @@ public class WorkoutSessionManager {
                 }
                 
                 // 2. Determine the "Setpoint" for Hardware (Only in ERG mode)
-                if ergModeEnabled, let trainer = controlSource {
+                if ergModeEnabled {
                     let nextStep: WorkoutStep? = (currentStepIndex < workout.steps.count - 1) ? workout.steps[currentStepIndex + 1] : nil
                     
                     let input = TrainerSetpointCalculator.Input(
@@ -242,31 +241,19 @@ public class WorkoutSessionManager {
                     )
                     
                     if let targetWatts = setpointCalculator.calculate(input: input) {
-                        if targetWatts != lastSentTargetPower {
-                            trainer.setTargetPower(targetWatts)
-                            lastSentTargetPower = targetWatts
-                        }
-                        lastSentResistanceLevel = nil
+                        trainerController.setTargetPower(targetWatts)
                     }
-                } else if let trainer = controlSource {
-                    // Resistance Mode: Send manual resistance level if it changed or if we were previously in ERG mode
-                    if lastSentTargetPower != nil || lastSentResistanceLevel != resistanceLevel {
-                        trainer.setResistanceLevel(resistanceLevel)
-                        lastSentResistanceLevel = resistanceLevel
-                        lastSentTargetPower = nil
-                    }
+                } else {
+                    // Resistance Mode: Send manual resistance level
+                    trainerController.setResistanceLevel(resistanceLevel)
                 }
             } else {
                 currentTargetPower = nil
                 currentTargetHR = nil
             }
         } else {
-            if let trainer = controlSource {
-                if lastSentResistanceLevel != resistanceLevel {
-                    trainer.setResistanceLevel(resistanceLevel)
-                    lastSentResistanceLevel = resistanceLevel
-                }
-            }
+            // No workout loaded: Just send manual resistance
+            trainerController.setResistanceLevel(resistanceLevel)
         }
     }
     
