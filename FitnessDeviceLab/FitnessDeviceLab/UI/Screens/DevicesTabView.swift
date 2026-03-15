@@ -2,19 +2,10 @@ import SwiftUI
 import CoreBluetooth
 
 struct DevicesTabView: View {
-    @Environment(BluetoothManager.self) var bluetoothManager
-    @State private var viewModel: DevicesViewModel?
+    @Bindable var viewModel: DevicesViewModel
     
     var body: some View {
-        Group {
-            if let viewModel = viewModel {
-                DevicesListContent(viewModel: viewModel)
-            } else {
-                ProgressView().onAppear {
-                    viewModel = DevicesViewModel(bluetoothManager: bluetoothManager)
-                }
-            }
-        }
+        DevicesListContent(viewModel: viewModel)
     }
 }
 
