@@ -1,5 +1,5 @@
 import Foundation
-import Combine
+import Observation
 
 nonisolated public struct HeartRateMetrics {
     public var avg: Double?
@@ -63,61 +63,28 @@ nonisolated public struct MetricsSettings: Sendable {
     }
 }
 
-public class DataFieldEngine: ObservableObject {
-    @Published public var currentHR: Int?
-    @Published public var currentCadence: Int?
-    @Published public var powerBalance: Double?
+@Observable
+public class DataFieldEngine {
+    public var currentHR: Int?
+    public var currentCadence: Int?
+    public var powerBalance: Double?
     
-    @Published public var currentAltitude: Double?
-    @Published public var localFTP: Double?
-    @Published public var slFTP: Double?
+    public var currentAltitude: Double?
+    public var localFTP: Double?
+    public var slFTP: Double?
     
-    @Published public var hrvMetrics = HRVMetrics()
-    @Published public var calculatedMetrics = CalculatedMetrics()
-    @Published public var currentLapMetrics = CalculatedMetrics()
+    public var hrvMetrics = HRVMetrics()
+    public var calculatedMetrics = CalculatedMetrics()
+    public var currentLapMetrics = CalculatedMetrics()
     
-    private var cancellables = Set<AnyCancellable>()
     public let recorder: SessionRecorder
+    private let settings: SettingsManager
     
     private var calculationTask: Task<Void, Never>?
     
-    init(recorder: SessionRecorder) {
+    public init(recorder: SessionRecorder, settings: SettingsManager) {
         self.recorder = recorder
-        
-        recorder.$latestPoint
-            .receive(on: RunLoop.main)
-            .sink { [weak self] point in
-                guard let self = self, let point = point else { return }
-                self.currentHR = point.hr
-                self.currentCadence = point.cadence
-                self.powerBalance = point.powerBalance
-                self.currentAltitude = point.altitude
-                
-                // Recalculate local FTPs
-                let settings = SettingsManager.shared
-                let homeRatio = Self.getAltitudeRatio(meters: settings.ftpAltitude)
-                self.slFTP = settings.userFTP / homeRatio
-                let currentRatio = Self.getAltitudeRatio(meters: point.altitude ?? 0.0)
-                self.localFTP = (self.slFTP ?? 0) * currentRatio
-            }
-            .store(in: &cancellables)
-            
-        recorder.$trackpoints
-            .receive(on: RunLoop.main)
-            .sink { [weak self] trackpoints in
-                // Standard session update (no lap filter)
-                self?.updateMetrics(from: trackpoints, lapStartTime: nil)
-            }
-            .store(in: &cancellables)
-            
-        SettingsManager.shared.objectWillChange
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self?.recalculate()
-                }
-            }
-            .store(in: &cancellables)
+        self.settings = settings
     }
     
     public func recalculate() {
@@ -127,9 +94,22 @@ public class DataFieldEngine: ObservableObject {
     public func updateMetrics(from trackpoints: [Trackpoint], lapStartTime: Date?) {
         calculationTask?.cancel()
         
-        let settings = SettingsManager.shared
+        // We can use settings directly here
         let metricsSettings = settings.metricsSettings
         let rrHistory = Array(trackpoints.flatMap { $0.rrIntervals }.suffix(600))
+        
+        // Update live status properties immediately (MainActor)
+        if let point = trackpoints.last {
+            self.currentHR = point.hr
+            self.currentCadence = point.cadence
+            self.powerBalance = point.powerBalance
+            self.currentAltitude = point.altitude
+            
+            let homeRatio = Self.getAltitudeRatio(meters: settings.ftpAltitude)
+            self.slFTP = settings.userFTP / homeRatio
+            let currentRatio = Self.getAltitudeRatio(meters: point.altitude ?? 0.0)
+            self.localFTP = (self.slFTP ?? 0) * currentRatio
+        }
         
         calculationTask = Task.detached(priority: .userInitiated) {
             if Task.isCancelled { return }
@@ -294,7 +274,7 @@ public class DataFieldEngine: ObservableObject {
         metrics.home.tss = (Double(home30s.count) * (metrics.home.normalizedPower ?? 0) * (metrics.home.intensityFactor ?? 0)) / (userFTP * 36.0)
     }
     
-    private func reset() {
+    public func reset() {
         calculatedMetrics = CalculatedMetrics()
         currentHR = nil
         currentCadence = nil

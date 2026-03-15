@@ -2,7 +2,7 @@ import SwiftUI
 import Charts
 
 struct WorkoutGraphView: View {
-    @EnvironmentObject var workoutManager: WorkoutSessionManager
+    @Environment(WorkoutSessionManager.self) var workoutManager
     let workout: StructuredWorkout
     var showAxis: Bool = true
     var elapsedTime: TimeInterval? = nil
@@ -154,7 +154,7 @@ struct RampShape: Shape {
 }
 
 struct PerformanceChart: View {
-    @ObservedObject var recorder: SessionRecorder
+    @Bindable var recorder: SessionRecorder
     let totalDuration: TimeInterval
     let maxPower: Double
     let startTime: Date?

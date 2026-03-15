@@ -1,21 +1,17 @@
-//
-//  FitnessDeviceLabApp.swift
-//  FitnessDeviceLab
-//
-//  Created by JB Baudens on 2/27/26.
-//
-
 import SwiftUI
 
 @main
 struct FitnessDeviceLabApp: App {
-    @StateObject private var workoutManager = WorkoutSessionManager()
+    @State private var workoutManager = WorkoutSessionManager()
+    @State private var bluetoothManager = BluetoothManager.shared
+    @State private var settingsManager = SettingsManager.shared
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(BluetoothManager.shared)
-                .environmentObject(workoutManager)
+            BluetoothSelectorView()
+                .environment(workoutManager)
+                .environment(bluetoothManager)
+                .environment(settingsManager)
         }
     }
 }

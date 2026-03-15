@@ -26,7 +26,7 @@ class FitEncoder {
         return .development // Fallback
     }
     
-    func encode(trackpoints: [Trackpoint], laps: [Lap], hrDevice: DiscoveredPeripheral?, powerDevice: DiscoveredPeripheral?, userFTP: Double, userWeight: Double) -> Data? {
+    func encode(trackpoints: [Trackpoint], laps: [Lap], hrSource: (any HeartRateProviding)?, powerSource: (any PowerProviding)?, userFTP: Double, userWeight: Double) -> Data? {
         guard !trackpoints.isEmpty else { return nil }
         
         let encoder = Encoder()
@@ -49,7 +49,7 @@ class FitEncoder {
         encoder.write(mesg: user)
         
         // 3. Sensor Info
-        if let hr = hrDevice {
+        if let hr = hrSource as? HeartRateSensor {
             let info = DeviceInfoMesg()
             try? info.setTimestamp(DateTime(date: startTime))
             try? info.setDeviceIndex(UInt8(1))
@@ -59,7 +59,15 @@ class FitEncoder {
             encoder.write(mesg: info)
         }
         
-        if let pwr = powerDevice {
+        if let pwr = powerSource as? PowerSensor {
+            let info = DeviceInfoMesg()
+            try? info.setTimestamp(DateTime(date: startTime))
+            try? info.setDeviceIndex(UInt8(2))
+            try? info.setDeviceType(11)
+            try? info.setManufacturer(mapManufacturer(pwr.manufacturerName))
+            if let model = pwr.modelNumber { try? info.setProductName(model) }
+            encoder.write(mesg: info)
+        } else if let pwr = powerSource as? ControllableTrainer {
             let info = DeviceInfoMesg()
             try? info.setTimestamp(DateTime(date: startTime))
             try? info.setDeviceIndex(UInt8(2))

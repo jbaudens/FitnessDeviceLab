@@ -1,24 +1,25 @@
 import Foundation
-import Combine
+import Observation
 
-class SettingsManager: ObservableObject {
-    static let shared = SettingsManager()
+@Observable
+public class SettingsManager {
+    public static let shared = SettingsManager()
     
     private let defaults = UserDefaults.standard
     
-    @Published var userFTP: Double {
+    public var userFTP: Double {
         didSet { defaults.set(userFTP, forKey: "userFTP") }
     }
     
-    @Published var maxHR: Int {
+    public var maxHR: Int {
         didSet { defaults.set(maxHR, forKey: "maxHeartRate") }
     }
     
-    @Published var userLTHR: Int {
+    public var userLTHR: Int {
         didSet { defaults.set(userLTHR, forKey: "userLTHR") }
     }
     
-    @Published var altitudeOverride: Double? {
+    public var altitudeOverride: Double? {
         didSet { 
             if let val = altitudeOverride {
                 defaults.set(val, forKey: "altitudeOverride")
@@ -28,15 +29,15 @@ class SettingsManager: ObservableObject {
         }
     }
     
-    @Published var userWeight: Double {
+    public var userWeight: Double {
         didSet { defaults.set(userWeight, forKey: "userWeight") }
     }
     
-    @Published var ftpAltitude: Double {
+    public var ftpAltitude: Double {
         didSet { defaults.set(ftpAltitude, forKey: "ftpAltitude") }
     }
     
-    var metricsSettings: MetricsSettings {
+    public var metricsSettings: MetricsSettings {
         MetricsSettings(userFTP: userFTP, userWeight: userWeight, ftpAltitude: ftpAltitude)
     }
     

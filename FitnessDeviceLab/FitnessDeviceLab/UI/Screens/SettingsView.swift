@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @ObservedObject var settings = SettingsManager.shared
+    @Environment(SettingsManager.self) var settings
     
     // Local state to avoid layout loops during typing
     @State private var userFTP: String = ""
@@ -13,6 +13,7 @@ struct SettingsView: View {
     @State private var useAltitudeOverride: Bool = false
     
     var body: some View {
+        @Bindable var settings = settings
         List {
             Section("User Profile") {
                 HStack {

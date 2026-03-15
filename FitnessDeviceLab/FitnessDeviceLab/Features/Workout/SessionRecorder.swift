@@ -1,7 +1,7 @@
 import Foundation
-import Combine
+import Observation
 
-nonisolated public struct Trackpoint: Identifiable {
+public struct Trackpoint: Identifiable, Sendable {
     public let id = UUID()
     public let time: Date
     public let hr: Int?
@@ -22,7 +22,7 @@ nonisolated public struct Trackpoint: Identifiable {
     }
 }
 
-public struct Lap: Identifiable {
+public struct Lap: Identifiable, Sendable {
     public let id = UUID()
     public let index: Int
     public let startTime: Date
@@ -33,38 +33,33 @@ public struct Lap: Identifiable {
     public var duration: TimeInterval {
         return activeDuration
     }
+    
+    public init(index: Int, startTime: Date, type: WorkoutStepType) {
+        self.index = index
+        self.startTime = startTime
+        self.type = type
+    }
 }
 
-@MainActor
-public class SessionRecorder: ObservableObject {
-    var hrDevice: DiscoveredPeripheral?
-    var powerDevice: DiscoveredPeripheral?
-    var isRecording: Bool = false
+@Observable @MainActor
+public class SessionRecorder {
+    // MARK: - Active Logical Sources (Concrete Types for SwiftUI Picker Compatibility)
+    public var hrSource: HeartRateSensor?
+    public var powerSource: PowerSensor?
+    public var cadenceSource: CadenceSensor?
     
-    @Published public var trackpoints: [Trackpoint] = []
-    @Published public var latestPoint: Trackpoint?
+    public var isRecording: Bool = false
     
-    private var rrCancellable: AnyCancellable?
-    private var pendingRRIntervals: [Double] = []
+    public var trackpoints: [Trackpoint] = []
+    public var latestPoint: Trackpoint?
     
-    func prepare() {
+    public init() {}
+    
+    public func prepare() {
         trackpoints.removeAll()
-        pendingRRIntervals.removeAll()
-        setupRRWatcher()
     }
     
-    private func setupRRWatcher() {
-        rrCancellable = hrDevice?.$latestRRIntervals
-            .receive(on: RunLoop.main)
-            .sink { [weak self] intervals in
-                self?.pendingRRIntervals.append(contentsOf: intervals)
-            }
-    }
-    
-    func stop(label: String, laps: [Lap] = []) -> [URL] {
-        rrCancellable?.cancel()
-        rrCancellable = nil
-        
+    public func stop(label: String, laps: [Lap] = []) -> [URL] {
         var files: [URL] = []
         if let tcx = generateTCX(label: label) { files.append(tcx) }
         if let fit = generateFIT(label: label, laps: laps) { files.append(fit) }
@@ -75,7 +70,15 @@ public class SessionRecorder: ObservableObject {
         let encoder = FitEncoder()
         let ftp = SettingsManager.shared.userFTP
         let weight = SettingsManager.shared.userWeight
-        guard let data = encoder.encode(trackpoints: trackpoints, laps: laps, hrDevice: hrDevice, powerDevice: powerDevice, userFTP: ftp, userWeight: weight) else { return nil }
+        
+        guard let data = encoder.encode(
+            trackpoints: trackpoints, 
+            laps: laps, 
+            hrSource: hrSource, 
+            powerSource: powerSource, 
+            userFTP: ftp, 
+            userWeight: weight
+        ) else { return nil }
         
         let formatter = ISO8601DateFormatter()
         let safeDate = formatter.string(from: trackpoints.first?.time ?? Date()).replacingOccurrences(of: ":", with: "-")
@@ -85,17 +88,16 @@ public class SessionRecorder: ObservableObject {
         return tempURL
     }
     
-    func recordPoint(time: Date, altitude: Double?) {
-        let rrThisSecond = pendingRRIntervals
-        pendingRRIntervals.removeAll()
+    public func recordPoint(time: Date, altitude: Double?) {
+        let rrThisSecond = hrSource?.latestRRIntervals ?? []
         
         let pt = Trackpoint(
             time: time,
-            hr: hrDevice?.heartRate,
-            power: powerDevice?.cyclingPower,
-            cadence: powerDevice?.cadence,
+            hr: hrSource?.heartRate,
+            power: powerSource?.cyclingPower,
+            cadence: cadenceSource?.cadence,
             altitude: altitude,
-            powerBalance: powerDevice?.powerBalance,
+            powerBalance: powerSource?.powerBalance,
             rrIntervals: rrThisSecond
         )
         
@@ -103,6 +105,9 @@ public class SessionRecorder: ObservableObject {
         if isRecording {
             trackpoints.append(pt)
         }
+        
+        // Clear RR intervals
+        hrSource?.latestRRIntervals.removeAll()
     }
     
     private func generateTCX(label: String) -> URL? {
@@ -136,14 +141,16 @@ public class SessionRecorder: ObservableObject {
             
             xmlPoints += "          <Trackpoint>\n"
             xmlPoints += "            <Time>\(formatter.string(from: pt.time))</Time>\n"
-            xmlPoints += "            <DistanceMeters>\(String(format: "%.2f", totalDistance))</DistanceMeters>\n"
+            let distStr = String(format: "%.2f", totalDistance)
+            xmlPoints += "            <DistanceMeters>\(distStr)</DistanceMeters>\n"
             if let alt = pt.altitude { xmlPoints += "            <AltitudeMeters>\(alt)</AltitudeMeters>\n" }
             if let hr = pt.hr { xmlPoints += "            <HeartRateBpm><Value>\(hr)</Value></HeartRateBpm>\n" }
             if let cad = pt.cadence { xmlPoints += "            <Cadence>\(cad)</Cadence>\n" }
             
             xmlPoints += "            <Extensions>\n"
             xmlPoints += "              <ns3:TPX>\n"
-            xmlPoints += "                <ns3:Speed>\(String(format: "%.3f", speed))</ns3:Speed>\n"
+            let speedStr = String(format: "%.3f", speed)
+            xmlPoints += "                <ns3:Speed>\(speedStr)</ns3:Speed>\n"
             if let pwr = pt.power {
                 xmlPoints += "                <ns3:Watts>\(pwr)</ns3:Watts>\n"
             }
@@ -155,7 +162,8 @@ public class SessionRecorder: ObservableObject {
             xmlPoints += "          </Trackpoint>\n"
         }
         
-        xml += "        <DistanceMeters>\(String(format: "%.2f", totalDistance))</DistanceMeters>\n"
+        let totalDistStr = String(format: "%.2f", totalDistance)
+        xml += "        <DistanceMeters>\(totalDistStr)</DistanceMeters>\n"
         xml += "        <Track>\n"
         xml += xmlPoints
         xml += "        </Track>\n"
