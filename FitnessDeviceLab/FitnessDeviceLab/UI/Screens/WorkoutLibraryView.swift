@@ -1,53 +1,11 @@
 import SwiftUI
 
 struct WorkoutLibraryView: View {
-    @EnvironmentObject var workoutManager: WorkoutSessionManager
-    let repository = WorkoutRepository.shared
-    
-    @State private var searchText = ""
-    @State private var selectedZoneFilter: WorkoutZone? = nil
-    @State private var selectedMetricFilter: StructuredWorkout.WorkoutMetric? = nil
-    @State private var sortOrder: SortOrder = .name
-    
-    enum SortOrder: String, CaseIterable, Identifiable {
-        case name = "Name"
-        case duration = "Duration"
-        case intensity = "Intensity"
-        var id: String { rawValue }
-    }
-    
-    var filteredWorkouts: [StructuredWorkout] {
-        var workouts = repository.allWorkouts
-        
-        // Search
-        if !searchText.isEmpty {
-            workouts = workouts.filter { $0.name.localizedCaseInsensitiveContains(searchText) || $0.description.localizedCaseInsensitiveContains(searchText) }
-        }
-        
-        // Zone Filter
-        if let zone = selectedZoneFilter {
-            workouts = workouts.filter { $0.primaryZone == zone }
-        }
-        
-        // Metric Filter
-        if let metric = selectedMetricFilter {
-            workouts = workouts.filter { $0.primaryMetric == metric }
-        }
-        
-        // Sort
-        switch sortOrder {
-        case .name:
-            workouts.sort { $0.name < $1.name }
-        case .duration:
-            workouts.sort { $0.totalDuration < $1.totalDuration }
-        case .intensity:
-            workouts.sort { $0.intensityFactor > $1.intensityFactor }
-        }
-        
-        return workouts
-    }
+    @Environment(WorkoutSessionManager.self) var workoutManager
+    @State private var viewModel = LibraryViewModel()
     
     var body: some View {
+        @Bindable var vm = viewModel
         NavigationStack {
             VStack(spacing: 0) {
                 // Filters Header
@@ -55,17 +13,17 @@ struct WorkoutLibraryView: View {
                     // Zone Badges
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            FilterBadge(name: "All Zones", color: .secondary, isSelected: selectedZoneFilter == nil) {
-                                selectedZoneFilter = nil
+                            FilterBadge(name: "All Zones", color: .secondary, isSelected: viewModel.selectedZoneFilter == nil) {
+                                viewModel.selectedZoneFilter = nil
                             }
                             
                             ForEach(WorkoutZone.allCases) { zone in
                                 FilterBadge(
                                     name: "Z\(zone.rawValue)",
                                     color: zone.color,
-                                    isSelected: selectedZoneFilter == zone
+                                    isSelected: viewModel.selectedZoneFilter == zone
                                 ) {
-                                    selectedZoneFilter = zone
+                                    viewModel.selectedZoneFilter = zone
                                 }
                             }
                         }
@@ -74,16 +32,16 @@ struct WorkoutLibraryView: View {
                     
                     // Metric Badges (Power / HR)
                     HStack(spacing: 8) {
-                        FilterBadge(name: "All Metrics", color: .secondary, isSelected: selectedMetricFilter == nil) {
-                            selectedMetricFilter = nil
+                        FilterBadge(name: "All Metrics", color: .secondary, isSelected: viewModel.selectedMetricFilter == nil) {
+                            viewModel.selectedMetricFilter = nil
                         }
                         
-                        FilterBadge(name: "Power Only", color: .yellow, isSelected: selectedMetricFilter == .power) {
-                            selectedMetricFilter = .power
+                        FilterBadge(name: "Power Only", color: .yellow, isSelected: viewModel.selectedMetricFilter == .power) {
+                            viewModel.selectedMetricFilter = .power
                         }
                         
-                        FilterBadge(name: "HR Only", color: .red, isSelected: selectedMetricFilter == .heartRate) {
-                            selectedMetricFilter = .heartRate
+                        FilterBadge(name: "HR Only", color: .red, isSelected: viewModel.selectedMetricFilter == .heartRate) {
+                            viewModel.selectedMetricFilter = .heartRate
                         }
                     }
                     .padding(.horizontal)
@@ -92,12 +50,12 @@ struct WorkoutLibraryView: View {
                 .background(Color.secondary.opacity(0.05))
                 
                 List {
-                    if filteredWorkouts.isEmpty {
+                    if viewModel.filteredWorkouts.isEmpty {
                         Section {
                             ContentUnavailableView("No Workouts Found", systemImage: "magnifyingglass", description: Text("Try adjusting your filters or search terms."))
                         }
                     } else {
-                        ForEach(filteredWorkouts) { workout in
+                        ForEach(viewModel.filteredWorkouts) { workout in
                             NavigationLink(destination: WorkoutDetailView(workout: workout)) {
                                 WorkoutRowView(workout: workout)
                             }
@@ -106,12 +64,12 @@ struct WorkoutLibraryView: View {
                 }
             }
             .navigationTitle("Workout Library")
-            .searchable(text: $searchText, prompt: "Search workouts...")
+            .searchable(text: $vm.searchText, prompt: "Search workouts...")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
-                        Picker("Sort By", selection: $sortOrder) {
-                            ForEach(SortOrder.allCases) { order in
+                        Picker("Sort By", selection: $vm.sortOrder) {
+                            ForEach(LibraryViewModel.SortOrder.allCases) { order in
                                 Text("Sort by \(order.rawValue)").tag(order)
                             }
                         }
@@ -150,8 +108,8 @@ struct FilterBadge: View {
 
 struct WorkoutDetailView: View {
     let workout: StructuredWorkout
-    @EnvironmentObject var workoutManager: WorkoutSessionManager
-    @EnvironmentObject var bluetoothManager: BluetoothManager
+    @Environment(WorkoutSessionManager.self) var workoutManager
+    @Environment(\.bluetoothProvider) var bluetoothManager
     @Environment(\.dismiss) var dismiss
     
     var body: some View {

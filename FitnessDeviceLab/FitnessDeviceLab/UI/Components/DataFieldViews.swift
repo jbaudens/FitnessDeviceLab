@@ -2,7 +2,7 @@ import SwiftUI
 import Charts
 import Combine
 
-enum DataFieldType: String, CaseIterable, Identifiable, Codable {
+public enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     // Heart Rate
     case currentHR = "Heart Rate"
     case avgHR = "Avg HR"
@@ -75,7 +75,7 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
     case lapSpeed = "Lap Speed"
     case lapDistance = "Lap Dist"
     
-    var id: String { rawValue }
+    public var id: String { rawValue }
     
     var isHR: Bool {
         switch self {
@@ -84,7 +84,7 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         }
     }
     
-    func value(for engine: DataFieldEngine, workoutManager: WorkoutSessionManager? = nil) -> Double? {
+    func value(for engine: DataFieldEngine, workoutManager: WorkoutSessionManager? = nil, settings: SettingsManager) -> Double? {
         let sessionMetrics = engine.calculatedMetrics
         let lapMetrics = engine.currentLapMetrics
         let hrv = engine.hrvMetrics
@@ -142,7 +142,7 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         case .homeIF: return m.home.intensityFactor
         case .homeTSS: return m.home.tss
         case .homeWkg: return m.home.wattsPerKg
-        case .homeFTP: return SettingsManager.shared.userFTP
+        case .homeFTP: return settings.userFTP
         
         case .cadence: return engine.currentCadence.map { Double($0) }
         case .avgCadence: return m.cadence.avg
@@ -202,8 +202,7 @@ enum DataFieldType: String, CaseIterable, Identifiable, Codable {
 }
 
 struct DataFieldGrid: View {
-    @EnvironmentObject var workoutManager: WorkoutSessionManager
-    @ObservedObject var engine: DataFieldEngine
+    var engine: DataFieldEngine
     let fields: [DataFieldType]
     
     var body: some View {
@@ -219,9 +218,10 @@ struct DataFieldGrid: View {
 }
 
 struct DataFieldTile: View {
-    @EnvironmentObject var workoutManager: WorkoutSessionManager
+    @Environment(WorkoutSessionManager.self) var workoutManager
+    @Environment(SettingsManager.self) var settings
     let type: DataFieldType
-    @ObservedObject var engine: DataFieldEngine
+    var engine: DataFieldEngine
     
     var body: some View {
         HStack(alignment: .lastTextBaseline, spacing: 4) {
@@ -257,7 +257,7 @@ struct DataFieldTile: View {
     }
     
     var valueText: String {
-        guard let val = type.value(for: engine, workoutManager: workoutManager) else { return "--" }
+        guard let val = type.value(for: engine, workoutManager: workoutManager, settings: settings) else { return "--" }
         
         switch type {
         case .dfaAlpha1, .intensityFactor, .wattsPerKg, .slWkg, .homeWkg, .slIF, .homeIF: return String(format: "%.2f", val)

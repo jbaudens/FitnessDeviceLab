@@ -1,41 +1,44 @@
 import Foundation
 import Combine
+import Observation
 
-@MainActor
-class WorkoutSessionManager: ObservableObject {
-    enum DataFieldMode: String, CaseIterable, Identifiable {
+@Observable
+public class WorkoutSessionManager {
+    public enum DataFieldMode: String, CaseIterable, Identifiable {
         case session = "Session"
         case lap = "Lap"
-        var id: String { rawValue }
+        public var id: String { rawValue }
     }
     
-    @Published var currentDataFieldMode: DataFieldMode = .session
+    public var currentDataFieldMode: DataFieldMode = .session
     
-    @Published var hrDeviceAId: UUID?
-    @Published var powerDeviceAId: UUID?
+    // MARK: - Recorders (Injected from outside)
+    public var recorderA = SessionRecorder()
+    public var recorderB = SessionRecorder()
     
-    @Published var hrDeviceBId: UUID?
-    @Published var powerDeviceBId: UUID?
+    // MARK: - Global Workout Control
+    public var controlSource: ControllableTrainer?
     
-    @Published var isRecording = false
-    @Published var isLoaded = false
-    @Published var isPaused = false
+    // MARK: - Workout State
+    public var isRecording = false
+    public var isLoaded = false
+    public var isPaused = false
     
-    @Published var sessionStartTime: Date?
-    @Published var workoutElapsedTime: TimeInterval = 0
+    public var sessionStartTime: Date?
+    public var workoutElapsedTime: TimeInterval = 0
     
-    @Published var activeProfile: ActivityProfile = .defaultProfile
-    @Published var selectedWorkout: StructuredWorkout?
-    @Published var ergModeEnabled = false
-    @Published var resistanceLevel: Double = 40.0
-    @Published var workoutDifficultyScale: Double = 1.0
+    public var activeProfile: ActivityProfile = .defaultProfile
+    public var selectedWorkout: StructuredWorkout?
+    public var ergModeEnabled = false
+    public var resistanceLevel: Double = 40.0
+    public var workoutDifficultyScale: Double = 1.0
     
-    @Published var currentStepIndex: Int = 0
-    @Published var timeInStep: TimeInterval = 0
-    @Published var currentTargetPower: Int? = nil
-    @Published var currentTargetHR: Int? = nil
+    public var currentStepIndex: Int = 0
+    public var timeInStep: TimeInterval = 0
+    public var currentTargetPower: Int? = nil
+    public var currentTargetHR: Int? = nil
     
-    @Published var laps: [Lap] = []
+    public var laps: [Lap] = []
     
     private var lastSentTargetPower: Int?
     private var lastSentResistanceLevel: Double?
@@ -43,61 +46,34 @@ class WorkoutSessionManager: ObservableObject {
     // HR Control State
     private var hrControlBaseWatts: Double?
     private var lastHRUpdate: Date?
-    private var hrErrorAccumulator: Double = 0
     
-    public var recorderA = SessionRecorder()
-    public var recorderB = SessionRecorder()
+    public var engineA: DataFieldEngine
+    public var engineB: DataFieldEngine
     
-    func increaseDifficulty() {
-        workoutDifficultyScale = min(2.0, workoutDifficultyScale + 0.01)
-    }
-    
-    func decreaseDifficulty() {
-        workoutDifficultyScale = max(0.5, workoutDifficultyScale - 0.01)
-    }
-    
-    var controlDevice: DiscoveredPeripheral? {
-        if let devA = recorderA.powerDevice, devA.capabilities.contains(.fitnessMachine) {
-            return devA
-        }
-        if let devB = recorderB.powerDevice, devB.capabilities.contains(.fitnessMachine) {
-            return devB
-        }
-        return nil
-    }
-    
-    var canEnableErgMode: Bool {
-        controlDevice != nil
-    }
-    
-    @Published public var engineA: DataFieldEngine
-    @Published public var engineB: DataFieldEngine
-    
-    @Published var exportedFiles: [URL] = []
+    public var exportedFiles: [URL] = []
     
     private var timerCancellable: AnyCancellable?
-    private var settingsCancellable: AnyCancellable?
+    private let settings = SettingsManager.shared
     
-    init() {
+    public init() {
         let recA = SessionRecorder()
         let recB = SessionRecorder()
         self.recorderA = recA
         self.recorderB = recB
-        self.engineA = DataFieldEngine(recorder: recA)
-        self.engineB = DataFieldEngine(recorder: recB)
-        
-        // Observe settings changes
-        settingsCancellable = SettingsManager.shared.objectWillChange
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self?.engineA.recalculate()
-                    self?.engineB.recalculate()
-                }
-            }
+        self.engineA = DataFieldEngine(recorder: recA, settings: settings)
+        self.engineB = DataFieldEngine(recorder: recB, settings: settings)
     }
     
-    func loadWorkout(devices: [DiscoveredPeripheral]) {
+    /// Starts the workout orchestration with the provided recorders and control source.
+    public func startWorkout(recA: SessionRecorder, recB: SessionRecorder, control: ControllableTrainer?) {
+        self.recorderA = recA
+        self.recorderB = recB
+        self.controlSource = control
+        
+        // Re-initialize engines with the new recorders
+        self.engineA = DataFieldEngine(recorder: recA, settings: settings)
+        self.engineB = DataFieldEngine(recorder: recB, settings: settings)
+        
         workoutElapsedTime = 0
         currentStepIndex = 0
         timeInStep = 0
@@ -106,32 +82,24 @@ class WorkoutSessionManager: ObservableObject {
         isRecording = false
         exportedFiles = []
         
-        recorderA.hrDevice = devices.first { $0.id == hrDeviceAId }
-        recorderA.powerDevice = devices.first { $0.id == powerDeviceAId }
-        
-        recorderB.hrDevice = devices.first { $0.id == hrDeviceBId }
-        recorderB.powerDevice = devices.first { $0.id == powerDeviceBId }
-        
         recorderA.prepare()
         recorderB.prepare()
         
-        recorderA.isRecording = false
-        recorderB.isRecording = false
-        
         isLoaded = true
         
+        // Start the master clock
         timerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
-                guard let self = self else { return }
-                self.tick()
+                Task { @MainActor in
+                    self?.tick()
+                }
             }
     }
     
-    func startRecording() {
+    public func startRecording() {
         guard isLoaded, !isRecording else { return }
         
-        // Initial Lap
         let initialStepType = selectedWorkout?.steps.first?.type ?? .work
         startNewLap(type: initialStepType)
         
@@ -143,24 +111,36 @@ class WorkoutSessionManager: ObservableObject {
         recorderB.isRecording = true
     }
     
-    func pauseWorkout() {
+    public func pauseWorkout() {
         guard isRecording else { return }
         isPaused = true
         recorderA.isRecording = false
         recorderB.isRecording = false
     }
     
-    func resumeWorkout() {
+    public func resumeWorkout() {
         guard isRecording else { return }
         isPaused = false
         recorderA.isRecording = true
         recorderB.isRecording = true
     }
     
-    func manualLap() {
+    public func manualLap() {
         guard isRecording else { return }
         let currentStepType = currentWorkoutStep?.type ?? .work
         startNewLap(type: currentStepType)
+    }
+    
+    public func increaseDifficulty() {
+        workoutDifficultyScale = min(2.0, workoutDifficultyScale + 0.01)
+    }
+    
+    public func decreaseDifficulty() {
+        workoutDifficultyScale = max(0.5, workoutDifficultyScale - 0.01)
+    }
+    
+    public var canEnableErgMode: Bool {
+        controlSource != nil
     }
     
     private func startNewLap(type: WorkoutStepType) {
@@ -174,24 +154,21 @@ class WorkoutSessionManager: ObservableObject {
         laps.append(newLap)
     }
     
+    @MainActor
     private func tick() {
         let now = Date()
-        let altitude = LocationManager.shared.currentAltitude ?? SettingsManager.shared.altitudeOverride
+        let altitude = LocationManager.shared.currentAltitude ?? settings.altitudeOverride
         
-        // Always record current point for live data display, but recorder handles whether to append to trackpoints
         recorderA.recordPoint(time: now, altitude: altitude)
         recorderB.recordPoint(time: now, altitude: altitude)
         
-        // Ensure data fields update
         let lapStart = laps.last?.startTime
         engineA.updateMetrics(from: recorderA.trackpoints, lapStartTime: lapStart)
         engineB.updateMetrics(from: recorderB.trackpoints, lapStartTime: lapStart)
         
         guard isRecording else { return }
-        
         guard !isPaused else { return }
         
-        // Increment elapsed time
         workoutElapsedTime += 1.0
         let totalElapsed = workoutElapsedTime
         
@@ -200,13 +177,11 @@ class WorkoutSessionManager: ObservableObject {
         }
         
         if let workout = selectedWorkout {
-            // Recalculate current step and time in step based on totalElapsed
             var accumulated: TimeInterval = 0
             var foundStep = false
             for (index, step) in workout.steps.enumerated() {
                 if totalElapsed < accumulated + step.duration {
                     if currentStepIndex != index {
-                        // Auto-lap on step change
                         currentStepIndex = index
                         startNewLap(type: step.type)
                     }
@@ -218,15 +193,13 @@ class WorkoutSessionManager: ObservableObject {
             }
             
             if !foundStep && !workout.steps.isEmpty {
-                // Workout finished! Auto-stop.
                 stopWorkout()
                 return
             }
             
-            // Centralized Target Power / HR Calculation
             if let step = currentWorkoutStep {
-                let ftp = SettingsManager.shared.userFTP
-                let lthr = Double(SettingsManager.shared.userLTHR)
+                let ftp = settings.userFTP
+                let lthr = Double(settings.userLTHR)
                 let isFinished = currentStepIndex >= workout.steps.count - 1 && timeInStep >= workout.steps.last?.duration ?? 0
                 
                 if isFinished {
@@ -234,37 +207,29 @@ class WorkoutSessionManager: ObservableObject {
                     currentTargetHR = nil
                     hrControlBaseWatts = nil
                 } else if let targetHRPercent = step.targetHeartRatePercent {
-                    // HR Based Control
                     let targetHRValue = Int(round(targetHRPercent * workoutDifficultyScale * lthr))
                     currentTargetHR = targetHRValue
                     
-                    // Simple Integral Control Loop
                     if ergModeEnabled {
-                        let currentHR = Double(recorderA.hrDevice?.heartRate ?? 0)
+                        // Use Primary Recorder's HR source
+                        let currentHR = Double(recorderA.hrSource?.heartRate ?? 0)
                         if currentHR > 0 {
                             if hrControlBaseWatts == nil {
-                                // Initialize with a sensible default (e.g., 50% FTP)
                                 hrControlBaseWatts = ftp * 0.5
                             }
-                            
                             let error = Double(targetHRValue) - currentHR
-                            // Adjust base power slowly (e.g., small gain to avoid oscillation)
                             let adjustment = error * 0.15 
                             hrControlBaseWatts! += adjustment
-                            
-                            // Clamp to sensible ranges
                             hrControlBaseWatts = max(50, min(hrControlBaseWatts!, ftp * 1.5))
                         }
                     }
                     
-                    // During HR intervals, we can still show the power that is being commanded
                     if let base = hrControlBaseWatts {
                         currentTargetPower = Int(round(base))
                     } else {
                         currentTargetPower = nil
                     }
                 } else {
-                    // Power Based Control
                     let watts = Int(round((step.powerAt(time: timeInStep) ?? 0) * workoutDifficultyScale * ftp))
                     currentTargetPower = watts
                     currentTargetHR = nil
@@ -276,18 +241,15 @@ class WorkoutSessionManager: ObservableObject {
                 hrControlBaseWatts = nil
             }
             
-            // ERG / Resistance Control
-            if let trainer = controlDevice {
+            if let trainer = controlSource {
                 if ergModeEnabled {
                     if let targetWatts = currentTargetPower {
-                        // Power Mode
                         if targetWatts != lastSentTargetPower {
                             trainer.setTargetPower(targetWatts)
                             lastSentTargetPower = targetWatts
                         }
                         lastSentResistanceLevel = nil
                     } else if let baseWatts = hrControlBaseWatts {
-                        // HR Mode
                         let targetWattsValue = Int(round(baseWatts))
                         if targetWattsValue != lastSentTargetPower {
                             trainer.setTargetPower(targetWattsValue)
@@ -296,7 +258,6 @@ class WorkoutSessionManager: ObservableObject {
                         lastSentResistanceLevel = nil
                     }
                 } else {
-                    // Manual Resistance Mode
                     if lastSentTargetPower != nil || lastSentResistanceLevel != resistanceLevel {
                         trainer.setResistanceLevel(resistanceLevel)
                         lastSentResistanceLevel = resistanceLevel
@@ -305,8 +266,7 @@ class WorkoutSessionManager: ObservableObject {
                 }
             }
         } else {
-            // Not a structured workout
-            if let trainer = controlDevice {
+            if let trainer = controlSource {
                 if lastSentResistanceLevel != resistanceLevel {
                     trainer.setResistanceLevel(resistanceLevel)
                     lastSentResistanceLevel = resistanceLevel
@@ -315,7 +275,7 @@ class WorkoutSessionManager: ObservableObject {
         }
     }
     
-    func stopWorkout() {
+    public func stopWorkout() {
         isRecording = false
         isLoaded = false
         isPaused = false
@@ -326,16 +286,18 @@ class WorkoutSessionManager: ObservableObject {
         timerCancellable?.cancel()
         timerCancellable = nil
         
-        var files: [URL] = []
-        files.append(contentsOf: recorderA.stop(label: "ProfileA", laps: laps))
-        files.append(contentsOf: recorderB.stop(label: "ProfileB", laps: laps))
-        
-        if !files.isEmpty {
-            exportedFiles = files
+        Task { @MainActor in
+            var files: [URL] = []
+            files.append(contentsOf: recorderA.stop(label: "ProfileA", laps: laps))
+            files.append(contentsOf: recorderB.stop(label: "ProfileB", laps: laps))
+            
+            if !files.isEmpty {
+                exportedFiles = files
+            }
         }
     }
     
-    var currentWorkoutStep: WorkoutStep? {
+    public var currentWorkoutStep: WorkoutStep? {
         guard let workout = selectedWorkout, currentStepIndex < workout.steps.count else { return nil }
         return workout.steps[currentStepIndex]
     }

@@ -1,44 +1,38 @@
 import SwiftUI
 
 struct WorkoutPlayerView: View {
-    @EnvironmentObject var bluetoothManager: BluetoothManager
-    @EnvironmentObject var workoutManager: WorkoutSessionManager
+    @Environment(\.bluetoothProvider) var bluetoothProvider
+    @Environment(WorkoutSessionManager.self) var workoutManager
     
-    var hrDevices: [DiscoveredPeripheral] {
-        bluetoothManager.peripherals.filter { $0.capabilities.contains(.heartRate) && $0.isConnected }
-    }
-    var powerDevices: [DiscoveredPeripheral] {
-        bluetoothManager.peripherals.filter { 
-            ($0.capabilities.contains(.cyclingPower) || $0.capabilities.contains(.fitnessMachine)) && $0.isConnected 
-        }
-    }
-    
-    var hrA: DiscoveredPeripheral? { hrDevices.first { $0.id == workoutManager.hrDeviceAId } }
-    var powerA: DiscoveredPeripheral? { powerDevices.first { $0.id == workoutManager.powerDeviceAId } }
-    
-    var hrB: DiscoveredPeripheral? { hrDevices.first { $0.id == workoutManager.hrDeviceBId } }
-    var powerB: DiscoveredPeripheral? { powerDevices.first { $0.id == workoutManager.powerDeviceBId } }
-    
-    @State private var showingStopConfirmation = false
-    @State private var showingDiscardConfirmation = false
-    
-    func deviceNames(pwr: DiscoveredPeripheral?, hr: DiscoveredPeripheral?) -> String {
-        let names = [pwr?.name, hr?.name].compactMap { $0 }
-        let uniqueNames = names.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
-        return uniqueNames.isEmpty ? "No Sensors" : uniqueNames.joined(separator: " + ")
-    }
+    @State private var viewModel: WorkoutPlayerViewModel?
     
     var body: some View {
         Group {
-            if !workoutManager.exportedFiles.isEmpty {
+            if let viewModel = viewModel {
+                WorkoutPlayerContentView(viewModel: viewModel)
+            } else {
+                ProgressView().onAppear {
+                    viewModel = WorkoutPlayerViewModel(workoutManager: workoutManager, bluetoothProvider: bluetoothProvider)
+                }
+            }
+        }
+    }
+}
+
+struct WorkoutPlayerContentView: View {
+    @Bindable var viewModel: WorkoutPlayerViewModel
+    
+    var body: some View {
+        Group {
+            if viewModel.isSummaryState {
                 // Focused Post-Workout Summary View
                 VStack {
                     Spacer()
-                    SessionSummaryCard(files: workoutManager.exportedFiles, engine: workoutManager.engineA)
+                    SessionSummaryCard(files: viewModel.workoutManager.exportedFiles, engine: viewModel.workoutManager.engineA)
                         .padding()
                     
                     Button(role: .destructive) {
-                        showingDiscardConfirmation = true
+                        viewModel.showingDiscardConfirmation = true
                     } label: {
                         Label("Discard Session", systemImage: "trash")
                             .frame(maxWidth: .infinity)
@@ -46,10 +40,10 @@ struct WorkoutPlayerView: View {
                     }
                     .buttonStyle(.bordered)
                     .padding(.horizontal)
-                    .alert("Discard Session?", isPresented: $showingDiscardConfirmation) {
+                    .alert("Discard Session?", isPresented: $viewModel.showingDiscardConfirmation) {
                         Button("Cancel", role: .cancel) { }
                         Button("Discard", role: .destructive) {
-                            workoutManager.exportedFiles = []
+                            viewModel.discardSession()
                         }
                     } message: {
                         Text("This will permanently delete the current session data and return to setup.")
@@ -58,7 +52,7 @@ struct WorkoutPlayerView: View {
                     Spacer()
                 }
                 .navigationTitle("Session Summary")
-            } else if workoutManager.isLoaded || workoutManager.isRecording {
+            } else if viewModel.isActiveState {
                 activeView
             } else {
                 setupView
@@ -69,7 +63,7 @@ struct WorkoutPlayerView: View {
     private var activeView: some View {
         VStack(spacing: 0) {
             // Active Workout Header (Summary targets)
-            if let workout = workoutManager.selectedWorkout {
+            if let workout = viewModel.workoutManager.selectedWorkout {
                 WorkoutTargetHeader(workout: workout)
                     .padding()
                     .background(Color.secondary.opacity(0.05))
@@ -77,12 +71,12 @@ struct WorkoutPlayerView: View {
             
             TabView {
                 // Data Pages
-                ForEach(workoutManager.activeProfile.pages) { page in
+                ForEach(viewModel.workoutManager.activeProfile.pages) { page in
                     ScrollView {
                         VStack(spacing: 24) {
-                            sensorSetSection(title: "SET A", color: .blue, pwr: powerA, hr: hrA, recorder: workoutManager.recorderA, fields: page.fields)
+                            sensorSetSection(title: "SET A", color: Color.blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
                             Divider().padding(.horizontal)
-                            sensorSetSection(title: "SET B", color: .purple, pwr: powerB, hr: hrB, recorder: workoutManager.recorderB, fields: page.fields)
+                            sensorSetSection(title: "SET B", color: Color.purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
                         }
                         .padding(.vertical)
                     }
@@ -98,18 +92,18 @@ struct WorkoutPlayerView: View {
             
             activeControls
         }
-        .navigationTitle(workoutManager.activeProfile.name)
+        .navigationTitle(viewModel.workoutManager.activeProfile.name)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
     }
     
-    private func sensorSetSection(title: String, color: Color, pwr: DiscoveredPeripheral?, hr: DiscoveredPeripheral?, recorder: SessionRecorder, fields: [DataFieldType]) -> some View {
+    private func sensorSetSection(title: String, color: Color, recorder: SessionRecorder, fields: [DataFieldType]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Label(title, systemImage: title == "SET A" ? "1.circle.fill" : "2.circle.fill")
                 Spacer()
-                Text(deviceNames(pwr: pwr, hr: hr))
+                Text(viewModel.deviceNames(recorder: recorder))
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
             }
             .font(.caption)
@@ -117,12 +111,12 @@ struct WorkoutPlayerView: View {
             .foregroundColor(color)
             .padding(.horizontal)
             
-            if let workout = workoutManager.selectedWorkout {
+            if let workout = viewModel.workoutManager.selectedWorkout {
                 WorkoutGraphView(
                     workout: workout,
-                    elapsedTime: workoutManager.workoutElapsedTime,
+                    elapsedTime: viewModel.workoutManager.workoutElapsedTime,
                     recorder: recorder,
-                    scale: workoutManager.workoutDifficultyScale
+                    scale: viewModel.workoutManager.workoutDifficultyScale
                 )
                 .frame(height: 140)
                 .padding(8)
@@ -132,7 +126,7 @@ struct WorkoutPlayerView: View {
             }
             
             DataFieldGrid(
-                engine: title == "SET A" ? workoutManager.engineA : workoutManager.engineB,
+                engine: title == "SET A" ? viewModel.workoutManager.engineA : viewModel.workoutManager.engineB,
                 fields: fields
             )
             .padding(.horizontal)
@@ -141,10 +135,10 @@ struct WorkoutPlayerView: View {
     
     private var activeControls: some View {
         HStack(spacing: 16) {
-            if !workoutManager.isRecording {
+            if !viewModel.workoutManager.isRecording {
                 Button(action: {
-                    workoutManager.isLoaded = false
-                    workoutManager.isRecording = false
+                    viewModel.workoutManager.isLoaded = false
+                    viewModel.workoutManager.isRecording = false
                 }) {
                     Label("Cancel", systemImage: "xmark.circle")
                         .font(.headline)
@@ -155,7 +149,7 @@ struct WorkoutPlayerView: View {
                 .tint(.secondary)
                 
                 Button(action: {
-                    workoutManager.startRecording()
+                    viewModel.workoutManager.startRecording()
                 }) {
                     Label("Start Recording", systemImage: "play.fill")
                         .font(.headline)
@@ -166,7 +160,7 @@ struct WorkoutPlayerView: View {
                 .tint(.green)
             } else {
                 Button(action: {
-                    workoutManager.manualLap()
+                    viewModel.workoutManager.manualLap()
                 }) {
                     Label("Lap", systemImage: "circle.circle")
                         .font(.headline)
@@ -175,16 +169,16 @@ struct WorkoutPlayerView: View {
                 }
                 .buttonStyle(.bordered)
                 .tint(.blue)
-                .disabled(workoutManager.isPaused)
+                .disabled(viewModel.workoutManager.isPaused)
                 
                 Button(action: {
-                    if workoutManager.isPaused {
-                        workoutManager.resumeWorkout()
+                    if viewModel.workoutManager.isPaused {
+                        viewModel.workoutManager.resumeWorkout()
                     } else {
-                        workoutManager.pauseWorkout()
+                        viewModel.workoutManager.pauseWorkout()
                     }
                 }) {
-                    Label(workoutManager.isPaused ? "Resume" : "Pause", systemImage: workoutManager.isPaused ? "play.fill" : "pause.fill")
+                    Label(viewModel.workoutManager.isPaused ? "Resume" : "Pause", systemImage: viewModel.workoutManager.isPaused ? "play.fill" : "pause.fill")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -193,7 +187,7 @@ struct WorkoutPlayerView: View {
                 .tint(.orange)
                 
                 Button(action: {
-                    showingStopConfirmation = true
+                    viewModel.showingStopConfirmation = true
                 }) {
                     Label("Stop", systemImage: "stop.fill")
                         .font(.headline)
@@ -202,10 +196,10 @@ struct WorkoutPlayerView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.red)
-                .alert("Stop Workout?", isPresented: $showingStopConfirmation) {
+                .alert("Stop Workout?", isPresented: $viewModel.showingStopConfirmation) {
                     Button("Cancel", role: .cancel) { }
                     Button("Stop & Save", role: .destructive) {
-                        workoutManager.stopWorkout()
+                        viewModel.workoutManager.stopWorkout()
                     }
                 } message: {
                     Text("This will end the current session and save the data.")
@@ -218,7 +212,7 @@ struct WorkoutPlayerView: View {
     private var setupView: some View {
         ScrollView {
             VStack(spacing: 24) {
-                if hrDevices.isEmpty && powerDevices.isEmpty {
+                if viewModel.availableHRSensors.isEmpty && viewModel.availablePowerSensors.isEmpty {
                     emptySensorsView
                 } else {
                     setupContent
@@ -247,11 +241,11 @@ struct WorkoutPlayerView: View {
         VStack(spacing: 24) {
             setupHeader
             
-            if let workout = workoutManager.selectedWorkout {
+            if let workout = viewModel.workoutManager.selectedWorkout {
                 selectedWorkoutCard(workout: workout)
             }
 
-            if workoutManager.isLoaded && !workoutManager.isRecording {
+            if viewModel.workoutManager.isLoaded && !viewModel.workoutManager.isRecording {
                 liveDataPreview
             }
 
@@ -267,17 +261,13 @@ struct WorkoutPlayerView: View {
                 Text("Workout Setup")
                     .font(.title2)
                     .fontWeight(.bold)
-                Text(workoutManager.activeProfile.name)
+                Text(viewModel.workoutManager.activeProfile.name)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
             Spacer()
             Button("Clear All") {
-                workoutManager.hrDeviceAId = nil
-                workoutManager.powerDeviceAId = nil
-                workoutManager.hrDeviceBId = nil
-                workoutManager.powerDeviceBId = nil
-                workoutManager.selectedWorkout = nil
+                viewModel.clearAllSelections()
             }
             .font(.caption)
             .buttonStyle(.bordered)
@@ -290,21 +280,21 @@ struct WorkoutPlayerView: View {
             SensorSetCard(
                 title: "PRIMARY RECORDER (A)",
                 subtitle: "Used for primary display & stats",
-                color: .blue,
-                hrId: $workoutManager.hrDeviceAId,
-                powerId: $workoutManager.powerDeviceAId,
-                hrDevices: hrDevices,
-                powerDevices: powerDevices
+                color: Color.blue,
+                recorder: viewModel.recorderA,
+                hrSensors: viewModel.availableHRSensors,
+                pwrSensors: viewModel.availablePowerSensors,
+                cadSensors: viewModel.availableCadenceSensors
             )
             
             SensorSetCard(
                 title: "SECONDARY RECORDER (B)",
                 subtitle: "Background comparison recording",
-                color: .purple,
-                hrId: $workoutManager.hrDeviceBId,
-                powerId: $workoutManager.powerDeviceBId,
-                hrDevices: hrDevices,
-                powerDevices: powerDevices
+                color: Color.purple,
+                recorder: viewModel.recorderB,
+                hrSensors: viewModel.availableHRSensors,
+                pwrSensors: viewModel.availablePowerSensors,
+                cadSensors: viewModel.availableCadenceSensors
             )
         }
     }
@@ -318,7 +308,7 @@ struct WorkoutPlayerView: View {
                     .foregroundColor(.blue)
                 Spacer()
                 
-                Button(action: { workoutManager.selectedWorkout = nil }) {
+                Button(action: { viewModel.workoutManager.selectedWorkout = nil }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.secondary)
                 }
@@ -327,7 +317,7 @@ struct WorkoutPlayerView: View {
             Text(workout.name)
                 .font(.headline)
             
-            WorkoutGraphView(workout: workout, showAxis: false, scale: workoutManager.workoutDifficultyScale)
+            WorkoutGraphView(workout: workout, showAxis: false, scale: viewModel.workoutManager.workoutDifficultyScale)
                 .frame(height: 60)
                 .padding(.vertical, 4)
             
@@ -358,7 +348,7 @@ struct WorkoutPlayerView: View {
                         .font(.system(size: 8, weight: .black))
                         .foregroundColor(.secondary)
                     HStack(alignment: .lastTextBaseline, spacing: 2) {
-                        Text("\(workoutManager.recorderA.hrDevice?.heartRate ?? 0)")
+                        Text("\(viewModel.recorderA.hrSource?.heartRate ?? 0)")
                             .font(.system(size: 24, weight: .bold, design: .rounded))
                         Text("BPM")
                             .font(.system(size: 10, weight: .black))
@@ -371,7 +361,7 @@ struct WorkoutPlayerView: View {
                         .font(.system(size: 8, weight: .black))
                         .foregroundColor(.secondary)
                     HStack(alignment: .lastTextBaseline, spacing: 2) {
-                        Text("\(workoutManager.recorderA.powerDevice?.cyclingPower ?? 0)")
+                        Text("\(viewModel.recorderA.powerSource?.cyclingPower ?? 0)")
                             .font(.system(size: 24, weight: .bold, design: .rounded))
                         Text("W")
                             .font(.system(size: 10, weight: .black))
@@ -381,7 +371,7 @@ struct WorkoutPlayerView: View {
                 
                 Spacer()
                 
-                if (workoutManager.recorderA.powerDevice?.cyclingPower ?? 0) > 0 {
+                if (viewModel.recorderA.powerSource?.cyclingPower ?? 0) > 0 {
                     Label("Pedaling Detected", systemImage: "bolt.fill")
                         .font(.caption2)
                         .foregroundColor(.green)
@@ -399,9 +389,9 @@ struct WorkoutPlayerView: View {
     
     private var setupControls: some View {
         VStack(spacing: 12) {
-            if workoutManager.isLoaded {
+            if viewModel.workoutManager.isLoaded {
                 Button(action: {
-                    workoutManager.loadWorkout(devices: bluetoothManager.peripherals)
+                    viewModel.loadWorkout()
                 }) {
                     Label("Reload Workout", systemImage: "arrow.down.doc.fill")
                         .font(.headline)
@@ -412,7 +402,7 @@ struct WorkoutPlayerView: View {
                 .tint(.blue)
             } else {
                 Button(action: {
-                    workoutManager.loadWorkout(devices: bluetoothManager.peripherals)
+                    viewModel.loadWorkout()
                 }) {
                     Label("Load Workout", systemImage: "arrow.down.doc.fill")
                         .font(.headline)
@@ -421,18 +411,14 @@ struct WorkoutPlayerView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.blue)
-                .disabled(workoutManager.hrDeviceAId == nil && workoutManager.powerDeviceAId == nil && workoutManager.hrDeviceBId == nil && workoutManager.powerDeviceBId == nil)
+                .disabled(viewModel.recorderA.hrSource == nil && viewModel.recorderA.powerSource == nil && viewModel.recorderB.hrSource == nil && viewModel.recorderB.powerSource == nil)
             }
         }
         .padding(.top)
     }
-    
-    func formatDuration(_ interval: TimeInterval) -> String {
-        let mins = Int(interval) / 60
-        let secs = Int(interval) % 60
-        return String(format: "%02d:%02d", mins, secs)
-    }
 }
+
+// MARK: - Subviews
 
 struct SessionSummaryCard: View {
     let files: [URL]
@@ -502,7 +488,7 @@ struct SummaryMetric: View {
 }
 
 struct WorkoutTargetHeader: View {
-    @EnvironmentObject var workoutManager: WorkoutSessionManager
+    @Environment(WorkoutSessionManager.self) var workoutManager
     let workout: StructuredWorkout
     
     private let timeFormatter: DateFormatter = {
@@ -512,6 +498,7 @@ struct WorkoutTargetHeader: View {
     }()
     
     var body: some View {
+        @Bindable var wmBindable = workoutManager
         VStack(spacing: 16) {
             HStack(alignment: .center) {
                 // Time in Interval
@@ -671,7 +658,7 @@ struct WorkoutTargetHeader: View {
                     HStack(spacing: 8) {
                         Image(systemName: "plusminus.circle.fill")
                             .foregroundColor(.blue)
-                        Slider(value: $workoutManager.resistanceLevel, in: 0...100, step: 1)
+                        Slider(value: $wmBindable.resistanceLevel, in: 0...100, step: 1)
                             .frame(maxWidth: 150)
                             .disabled(!workoutManager.canEnableErgMode)
                         Text("\(Int(workoutManager.resistanceLevel))%")
@@ -689,7 +676,7 @@ struct WorkoutTargetHeader: View {
                 }
                 .font(.system(size: 10, weight: .bold))
                 
-                Picker("Mode", selection: $workoutManager.currentDataFieldMode) {
+                Picker("Mode", selection: $wmBindable.currentDataFieldMode) {
                     ForEach(WorkoutSessionManager.DataFieldMode.allCases) { mode in
                         Text(mode.rawValue).tag(mode)
                     }
@@ -723,7 +710,7 @@ struct WorkoutTargetHeader: View {
 }
 
 struct LapsHistoryView: View {
-    @EnvironmentObject var workoutManager: WorkoutSessionManager
+    @Environment(WorkoutSessionManager.self) var workoutManager
     
     private let timeFormatter: DateFormatter = {
         let df = DateFormatter()
@@ -814,7 +801,7 @@ struct LapSummaryColumn: View {
     let recorder: SessionRecorder
     let lapIndex: Int
     let color: Color
-    @EnvironmentObject var workoutManager: WorkoutSessionManager
+    @Environment(WorkoutSessionManager.self) var workoutManager
     
     var body: some View {
         let lap = workoutManager.laps[lapIndex]
@@ -862,10 +849,10 @@ struct SensorSetCard: View {
     let title: String
     let subtitle: String
     let color: Color
-    @Binding var hrId: UUID?
-    @Binding var powerId: UUID?
-    let hrDevices: [DiscoveredPeripheral]
-    let powerDevices: [DiscoveredPeripheral]
+    @Bindable var recorder: SessionRecorder
+    let hrSensors: [HeartRateSensor]
+    let pwrSensors: [PowerSensor]
+    let cadSensors: [CadenceSensor]
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -882,22 +869,18 @@ struct SensorSetCard: View {
             Divider()
             
             VStack(spacing: 12) {
-                // HR Picker
+                // HR Picker - Direct Adaptor Selection
                 HStack {
                     Label {
-                        Text("Heart Rate")
-                            .font(.subheadline)
+                        Text("Heart Rate").font(.subheadline)
                     } icon: {
-                        Image(systemName: "heart.fill")
-                            .foregroundColor(.red)
+                        Image(systemName: "heart.fill").foregroundColor(.red)
                     }
-                    
                     Spacer()
-                    
-                    Picker("HR", selection: $hrId) {
-                        Text("Unassigned").tag(UUID?.none)
-                        ForEach(hrDevices) { device in
-                            Text(device.name).tag(UUID?.some(device.id))
+                    Picker("HR", selection: $recorder.hrSource) {
+                        Text("Unassigned").tag(nil as HeartRateSensor?)
+                        ForEach(hrSensors, id: \.id) { sensor in
+                            Text(sensor.name).tag(sensor as HeartRateSensor?)
                         }
                     }
                     .pickerStyle(.menu)
@@ -907,19 +890,33 @@ struct SensorSetCard: View {
                 // Power Picker
                 HStack {
                     Label {
-                        Text("Power Meter")
-                            .font(.subheadline)
+                        Text("Power Meter").font(.subheadline)
                     } icon: {
-                        Image(systemName: "bolt.fill")
-                            .foregroundColor(.yellow)
+                        Image(systemName: "bolt.fill").foregroundColor(.yellow)
                     }
-                    
                     Spacer()
-                    
-                    Picker("Power", selection: $powerId) {
-                        Text("Unassigned").tag(UUID?.none)
-                        ForEach(powerDevices) { device in
-                            Text(device.name).tag(UUID?.some(device.id))
+                    Picker("Power", selection: $recorder.powerSource) {
+                        Text("Unassigned").tag(nil as PowerSensor?)
+                        ForEach(pwrSensors, id: \.id) { sensor in
+                            Text(sensor.name).tag(sensor as PowerSensor?)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                }
+                
+                // Cadence Picker
+                HStack {
+                    Label {
+                        Text("Cadence").font(.subheadline)
+                    } icon: {
+                        Image(systemName: "bicycle").foregroundColor(.blue)
+                    }
+                    Spacer()
+                    Picker("Cadence", selection: $recorder.cadenceSource) {
+                        Text("Unassigned").tag(nil as CadenceSensor?)
+                        ForEach(cadSensors, id: \.id) { sensor in
+                            Text(sensor.name).tag(sensor as CadenceSensor?)
                         }
                     }
                     .pickerStyle(.menu)

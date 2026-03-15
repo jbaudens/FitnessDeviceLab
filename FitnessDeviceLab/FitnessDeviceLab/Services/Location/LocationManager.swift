@@ -1,13 +1,13 @@
 import Foundation
 import CoreLocation
-import Combine
+import Observation
 
-public class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+public class LocationManager: NSObject, Observation.Observable, CLLocationManagerDelegate {
     public static let shared = LocationManager()
     
     private let manager = CLLocationManager()
     
-    @Published public var currentAltitude: Double? // In meters
+    public var currentAltitude: Double? // In meters
     
     public override init() {
         super.init()

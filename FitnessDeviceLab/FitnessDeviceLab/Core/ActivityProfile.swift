@@ -1,11 +1,11 @@
 import SwiftUI
 
-nonisolated struct ActivityProfile: Identifiable, Codable, Hashable {
-    var id = UUID()
-    var name: String
-    var pages: [DataPage]
+public struct ActivityProfile: Identifiable, Codable, Hashable {
+    public var id = UUID()
+    public var name: String
+    public var pages: [DataPage]
     
-    static let defaultProfile = ActivityProfile(
+    public static let defaultProfile = ActivityProfile(
         name: "Cycling",
         pages: [
             // Page 1: General
@@ -61,7 +61,11 @@ nonisolated struct ActivityProfile: Identifiable, Codable, Hashable {
     )
 }
 
-nonisolated struct DataPage: Identifiable, Codable, Hashable {
-    var id = UUID()
-    var fields: [DataFieldType]
+public struct DataPage: Identifiable, Codable, Hashable {
+    public var id = UUID()
+    public var fields: [DataFieldType]
+    
+    public init(fields: [DataFieldType]) {
+        self.fields = fields
+    }
 }

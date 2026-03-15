@@ -1,16 +1,18 @@
 import Foundation
 import CoreBluetooth
 import Combine
+import Observation
 
 public enum DeviceCapability: String, CaseIterable, Identifiable {
     case heartRate = "Heart Rate"
     case cyclingPower = "Power Meter"
     case fitnessMachine = "Smart Trainer"
+    case cadence = "Cadence Sensor"
     
     public var id: String { rawValue }
 }
 
-nonisolated public struct TimeSeriesDataPoint: Identifiable, Equatable {
+public struct TimeSeriesDataPoint: Identifiable, Equatable {
     public let id = UUID()
     public let timestamp = Date()
     public let value: Double
@@ -20,47 +22,49 @@ nonisolated public struct TimeSeriesDataPoint: Identifiable, Equatable {
     }
 }
 
-public class DiscoveredPeripheral: NSObject, Identifiable, ObservableObject, SensorPeripheral {
+@Observable @MainActor
+public class DiscoveredPeripheral: NSObject, Identifiable, SensorPeripheral {
     public let id: UUID
     public let peripheral: CBPeripheral
     
-    @Published public var name: String
-    @Published public var rssi: NSNumber
-    @Published public var isConnected: Bool = false
+    public var name: String
+    public var rssi: NSNumber
+    public var isConnected: Bool = false
     
     // Static Data
-    @Published public var manufacturerName: String?
-    @Published public var modelNumber: String?
-    @Published public var firmwareRevision: String?
+    public var manufacturerName: String?
+    public var modelNumber: String?
+    public var firmwareRevision: String?
     
     // Dynamic Data
-    @Published public var heartRate: Int?
-    @Published public var cyclingPower: Int?
-    @Published public var cadence: Int?
-    @Published public var batteryLevel: Int?
+    public var heartRate: Int?
+    public var cyclingPower: Int?
+    public var cadence: Int?
+    public var batteryLevel: Int?
     
-    // Cadence State
+    // Internal state for diff-based cadence calculation
     public var lastCrankRevs: Int?
     public var lastCrankTime: Int?
-    @Published public var powerBalance: Double? // 0.0 to 100.0% (Left)
+    public var lastCSCRevs: Int?
+    public var lastCSCTime: Int?
+    
+    public var powerBalance: Double? // 0.0 to 100.0% (Left)
     
     // Capabilities
-    @Published public var capabilities: Set<DeviceCapability> = []
+    public var capabilities: Set<DeviceCapability> = []
     
     // Connectivity State
-    @Published public var lastSeen: Date = Date()
+    public var lastSeen: Date = Date()
     
     // Debug Data
-    @Published public var rawDataHex: String?
+    public var rawDataHex: String?
     
-    // Latest RR Intervals (for external consumption)
-    @Published public var latestRRIntervals: [Double] = []
+    // Latest RR Intervals
+    public var latestRRIntervals: [Double] = []
     
     // FTMS State
     public var controlPointCharacteristic: CBCharacteristic?
     public var isControlRequested = false
-    
-    private var cancellables = Set<AnyCancellable>()
     
     public init(peripheral: CBPeripheral, rssi: NSNumber) {
         self.id = peripheral.identifier
@@ -77,6 +81,7 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
     private static let heartRateServiceUUID = CBUUID(string: "180D")
     private static let cyclingPowerServiceUUID = CBUUID(string: "1818")
     private static let fitnessMachineServiceUUID = CBUUID(string: "1826")
+    private static let cscServiceUUID = CBUUID(string: "1816") // Cycling Speed and Cadence
     private static let deviceInfoServiceUUID = CBUUID(string: "180A")
     private static let batteryServiceUUID = CBUUID(string: "180F")
     
@@ -84,6 +89,7 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
     private static let heartRateMeasurementUUID = CBUUID(string: "2A37")
     private static let cyclingPowerMeasurementUUID = CBUUID(string: "2A63")
     private static let indoorBikeDataUUID = CBUUID(string: "2AD2")
+    private static let cscMeasurementUUID = CBUUID(string: "2A5B")
     private static let fitnessMachineControlPointUUID = CBUUID(string: "2AD9")
     private static let fitnessMachineFeatureUUID = CBUUID(string: "2ACC")
     private static let fitnessMachineStatusUUID = CBUUID(string: "2ADA")
@@ -98,62 +104,69 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
             Self.heartRateServiceUUID,
             Self.cyclingPowerServiceUUID,
             Self.fitnessMachineServiceUUID,
+            Self.cscServiceUUID,
             Self.deviceInfoServiceUUID,
             Self.batteryServiceUUID
         ])
     }
     
-    public func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
+    nonisolated public func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         guard let services = peripheral.services else { return }
-        for service in services {
-            DispatchQueue.main.async {
+        Task { @MainActor in
+            for service in services {
                 if service.uuid == Self.heartRateServiceUUID { self.capabilities.insert(.heartRate) }
                 if service.uuid == Self.cyclingPowerServiceUUID { self.capabilities.insert(.cyclingPower) }
                 if service.uuid == Self.fitnessMachineServiceUUID { self.capabilities.insert(.fitnessMachine) }
-            }
-            switch service.uuid {
-            case Self.heartRateServiceUUID:
-                peripheral.discoverCharacteristics([Self.heartRateMeasurementUUID], for: service)
-            case Self.cyclingPowerServiceUUID:
-                peripheral.discoverCharacteristics([Self.cyclingPowerMeasurementUUID], for: service)
-            case Self.fitnessMachineServiceUUID:
-                peripheral.discoverCharacteristics([
-                    Self.indoorBikeDataUUID,
-                    Self.fitnessMachineControlPointUUID,
-                    Self.fitnessMachineFeatureUUID,
-                    Self.fitnessMachineStatusUUID
-                ], for: service)
-            case Self.deviceInfoServiceUUID:
-                peripheral.discoverCharacteristics([Self.manufacturerNameUUID, Self.modelNumberUUID, Self.firmwareRevisionUUID], for: service)
-            case Self.batteryServiceUUID:
-                peripheral.discoverCharacteristics([Self.batteryLevelUUID], for: service)
-            default:
-                break
+                if service.uuid == Self.cscServiceUUID { self.capabilities.insert(.cadence) }
+                
+                switch service.uuid {
+                case Self.heartRateServiceUUID:
+                    peripheral.discoverCharacteristics([Self.heartRateMeasurementUUID], for: service)
+                case Self.cyclingPowerServiceUUID:
+                    peripheral.discoverCharacteristics([Self.cyclingPowerMeasurementUUID], for: service)
+                case Self.fitnessMachineServiceUUID:
+                    peripheral.discoverCharacteristics([
+                        Self.indoorBikeDataUUID,
+                        Self.fitnessMachineControlPointUUID,
+                        Self.fitnessMachineFeatureUUID,
+                        Self.fitnessMachineStatusUUID
+                    ], for: service)
+                case Self.cscServiceUUID:
+                    peripheral.discoverCharacteristics([Self.cscMeasurementUUID], for: service)
+                case Self.deviceInfoServiceUUID:
+                    peripheral.discoverCharacteristics([Self.manufacturerNameUUID, Self.modelNumberUUID, Self.firmwareRevisionUUID], for: service)
+                case Self.batteryServiceUUID:
+                    peripheral.discoverCharacteristics([Self.batteryLevelUUID], for: service)
+                default:
+                    break
+                }
             }
         }
     }
     
-    public func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+    nonisolated public func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         guard let characteristics = service.characteristics else { return }
-        for characteristic in characteristics {
-            if characteristic.uuid == Self.fitnessMachineControlPointUUID {
-                self.controlPointCharacteristic = characteristic
-                peripheral.setNotifyValue(true, for: characteristic)
-            }
-            
-            if characteristic.properties.contains(.read) {
-                peripheral.readValue(for: characteristic)
-            }
-            if characteristic.properties.contains(.notify) {
-                peripheral.setNotifyValue(true, for: characteristic)
+        Task { @MainActor in
+            for characteristic in characteristics {
+                if characteristic.uuid == Self.fitnessMachineControlPointUUID {
+                    self.controlPointCharacteristic = characteristic
+                    peripheral.setNotifyValue(true, for: characteristic)
+                }
+                
+                if characteristic.properties.contains(.read) {
+                    peripheral.readValue(for: characteristic)
+                }
+                if characteristic.properties.contains(.notify) {
+                    peripheral.setNotifyValue(true, for: characteristic)
+                }
             }
         }
     }
     
-    public func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+    nonisolated public func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         guard let data = characteristic.value else { return }
         
-        DispatchQueue.main.async {
+        Task { @MainActor in
             self.rawDataHex = data.map { String(format: "%02hhx", $0) }.joined(separator: " ")
             
             switch characteristic.uuid {
@@ -170,6 +183,11 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
                 if let balance = result.balance { self.powerBalance = balance }
                 self.lastCrankRevs = result.crankRevs
                 self.lastCrankTime = result.crankTime
+            case Self.cscMeasurementUUID:
+                let result = SensorDataParser.parseCSC(data: data, lastCrankRevs: self.lastCSCRevs, lastCrankTime: self.lastCSCTime)
+                if let cadence = result.cadence { self.cadence = cadence }
+                self.lastCSCRevs = result.crankRevs
+                self.lastCSCTime = result.crankTime
             case Self.indoorBikeDataUUID:
                 let result = SensorDataParser.parseIndoorBikeData(data: data)
                 if let power = result.power { self.cyclingPower = power }
@@ -214,7 +232,6 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
         if !isControlRequested {
             let requestControlData = Data([0x00])
             peripheral.writeValue(requestControlData, for: cp, type: .withResponse)
-            // We'll set the power in the response handler or just try again next tick
             return
         }
         
@@ -236,8 +253,6 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
         }
         
         var data = Data([0x04]) // Set Resistance Level OpCode
-        // Level is usually 0-255 or 0-100 depending on device, FTMS uses 0.1 unit resolution UInt8 or UInt16? 
-        // Spec says UInt8 for OpCode 0x04.
         let val = UInt8(max(0, min(level, 255)))
         data.append(val)
         

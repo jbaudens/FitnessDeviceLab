@@ -138,4 +138,46 @@ nonisolated public struct SensorDataParser {
         
         return (power, cadence)
     }
+    
+    nonisolated public static func parseCSC(data: Data, lastCrankRevs: Int?, lastCrankTime: Int?) -> (cadence: Int?, crankRevs: Int?, crankTime: Int?) {
+        guard data.count >= 1 else { return (nil, lastCrankRevs, lastCrankTime) }
+        
+        let flags = data[0]
+        let wheelRevPresent = (flags & 0x01) != 0
+        let crankRevPresent = (flags & 0x02) != 0
+        
+        var offset = 1
+        if wheelRevPresent {
+            offset += 6 // Skip wheel data (4 bytes revs, 2 bytes time)
+        }
+        
+        var cadence: Int? = nil
+        var currentCrankRevs = lastCrankRevs
+        var currentCrankTime = lastCrankTime
+        
+        if crankRevPresent && data.count >= offset + 4 {
+            let crankRevolutions = Int(data[offset]) | (Int(data[offset+1]) << 8)
+            let crankEventTime = Int(data[offset+2]) | (Int(data[offset+3]) << 8)
+            
+            if let lastRevs = lastCrankRevs, let lastTime = lastCrankTime {
+                var revDiff = crankRevolutions - lastRevs
+                if revDiff < 0 { revDiff += 65536 }
+                
+                var timeDiff = crankEventTime - lastTime
+                if timeDiff < 0 { timeDiff += 65536 }
+                
+                if timeDiff > 0 && revDiff > 0 {
+                    let rpm = (Double(revDiff) / (Double(timeDiff) / 1024.0)) * 60.0
+                    cadence = Int(round(rpm))
+                } else if timeDiff > 2048 {
+                    cadence = 0
+                }
+            }
+            
+            currentCrankRevs = crankRevolutions
+            currentCrankTime = crankEventTime
+        }
+        
+        return (cadence, currentCrankRevs, currentCrankTime)
+    }
 }
