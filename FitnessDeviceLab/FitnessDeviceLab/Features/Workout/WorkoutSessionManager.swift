@@ -78,11 +78,12 @@ public class WorkoutSessionManager {
     
     /// Starts the workout orchestration with the provided recorders and control source.
     public func startWorkout(recA: SessionRecorder, recB: SessionRecorder, control: ControllableTrainer?) {
+        // We use the passed recorders (usually the ones owned by the manager or VM)
         self.recorderA = recA
         self.recorderB = recB
         self.controlSource = control
         
-        // Re-initialize engines with the new recorders
+        // Link recorders to engines
         self.engineA = DataFieldEngine(recorder: recA, settings: settings)
         self.engineB = DataFieldEngine(recorder: recB, settings: settings)
         setpointCalculator.reset()
@@ -95,8 +96,10 @@ public class WorkoutSessionManager {
         isRecording = false
         exportedFiles = []
         
-        recorderA.prepare()
-        recorderB.prepare()
+        // NOTE: We DO NOT call recorder.prepare() here if it clears sources.
+        // We only clear the data points.
+        recorderA.trackpoints.removeAll()
+        recorderB.trackpoints.removeAll()
         
         isLoaded = true
         
@@ -168,8 +171,13 @@ public class WorkoutSessionManager {
         let now = Date()
         let altitude = locationProvider.currentAltitude ?? settings.altitudeOverride
         
-        recorderA.recordPoint(time: now, altitude: altitude)
-        recorderB.recordPoint(time: now, altitude: altitude)
+        // 1. Capture sensor data once to avoid clearing shared RR intervals between recorders
+        let rrIntervals = recorderA.hrSource?.latestRRIntervals ?? []
+        recorderA.hrSource?.latestRRIntervals.removeAll()
+        
+        // 2. Update both recorders
+        recorderA.recordPoint(time: now, altitude: altitude, rrIntervals: rrIntervals)
+        recorderB.recordPoint(time: now, altitude: altitude, rrIntervals: rrIntervals)
         
         let lapStart = laps.last?.startTime
         engineA.updateMetrics(from: recorderA.trackpoints, lapStartTime: lapStart)
