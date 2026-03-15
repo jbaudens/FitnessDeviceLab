@@ -4,9 +4,6 @@ struct ContentView: View {
     @Bindable var devicesViewModel: DevicesViewModel
     @Bindable var workoutPlayerViewModel: WorkoutPlayerViewModel
 
-    @Environment(BluetoothManager.self) var bluetoothManager
-    @Environment(WorkoutSessionManager.self) var workoutManager
-
     var body: some View {
         TabView {
             // Tab 1: Devices
