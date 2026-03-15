@@ -92,8 +92,8 @@ public class SessionRecorder {
         return tempURL
     }
     
-    public func recordPoint(time: Date, altitude: Double?) {
-        let rrThisSecond = hrSource?.latestRRIntervals ?? []
+    public func recordPoint(time: Date, altitude: Double?, rrIntervals: [Double]? = nil) {
+        let rrThisSecond = rrIntervals ?? hrSource?.latestRRIntervals ?? []
         
         let pt = Trackpoint(
             time: time,
@@ -110,8 +110,10 @@ public class SessionRecorder {
             trackpoints.append(pt)
         }
         
-        // Clear RR intervals
-        hrSource?.latestRRIntervals.removeAll()
+        // Only clear if we didn't receive them as a parameter (caller handles it)
+        if rrIntervals == nil {
+            hrSource?.latestRRIntervals.removeAll()
+        }
     }
     
     private func generateTCX(label: String) -> URL? {

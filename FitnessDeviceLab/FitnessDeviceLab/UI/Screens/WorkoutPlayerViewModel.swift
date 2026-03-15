@@ -10,8 +10,8 @@ public class WorkoutPlayerViewModel {
     public var bluetoothManager: BluetoothManager
     public let settings: SettingsProvider
     
-    public var recorderA: SessionRecorder
-    public var recorderB: SessionRecorder
+    public var recorderA: SessionRecorder { workoutManager.recorderA }
+    public var recorderB: SessionRecorder { workoutManager.recorderB }
     public var controlSource: ControllableTrainer?
     
     public var showingStopConfirmation = false
@@ -21,8 +21,6 @@ public class WorkoutPlayerViewModel {
         self.workoutManager = workoutManager
         self.bluetoothManager = bluetoothManager
         self.settings = settings
-        self.recorderA = SessionRecorder(settings: settings)
-        self.recorderB = SessionRecorder(settings: settings)
     }
     
     // MARK: - Role-Specific Adaptor Lists for UI Pickers

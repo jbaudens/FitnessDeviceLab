@@ -46,31 +46,44 @@ public class WorkoutSessionManager {
     public var engineA: DataFieldEngine
     public var engineB: DataFieldEngine
     private let setpointCalculator = TrainerSetpointCalculator()
+    private let workoutTimer: WorkoutTimer
     
     public var exportedFiles: [URL] = []
     
-    private var timerCancellable: AnyCancellable?
     private let settings: SettingsProvider
     private let locationProvider: LocationProvider
     
-    public init(settings: SettingsProvider, locationProvider: LocationProvider) {
+    public init(settings: SettingsProvider, locationProvider: LocationProvider, workoutTimer: WorkoutTimer) {
         self.settings = settings
         self.locationProvider = locationProvider
+        self.workoutTimer = workoutTimer
+        
         let recA = SessionRecorder(settings: settings)
         let recB = SessionRecorder(settings: settings)
         self.recorderA = recA
         self.recorderB = recB
         self.engineA = DataFieldEngine(recorder: recA, settings: settings)
         self.engineB = DataFieldEngine(recorder: recB, settings: settings)
+        
+        setupTimerCallback()
+    }
+    
+    private func setupTimerCallback() {
+        workoutTimer.onTick = { [weak self] in
+            Task { @MainActor in
+                self?.tick()
+            }
+        }
     }
     
     /// Starts the workout orchestration with the provided recorders and control source.
     public func startWorkout(recA: SessionRecorder, recB: SessionRecorder, control: ControllableTrainer?) {
+        // We use the passed recorders (usually the ones owned by the manager or VM)
         self.recorderA = recA
         self.recorderB = recB
         self.controlSource = control
         
-        // Re-initialize engines with the new recorders
+        // Link recorders to engines
         self.engineA = DataFieldEngine(recorder: recA, settings: settings)
         self.engineB = DataFieldEngine(recorder: recB, settings: settings)
         setpointCalculator.reset()
@@ -83,19 +96,15 @@ public class WorkoutSessionManager {
         isRecording = false
         exportedFiles = []
         
-        recorderA.prepare()
-        recorderB.prepare()
+        // NOTE: We DO NOT call recorder.prepare() here if it clears sources.
+        // We only clear the data points.
+        recorderA.trackpoints.removeAll()
+        recorderB.trackpoints.removeAll()
         
         isLoaded = true
         
-        // Start the master clock
-        timerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                Task { @MainActor in
-                    self?.tick()
-                }
-            }
+        // Start the timer
+        workoutTimer.start()
     }
     
     public func startRecording() {
@@ -117,6 +126,7 @@ public class WorkoutSessionManager {
         isPaused = true
         recorderA.isRecording = false
         recorderB.isRecording = false
+        workoutTimer.pause()
     }
     
     public func resumeWorkout() {
@@ -124,6 +134,7 @@ public class WorkoutSessionManager {
         isPaused = false
         recorderA.isRecording = true
         recorderB.isRecording = true
+        workoutTimer.resume()
     }
     
     public func manualLap() {
@@ -160,8 +171,13 @@ public class WorkoutSessionManager {
         let now = Date()
         let altitude = locationProvider.currentAltitude ?? settings.altitudeOverride
         
-        recorderA.recordPoint(time: now, altitude: altitude)
-        recorderB.recordPoint(time: now, altitude: altitude)
+        // 1. Capture sensor data once to avoid clearing shared RR intervals between recorders
+        let rrIntervals = recorderA.hrSource?.latestRRIntervals ?? []
+        recorderA.hrSource?.latestRRIntervals.removeAll()
+        
+        // 2. Update both recorders
+        recorderA.recordPoint(time: now, altitude: altitude, rrIntervals: rrIntervals)
+        recorderB.recordPoint(time: now, altitude: altitude, rrIntervals: rrIntervals)
         
         let lapStart = laps.last?.startTime
         engineA.updateMetrics(from: recorderA.trackpoints, lapStartTime: lapStart)
@@ -265,8 +281,7 @@ public class WorkoutSessionManager {
         recorderB.isRecording = false
         
         setpointCalculator.reset()
-        timerCancellable?.cancel()
-        timerCancellable = nil
+        workoutTimer.stop()
         
         Task { @MainActor in
             var files: [URL] = []
