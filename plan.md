@@ -50,6 +50,11 @@ To ensure high-quality code reviews and maintain stability, the remaining refact
 *   [ ] **Step 3.8: Structured TCX Export**: Replace manual string concatenation in `SessionRecorder` with a proper XML builder or Codable-based approach.
 *   [ ] **Step 3.9: SwiftData Integration**: (Optional) Transition the `WorkoutLibrary` from static files to a SwiftData store for better persistence and user customization.
 
+### Phase 3D: Complete Environment Removal
+*   [ ] **Step 3.10: Settings & Library ViewModels**: Create dedicated ViewModels for `SettingsView` and `WorkoutLibraryView` to remove their reliance on `@Environment`.
+*   [ ] **Step 3.11: Component Dependency Injection**: Refactor sub-components (like `WorkoutGraphView`, `WorkoutTargetHeader`, `LapsHistoryView`) to take dependencies via initializers instead of `@Environment`.
+*   [ ] **Step 3.12: App Entry Point Cleanup**: Remove all `.environment(...)` calls from `FitnessDeviceLabApp` to ensure a strictly explicit dependency graph.
+
 ### Phase 4: Verification & Integration
 *   [ ] **Step 4.1: Unit Test `DataFieldEngine`**: Ensure all calculated metrics (NP, TSS, IF) are correct against a known set of power samples.
 *   [ ] **Step 4.2: Unit Test `WorkoutPlayerViewModel`**: Use the simulation layer to verify that UI actions (Pause, Lap, Stop) trigger the correct manager states.
