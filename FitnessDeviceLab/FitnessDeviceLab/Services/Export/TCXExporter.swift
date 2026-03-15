@@ -13,6 +13,7 @@ public class TCXExporter {
     ///   - userWeight: User weight for speed estimation.
     /// - Returns: URL of the generated TCX file.
     public func encode(label: String, trackpoints: [Trackpoint], userWeight: Double) -> URL? {
+        print("TCXExporter: Encoding \(trackpoints.count) points for \(label)")
         guard !trackpoints.isEmpty else { return nil }
         
         let formatter = ISO8601DateFormatter()

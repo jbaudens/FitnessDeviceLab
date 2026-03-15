@@ -1,14 +1,14 @@
-import XCTest
+import Testing
+import Foundation
+import XCTest // Still needed for XCTUnwrap if we want it, but we can use #expect
 @testable import FitnessDeviceLab
 
-final class ExportTests: XCTestCase {
+struct ExportTests {
     
-    var trackpoints: [Trackpoint] = []
     let userWeight = 70.0
     
-    override func setUp() {
-        super.setUp()
-        
+    private func createTrackpoints() -> [Trackpoint] {
+        var trackpoints: [Trackpoint] = []
         let startTime = Date()
         for i in 0..<60 {
             let pt = Trackpoint(
@@ -20,57 +20,47 @@ final class ExportTests: XCTestCase {
             )
             trackpoints.append(pt)
         }
+        return trackpoints
     }
     
-    func testTCXExport() {
+    @Test func tcxExport() throws {
+        let trackpoints = createTrackpoints()
         let exporter = TCXExporter()
-        let url = exporter.encode(label: "Test Workout", trackpoints: trackpoints, userWeight: userWeight)
+        let url = try #require(exporter.encode(label: "Test Workout", trackpoints: trackpoints, userWeight: userWeight))
         
-        XCTAssertNotNil(url)
-        if let url = url {
-            print("--- EXPORTED TCX: \(url.path) ---")
-        }
-        XCTAssertTrue(FileManager.default.fileExists(atPath: url!.path))
+        #expect(FileManager.default.fileExists(atPath: url.path))
         
-        do {
-            let content = try String(contentsOf: url!, encoding: .utf8)
-            XCTAssertTrue(content.contains("<TrainingCenterDatabase"))
-            XCTAssertTrue(content.contains("<Activity Sport=\"Biking\">"))
-            XCTAssertTrue(content.contains("<Trackpoint>"))
-            XCTAssertTrue(content.contains("<HeartRateBpm>"))
-            XCTAssertTrue(content.contains("<ns3:Speed>"))
-            XCTAssertTrue(content.contains("<ns3:Watts>"))
-            
-            // Validate distance is > 0
-            XCTAssertTrue(content.contains("<DistanceMeters>"))
-            // Regex to find at least one non-zero distance
-            let regex = try NSRegularExpression(pattern: "<DistanceMeters>[1-9]", options: [])
-            let matches = regex.matches(in: content, options: [], range: NSRange(location: 0, length: content.utf16.count))
-            XCTAssertGreaterThan(matches.count, 0)
-            
-        } catch {
-            XCTFail("Failed to read TCX content: \(error)")
-        }
+        let content = try String(contentsOf: url, encoding: .utf8)
+        #expect(content.contains("<TrainingCenterDatabase"))
+        #expect(content.contains("<Activity Sport=\"Biking\">"))
+        #expect(content.contains("<Trackpoint>"))
+        #expect(content.contains("<HeartRateBpm>"))
+        #expect(content.contains("<ns3:Speed>"))
+        #expect(content.contains("<ns3:Watts>"))
+        
+        #expect(content.contains("<DistanceMeters>"))
+        let regex = try NSRegularExpression(pattern: "<DistanceMeters>[1-9]", options: [])
+        let matches = regex.matches(in: content, options: [], range: NSRange(location: 0, length: content.utf16.count))
+        #expect(matches.count > 0)
     }
     
-    func testFITExport() {
+    @Test func fitExport() throws {
+        let trackpoints = createTrackpoints()
         let encoder = FitEncoder()
-        let data = encoder.encode(
+        let data = try #require(encoder.encode(
             trackpoints: trackpoints,
             laps: [],
             hrSource: nil,
             powerSource: nil,
             userFTP: 250,
             userWeight: userWeight
-        )
+        ))
         
-        XCTAssertNotNil(data)
-        XCTAssertGreaterThan(data?.count ?? 0, 100)
+        #expect(data.count > 100)
         
-        // Verify FIT header (CRC and .FIT signature)
-        if let data = data, data.count > 12 {
+        if data.count > 12 {
             let signature = String(data: data.subdata(in: 8..<12), encoding: .ascii)
-            XCTAssertEqual(signature, ".FIT")
+            #expect(signature == ".FIT")
         }
     }
 }
