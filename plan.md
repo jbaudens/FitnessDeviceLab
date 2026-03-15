@@ -36,7 +36,7 @@ The transition to the **Swift 6 Observation framework (`@Observable`)** is nearl
 To ensure high-quality code reviews and maintain stability, the remaining refactor is broken down into atomic tasks.
 
 ### Phase 3A: Singleton Elimination (DI Injection)
-*   [ ] **Step 3.1: Inject `SettingsManager`**: Refactor all classes to accept `SettingsManager` in their `init`. Remove global `.shared` usage in `DataFieldEngine` and `WorkoutSessionManager`.
+*   [x] **Step 3.1: Inject `SettingsManager`**: Refactor all classes to accept `SettingsManager` in their `init`. Remove global `.shared` usage in `DataFieldEngine` and `WorkoutSessionManager`.
 *   [ ] **Step 3.2: Inject `LocationManager`**: Refactor `WorkoutSessionManager` to receive altitude updates via a delegate or stream instead of polling `LocationManager.shared`.
 *   [ ] **Step 3.3: ViewModel DI**: Update `WorkoutPlayerViewModel` and `DevicesViewModel` to receive their managers via initializers in the App entry point, removing the reliance on `@Environment` for core business logic.
 

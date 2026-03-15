@@ -16,10 +16,10 @@ public class BluetoothManager: NSObject {
     
     // MARK: - Internal State
     private let realDriver: RealBluetoothDriver
-    private let settings: SettingsManager
+    private let settings: SettingsProvider
     private var simulatedPeripherals: [SimulatedPeripheral] = []
     
-    private init(settings: SettingsManager = .shared) {
+    private init(settings: SettingsProvider = SettingsManager.shared) {
         let rd = RealBluetoothDriver()
         self.realDriver = rd
         self.settings = settings

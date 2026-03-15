@@ -29,9 +29,9 @@ public class SimulatedPeripheral: NSObject, SensorPeripheral, HeartRateProviding
     private var commandedResistance: Double = 40.0
     
     var startTime = Date()
-    private let settings: SettingsManager
-
-    public init(name: String, settings: SettingsManager) {
+    private let settings: SettingsProvider
+    
+    public init(name: String, settings: SettingsProvider) {
         self.id = UUID()
         self.name = name
         self.settings = settings

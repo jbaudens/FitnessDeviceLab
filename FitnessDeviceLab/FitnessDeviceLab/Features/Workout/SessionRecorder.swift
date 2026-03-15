@@ -53,9 +53,9 @@ public class SessionRecorder {
     public var trackpoints: [Trackpoint] = []
     public var latestPoint: Trackpoint?
     
-    private let settings: SettingsManager
+    private let settings: SettingsProvider
     
-    public init(settings: SettingsManager = .shared) {
+    public init(settings: SettingsProvider = SettingsManager.shared) {
         self.settings = settings
     }
     

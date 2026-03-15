@@ -29,7 +29,7 @@ struct SettingsView: View {
                 }
                 .onChange(of: userFTP) { _, newValue in
                     if let val = Double(newValue) {
-                        settings.userFTP = val
+                        settings.setUserFTP(val)
                     }
                 }
                 
@@ -46,7 +46,7 @@ struct SettingsView: View {
                 }
                 .onChange(of: userWeight) { _, newValue in
                     if let val = Double(newValue) {
-                        settings.userWeight = val
+                        settings.setUserWeight(val)
                     }
                 }
 
@@ -63,7 +63,7 @@ struct SettingsView: View {
                 }
                 .onChange(of: maxHR) { _, newValue in
                     if let val = Int(newValue) {
-                        settings.maxHR = val
+                        settings.setMaxHR(val)
                     }
                 }
 
@@ -80,7 +80,7 @@ struct SettingsView: View {
                 }
                 .onChange(of: userLTHR) { _, newValue in
                     if let val = Int(newValue) {
-                        settings.userLTHR = val
+                        settings.setUserLTHR(val)
                     }
                 }
             }
@@ -99,16 +99,16 @@ struct SettingsView: View {
                 }
                 .onChange(of: ftpAltitude) { _, newValue in
                     if let val = Double(newValue) {
-                        settings.ftpAltitude = val
+                        settings.setFTPAltitude(val)
                     }
                 }
                 
                 Toggle("Manual Altitude Override", isOn: $useAltitudeOverride)
                     .onChange(of: useAltitudeOverride) { _, newValue in
                         if !newValue {
-                            settings.altitudeOverride = nil
+                            settings.setAltitudeOverride(nil)
                         } else if let val = Double(altitudeOverride) {
-                            settings.altitudeOverride = val
+                            settings.setAltitudeOverride(val)
                         }
                     }
                 
@@ -126,7 +126,7 @@ struct SettingsView: View {
                     }
                     .onChange(of: altitudeOverride) { _, newValue in
                         if let val = Double(newValue) {
-                            settings.altitudeOverride = val
+                            settings.setAltitudeOverride(val)
                         }
                     }
                 }
@@ -134,10 +134,10 @@ struct SettingsView: View {
             
             Section {
                 Button("Reset to Defaults") {
-                    settings.userFTP = 200
-                    settings.userWeight = 75
-                    settings.ftpAltitude = 0
-                    settings.altitudeOverride = nil
+                    settings.setUserFTP(200)
+                    settings.setUserWeight(75)
+                    settings.setFTPAltitude(0)
+                    settings.setAltitudeOverride(nil)
                     syncLocalState()
                 }
                 .foregroundColor(.red)

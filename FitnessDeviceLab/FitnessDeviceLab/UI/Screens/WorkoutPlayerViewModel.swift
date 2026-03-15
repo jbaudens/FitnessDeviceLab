@@ -8,7 +8,7 @@ import Combine
 public class WorkoutPlayerViewModel {
     public var workoutManager: WorkoutSessionManager
     public var bluetoothManager: BluetoothManager
-    public let settings: SettingsManager
+    public let settings: SettingsProvider
     
     public var recorderA: SessionRecorder
     public var recorderB: SessionRecorder
@@ -17,7 +17,7 @@ public class WorkoutPlayerViewModel {
     public var showingStopConfirmation = false
     public var showingDiscardConfirmation = false
     
-    public init(workoutManager: WorkoutSessionManager, bluetoothManager: BluetoothManager, settings: SettingsManager) {
+    public init(workoutManager: WorkoutSessionManager, bluetoothManager: BluetoothManager, settings: SettingsProvider) {
         self.workoutManager = workoutManager
         self.bluetoothManager = bluetoothManager
         self.settings = settings
