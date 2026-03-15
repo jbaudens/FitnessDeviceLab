@@ -43,12 +43,9 @@ public class WorkoutSessionManager {
     private var lastSentTargetPower: Int?
     private var lastSentResistanceLevel: Double?
     
-    // HR Control State
-    private var hrControlBaseWatts: Double?
-    private var lastHRUpdate: Date?
-    
     public var engineA: DataFieldEngine
     public var engineB: DataFieldEngine
+    private let setpointCalculator = TrainerSetpointCalculator()
     
     public var exportedFiles: [URL] = []
     
@@ -76,6 +73,7 @@ public class WorkoutSessionManager {
         // Re-initialize engines with the new recorders
         self.engineA = DataFieldEngine(recorder: recA, settings: settings)
         self.engineB = DataFieldEngine(recorder: recB, settings: settings)
+        setpointCalculator.reset()
         
         workoutElapsedTime = 0
         currentStepIndex = 0
@@ -201,72 +199,52 @@ public class WorkoutSessionManager {
             }
             
             if let step = currentWorkoutStep {
-                let ftp = settings.userFTP
-                let lthr = Double(settings.userLTHR)
                 let isFinished = currentStepIndex >= workout.steps.count - 1 && timeInStep >= workout.steps.last?.duration ?? 0
                 
-                if isFinished {
+                // 1. Determine the "Goal" for UI
+                let ftp = settings.userFTP
+                let lthr = Double(settings.userLTHR)
+                if let hrPercent = step.targetHeartRatePercent {
+                    currentTargetHR = Int(round(hrPercent * workoutDifficultyScale * lthr))
                     currentTargetPower = nil
-                    currentTargetHR = nil
-                    hrControlBaseWatts = nil
-                } else if let targetHRPercent = step.targetHeartRatePercent {
-                    let targetHRValue = Int(round(targetHRPercent * workoutDifficultyScale * lthr))
-                    currentTargetHR = targetHRValue
-                    
-                    if ergModeEnabled {
-                        // Use Primary Recorder's HR source
-                        let currentHR = Double(recorderA.hrSource?.heartRate ?? 0)
-                        if currentHR > 0 {
-                            if hrControlBaseWatts == nil {
-                                hrControlBaseWatts = ftp * 0.5
-                            }
-                            let error = Double(targetHRValue) - currentHR
-                            let adjustment = error * 0.15 
-                            hrControlBaseWatts! += adjustment
-                            hrControlBaseWatts = max(50, min(hrControlBaseWatts!, ftp * 1.5))
-                        }
-                    }
-                    
-                    if let base = hrControlBaseWatts {
-                        currentTargetPower = Int(round(base))
-                    } else {
-                        currentTargetPower = nil
-                    }
                 } else {
-                    let watts = Int(round((step.powerAt(time: timeInStep) ?? 0) * workoutDifficultyScale * ftp))
-                    currentTargetPower = watts
+                    currentTargetPower = Int(round((step.powerAt(time: timeInStep) ?? 0) * workoutDifficultyScale * ftp))
                     currentTargetHR = nil
-                    hrControlBaseWatts = nil
                 }
-            } else {
-                currentTargetPower = nil
-                currentTargetHR = nil
-                hrControlBaseWatts = nil
-            }
-            
-            if let trainer = controlSource {
-                if ergModeEnabled {
-                    if let targetWatts = currentTargetPower {
+                
+                // 2. Determine the "Setpoint" for Hardware (Only in ERG mode)
+                if ergModeEnabled, let trainer = controlSource {
+                    let nextStep: WorkoutStep? = (currentStepIndex < workout.steps.count - 1) ? workout.steps[currentStepIndex + 1] : nil
+                    
+                    let input = TrainerSetpointCalculator.Input(
+                        currentStep: step,
+                        nextStep: nextStep,
+                        timeInStep: timeInStep,
+                        isFinished: isFinished,
+                        ftp: ftp,
+                        lthr: lthr,
+                        difficultyScale: workoutDifficultyScale,
+                        currentHR: recorderA.hrSource?.heartRate
+                    )
+                    
+                    if let targetWatts = setpointCalculator.calculate(input: input) {
                         if targetWatts != lastSentTargetPower {
                             trainer.setTargetPower(targetWatts)
                             lastSentTargetPower = targetWatts
                         }
                         lastSentResistanceLevel = nil
-                    } else if let baseWatts = hrControlBaseWatts {
-                        let targetWattsValue = Int(round(baseWatts))
-                        if targetWattsValue != lastSentTargetPower {
-                            trainer.setTargetPower(targetWattsValue)
-                            lastSentTargetPower = targetWattsValue
-                        }
-                        lastSentResistanceLevel = nil
                     }
-                } else {
+                } else if let trainer = controlSource {
+                    // Resistance Mode: Send manual resistance level if it changed or if we were previously in ERG mode
                     if lastSentTargetPower != nil || lastSentResistanceLevel != resistanceLevel {
                         trainer.setResistanceLevel(resistanceLevel)
                         lastSentResistanceLevel = resistanceLevel
                         lastSentTargetPower = nil
                     }
                 }
+            } else {
+                currentTargetPower = nil
+                currentTargetHR = nil
             }
         } else {
             if let trainer = controlSource {
@@ -286,6 +264,7 @@ public class WorkoutSessionManager {
         recorderA.isRecording = false
         recorderB.isRecording = false
         
+        setpointCalculator.reset()
         timerCancellable?.cancel()
         timerCancellable = nil
         
