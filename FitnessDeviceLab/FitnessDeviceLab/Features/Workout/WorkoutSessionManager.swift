@@ -43,12 +43,9 @@ public class WorkoutSessionManager {
     private var lastSentTargetPower: Int?
     private var lastSentResistanceLevel: Double?
     
-    // HR Control State
-    private var hrControlBaseWatts: Double?
-    private var lastHRUpdate: Date?
-    
     public var engineA: DataFieldEngine
     public var engineB: DataFieldEngine
+    private let setpointCalculator = TrainerSetpointCalculator()
     
     public var exportedFiles: [URL] = []
     
@@ -76,6 +73,7 @@ public class WorkoutSessionManager {
         // Re-initialize engines with the new recorders
         self.engineA = DataFieldEngine(recorder: recA, settings: settings)
         self.engineB = DataFieldEngine(recorder: recB, settings: settings)
+        setpointCalculator.reset()
         
         workoutElapsedTime = 0
         currentStepIndex = 0
@@ -225,14 +223,10 @@ public class WorkoutSessionManager {
                     ftp: ftp,
                     lthr: lthr,
                     difficultyScale: workoutDifficultyScale,
-                    ergModeEnabled: ergModeEnabled,
-                    currentHR: recorderA.hrSource?.heartRate,
-                    previousHRControlBaseWatts: hrControlBaseWatts
+                    currentHR: recorderA.hrSource?.heartRate
                 )
                 
-                let result = TrainerSetpointCalculator.calculate(input: input)
-                let setpointWatts = result.setpointWatts
-                self.hrControlBaseWatts = result.newHRControlBaseWatts
+                let setpointWatts = setpointCalculator.calculate(input: input)
                 
                 // 3. Command the Trainer
                 if let trainer = controlSource {
@@ -255,7 +249,6 @@ public class WorkoutSessionManager {
             } else {
                 currentTargetPower = nil
                 currentTargetHR = nil
-                hrControlBaseWatts = nil
             }
         } else {
             if let trainer = controlSource {
@@ -275,6 +268,7 @@ public class WorkoutSessionManager {
         recorderA.isRecording = false
         recorderB.isRecording = false
         
+        setpointCalculator.reset()
         timerCancellable?.cancel()
         timerCancellable = nil
         
