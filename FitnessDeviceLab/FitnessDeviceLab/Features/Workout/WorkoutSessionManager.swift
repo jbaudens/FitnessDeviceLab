@@ -212,38 +212,34 @@ public class WorkoutSessionManager {
                     currentTargetHR = nil
                 }
                 
-                // 2. Determine the "Setpoint" for Hardware
-                let nextStep: WorkoutStep? = (currentStepIndex < workout.steps.count - 1) ? workout.steps[currentStepIndex + 1] : nil
-                
-                let input = TrainerSetpointCalculator.Input(
-                    currentStep: step,
-                    nextStep: nextStep,
-                    timeInStep: timeInStep,
-                    isFinished: isFinished,
-                    ftp: ftp,
-                    lthr: lthr,
-                    difficultyScale: workoutDifficultyScale,
-                    currentHR: recorderA.hrSource?.heartRate
-                )
-                
-                let setpointWatts = setpointCalculator.calculate(input: input)
-                
-                // 3. Command the Trainer
-                if let trainer = controlSource {
-                    if ergModeEnabled {
-                        if let targetWatts = setpointWatts {
-                            if targetWatts != lastSentTargetPower {
-                                trainer.setTargetPower(targetWatts)
-                                lastSentTargetPower = targetWatts
-                            }
-                            lastSentResistanceLevel = nil
+                // 2. Determine the "Setpoint" for Hardware (Only in ERG mode)
+                if ergModeEnabled, let trainer = controlSource {
+                    let nextStep: WorkoutStep? = (currentStepIndex < workout.steps.count - 1) ? workout.steps[currentStepIndex + 1] : nil
+                    
+                    let input = TrainerSetpointCalculator.Input(
+                        currentStep: step,
+                        nextStep: nextStep,
+                        timeInStep: timeInStep,
+                        isFinished: isFinished,
+                        ftp: ftp,
+                        lthr: lthr,
+                        difficultyScale: workoutDifficultyScale,
+                        currentHR: recorderA.hrSource?.heartRate
+                    )
+                    
+                    if let targetWatts = setpointCalculator.calculate(input: input) {
+                        if targetWatts != lastSentTargetPower {
+                            trainer.setTargetPower(targetWatts)
+                            lastSentTargetPower = targetWatts
                         }
-                    } else {
-                        if lastSentTargetPower != nil || lastSentResistanceLevel != resistanceLevel {
-                            trainer.setResistanceLevel(resistanceLevel)
-                            lastSentResistanceLevel = resistanceLevel
-                            lastSentTargetPower = nil
-                        }
+                        lastSentResistanceLevel = nil
+                    }
+                } else if let trainer = controlSource {
+                    // Resistance Mode: Send manual resistance level if it changed or if we were previously in ERG mode
+                    if lastSentTargetPower != nil || lastSentResistanceLevel != resistanceLevel {
+                        trainer.setResistanceLevel(resistanceLevel)
+                        lastSentResistanceLevel = resistanceLevel
+                        lastSentTargetPower = nil
                     }
                 }
             } else {
