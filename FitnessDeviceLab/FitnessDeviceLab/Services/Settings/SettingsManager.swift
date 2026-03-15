@@ -1,25 +1,34 @@
 import Foundation
 import Observation
 
+/// A read-only interface for application settings.
+public protocol SettingsProvider: AnyObject, Observation.Observable {
+    var userFTP: Double { get }
+    var maxHR: Int { get }
+    var userLTHR: Int { get }
+    var altitudeOverride: Double? { get }
+    var userWeight: Double { get }
+    var ftpAltitude: Double { get }
+    var metricsSettings: MetricsSettings { get }
+}
+
 @Observable
-public class SettingsManager {
-    public static let shared = SettingsManager()
-    
+public class SettingsManager: SettingsProvider {
     private let defaults = UserDefaults.standard
-    
-    public var userFTP: Double {
+
+    public private(set) var userFTP: Double {
         didSet { defaults.set(userFTP, forKey: "userFTP") }
     }
-    
-    public var maxHR: Int {
+
+    public private(set) var maxHR: Int {
         didSet { defaults.set(maxHR, forKey: "maxHeartRate") }
     }
-    
-    public var userLTHR: Int {
+
+    public private(set) var userLTHR: Int {
         didSet { defaults.set(userLTHR, forKey: "userLTHR") }
     }
-    
-    public var altitudeOverride: Double? {
+
+    public private(set) var altitudeOverride: Double? {
         didSet { 
             if let val = altitudeOverride {
                 defaults.set(val, forKey: "altitudeOverride")
@@ -28,20 +37,29 @@ public class SettingsManager {
             }
         }
     }
-    
-    public var userWeight: Double {
+
+    public private(set) var userWeight: Double {
         didSet { defaults.set(userWeight, forKey: "userWeight") }
     }
-    
-    public var ftpAltitude: Double {
+
+    public private(set) var ftpAltitude: Double {
         didSet { defaults.set(ftpAltitude, forKey: "ftpAltitude") }
     }
-    
+
     public var metricsSettings: MetricsSettings {
         MetricsSettings(userFTP: userFTP, userWeight: userWeight, ftpAltitude: ftpAltitude)
     }
-    
-    private init() {
+
+    // MARK: - Explicit Setters for UI
+
+    public func setUserFTP(_ value: Double) { userFTP = value }
+    public func setMaxHR(_ value: Int) { maxHR = value }
+    public func setUserLTHR(_ value: Int) { userLTHR = value }
+    public func setAltitudeOverride(_ value: Double?) { altitudeOverride = value }
+    public func setUserWeight(_ value: Double) { userWeight = value }
+    public func setFTPAltitude(_ value: Double) { ftpAltitude = value }
+
+    public init() {
         let savedFTP = defaults.double(forKey: "userFTP")
         self.userFTP = savedFTP > 0 ? savedFTP : 250.0
         

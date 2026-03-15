@@ -78,13 +78,13 @@ public class DataFieldEngine {
     public var currentLapMetrics = CalculatedMetrics()
     
     public let recorder: SessionRecorder
-    private let settings: SettingsManager
+    private let settings: SettingsProvider
     
     private var calculationTask: Task<Void, Never>?
     
-    public init(recorder: SessionRecorder, settings: SettingsManager) {
-        self.recorder = recorder
+    public init(recorder: SessionRecorder, settings: SettingsProvider) {
         self.settings = settings
+        self.recorder = recorder
     }
     
     public func recalculate() {

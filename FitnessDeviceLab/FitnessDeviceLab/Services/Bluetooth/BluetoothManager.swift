@@ -5,7 +5,6 @@ import AudioToolbox
 
 @Observable
 public class BluetoothManager: NSObject {
-    public static let shared = BluetoothManager()
     
     // MARK: - Observable State for UI
     public var state: CBManagerState = .unknown
@@ -16,11 +15,13 @@ public class BluetoothManager: NSObject {
     
     // MARK: - Internal State
     private let realDriver: RealBluetoothDriver
+    private let settings: SettingsProvider
     private var simulatedPeripherals: [SimulatedPeripheral] = []
     
-    private override init() {
+    public init(settings: SettingsProvider) {
         let rd = RealBluetoothDriver()
         self.realDriver = rd
+        self.settings = settings
         super.init()
         
         // Link the real driver's state to our orchestrator
@@ -49,7 +50,7 @@ public class BluetoothManager: NSObject {
     // MARK: - Simulation Controls
     
     public func addSimulatedDevice(name: String) {
-        let sim = SimulatedPeripheral(name: name)
+        let sim = SimulatedPeripheral(name: name, settings: settings)
         simulatedPeripherals.append(sim)
         refreshCombinedPeripherals()
     }

@@ -3,6 +3,7 @@ import Charts
 
 struct WorkoutGraphView: View {
     @Environment(WorkoutSessionManager.self) var workoutManager
+    @Environment(SettingsManager.self) var settings
     let workout: StructuredWorkout
     var showAxis: Bool = true
     var elapsedTime: TimeInterval? = nil
@@ -23,7 +24,7 @@ struct WorkoutGraphView: View {
                 let width = geometry.size.width
                 let height = geometry.size.height
                 let totalDuration = workout.totalDuration
-                let ftp = SettingsManager.shared.userFTP
+                let ftp = settings.userFTP
                 // Max height is based on the highest interval or highest data point
                 let scale = scale
                 let maxTarget = workout.steps.map { ($0.targetPowerPercent ?? $0.targetHeartRatePercent ?? 0.0) * scale }.max() ?? 1.0
@@ -104,7 +105,7 @@ struct WorkoutGraphView: View {
                         PerformanceChart(
                             recorder: recorder,
                             totalDuration: totalDuration,
-                            maxPower: maxPercent * SettingsManager.shared.userFTP,
+                            maxPower: maxPercent * settings.userFTP,
                             startTime: workoutManager.sessionStartTime
                         )
                         .frame(width: width, height: height)

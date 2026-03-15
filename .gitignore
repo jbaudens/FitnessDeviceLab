@@ -32,3 +32,5 @@ fastlane/test_output
 
 # Crash logs and diagnostic reports
 *.crash
+
+GEMINI.md
