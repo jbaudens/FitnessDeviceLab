@@ -68,3 +68,9 @@ public protocol BluetoothDriver: AnyObject {
     
     var onUpdate: (() -> Void)? { get set }
 }
+
+// MARK: - Location Protocol
+
+public protocol LocationProvider: AnyObject {
+    var currentAltitude: Double? { get }
+}

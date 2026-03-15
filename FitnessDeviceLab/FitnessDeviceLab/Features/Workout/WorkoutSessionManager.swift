@@ -54,9 +54,11 @@ public class WorkoutSessionManager {
     
     private var timerCancellable: AnyCancellable?
     private let settings: SettingsProvider
+    private let locationProvider: LocationProvider
     
-    public init(settings: SettingsProvider) {
+    public init(settings: SettingsProvider, locationProvider: LocationProvider) {
         self.settings = settings
+        self.locationProvider = locationProvider
         let recA = SessionRecorder(settings: settings)
         let recB = SessionRecorder(settings: settings)
         self.recorderA = recA
@@ -158,7 +160,7 @@ public class WorkoutSessionManager {
     @MainActor
     private func tick() {
         let now = Date()
-        let altitude = LocationManager.shared.currentAltitude ?? settings.altitudeOverride
+        let altitude = locationProvider.currentAltitude ?? settings.altitudeOverride
         
         recorderA.recordPoint(time: now, altitude: altitude)
         recorderB.recordPoint(time: now, altitude: altitude)
