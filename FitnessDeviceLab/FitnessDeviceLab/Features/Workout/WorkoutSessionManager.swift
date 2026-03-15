@@ -201,43 +201,24 @@ public class WorkoutSessionManager {
             }
             
             if let step = currentWorkoutStep {
-                let ftp = settings.userFTP
-                let lthr = Double(settings.userLTHR)
                 let isFinished = currentStepIndex >= workout.steps.count - 1 && timeInStep >= workout.steps.last?.duration ?? 0
                 
-                if isFinished {
-                    currentTargetPower = nil
-                    currentTargetHR = nil
-                    hrControlBaseWatts = nil
-                } else if let targetHRPercent = step.targetHeartRatePercent {
-                    let targetHRValue = Int(round(targetHRPercent * workoutDifficultyScale * lthr))
-                    currentTargetHR = targetHRValue
-                    
-                    if ergModeEnabled {
-                        // Use Primary Recorder's HR source
-                        let currentHR = Double(recorderA.hrSource?.heartRate ?? 0)
-                        if currentHR > 0 {
-                            if hrControlBaseWatts == nil {
-                                hrControlBaseWatts = ftp * 0.5
-                            }
-                            let error = Double(targetHRValue) - currentHR
-                            let adjustment = error * 0.15 
-                            hrControlBaseWatts! += adjustment
-                            hrControlBaseWatts = max(50, min(hrControlBaseWatts!, ftp * 1.5))
-                        }
-                    }
-                    
-                    if let base = hrControlBaseWatts {
-                        currentTargetPower = Int(round(base))
-                    } else {
-                        currentTargetPower = nil
-                    }
-                } else {
-                    let watts = Int(round((step.powerAt(time: timeInStep) ?? 0) * workoutDifficultyScale * ftp))
-                    currentTargetPower = watts
-                    currentTargetHR = nil
-                    hrControlBaseWatts = nil
-                }
+                let input = TargetPowerCalculator.Input(
+                    step: step,
+                    timeInStep: timeInStep,
+                    isFinished: isFinished,
+                    ftp: settings.userFTP,
+                    lthr: Double(settings.userLTHR),
+                    difficultyScale: workoutDifficultyScale,
+                    ergModeEnabled: ergModeEnabled,
+                    currentHR: recorderA.hrSource?.heartRate,
+                    previousHRControlBaseWatts: hrControlBaseWatts
+                )
+                
+                let result = TargetPowerCalculator.calculate(input: input)
+                self.currentTargetPower = result.targetPower
+                self.currentTargetHR = result.targetHR
+                self.hrControlBaseWatts = result.newHRControlBaseWatts
             } else {
                 currentTargetPower = nil
                 currentTargetHR = nil

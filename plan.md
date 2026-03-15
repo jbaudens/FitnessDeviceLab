@@ -41,7 +41,7 @@ To ensure high-quality code reviews and maintain stability, the remaining refact
 *   [x] **Step 3.3: ViewModel DI**: Update `WorkoutPlayerViewModel` and `DevicesViewModel` to receive their managers via initializers in the App entry point, removing the reliance on `@Environment` for core business logic.
 
 ### Phase 3B: Decoupling `WorkoutSessionManager`
-*   [ ] **Step 3.4: Extract `TargetPowerCalculator`**: Move the complex ERG and HR-control logic (found in `tick()`) into a pure, stateless struct. 
+*   [x] **Step 3.4: Extract `TargetPowerCalculator`**: Move the complex ERG and HR-control logic (found in `tick()`) into a pure, stateless struct. 
 *   [ ] **Step 3.5: [TEST] `TargetPowerCalculator`**: Add unit tests for all workout step types (Power, %FTP, %HR) and difficulty scaling.
 *   [ ] **Step 3.6: Extract `WorkoutTimer`**: Move the `Timer.publish` logic into a dedicated class to allow for easier testing of "time-skipped" workouts in the future.
 *   [ ] **Step 3.7: Extract `TrainerController`**: Move the logic that commands the `controlSource` (trainer) into a dedicated component.
