@@ -261,17 +261,26 @@ public class DataFieldEngine {
             home30s.append(slAvg * homeRatio)
         }
         
-        metrics.standard.normalizedPower = calculateNPFromRolling(std30s)
-        metrics.standard.intensityFactor = (metrics.standard.normalizedPower ?? 0) / userFTP
-        metrics.standard.tss = (Double(std30s.count) * (metrics.standard.normalizedPower ?? 0) * (metrics.standard.intensityFactor ?? 0)) / (userFTP * 36.0)
+        // Standard Metrics
+        if let stdNP = PowerMath.calculateNP(from30sRollingAverages: std30s) {
+            metrics.standard.normalizedPower = stdNP
+            metrics.standard.intensityFactor = PowerMath.calculateIF(np: stdNP, ftp: userFTP)
+            metrics.standard.tss = PowerMath.calculateTSS(durationSeconds: Double(std30s.count), np: stdNP, ifValue: metrics.standard.intensityFactor ?? 0, ftp: userFTP)
+        }
         
-        metrics.seaLevel.normalizedPower = calculateNPFromRolling(sl30s)
-        metrics.seaLevel.intensityFactor = (metrics.seaLevel.normalizedPower ?? 0) / slFTP
-        metrics.seaLevel.tss = (Double(sl30s.count) * (metrics.seaLevel.normalizedPower ?? 0) * (metrics.seaLevel.intensityFactor ?? 0)) / (slFTP * 36.0)
+        // Sea Level Metrics
+        if let slNP = PowerMath.calculateNP(from30sRollingAverages: sl30s) {
+            metrics.seaLevel.normalizedPower = slNP
+            metrics.seaLevel.intensityFactor = PowerMath.calculateIF(np: slNP, ftp: slFTP)
+            metrics.seaLevel.tss = PowerMath.calculateTSS(durationSeconds: Double(sl30s.count), np: slNP, ifValue: metrics.seaLevel.intensityFactor ?? 0, ftp: slFTP)
+        }
         
-        metrics.home.normalizedPower = calculateNPFromRolling(home30s)
-        metrics.home.intensityFactor = (metrics.home.normalizedPower ?? 0) / userFTP
-        metrics.home.tss = (Double(home30s.count) * (metrics.home.normalizedPower ?? 0) * (metrics.home.intensityFactor ?? 0)) / (userFTP * 36.0)
+        // Home Metrics
+        if let homeNP = PowerMath.calculateNP(from30sRollingAverages: home30s) {
+            metrics.home.normalizedPower = homeNP
+            metrics.home.intensityFactor = PowerMath.calculateIF(np: homeNP, ftp: userFTP)
+            metrics.home.tss = PowerMath.calculateTSS(durationSeconds: Double(home30s.count), np: homeNP, ifValue: metrics.home.intensityFactor ?? 0, ftp: userFTP)
+        }
     }
     
     public func reset() {
@@ -300,11 +309,5 @@ public class DataFieldEngine {
         let count = min(samples.count, window)
         let slice = samples.suffix(count)
         return Int(round(slice.reduce(0, +) / Double(count)))
-    }
-    
-    nonisolated private static func calculateNPFromRolling(_ rolling: [Double]) -> Double {
-        guard !rolling.isEmpty else { return 0 }
-        let sum4 = rolling.reduce(0.0) { $0 + pow($1, 4) }
-        return pow(sum4 / Double(rolling.count), 0.25)
     }
 }
