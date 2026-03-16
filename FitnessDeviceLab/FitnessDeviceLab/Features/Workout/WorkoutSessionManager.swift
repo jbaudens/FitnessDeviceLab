@@ -48,7 +48,7 @@ public class WorkoutSessionManager {
     
     public var exportedFiles: [URL] = []
     
-    private let settings: SettingsProvider
+    public let settings: SettingsProvider
     private let locationProvider: LocationProvider
     
     public init(settings: SettingsProvider, locationProvider: LocationProvider, workoutTimer: WorkoutTimer) {

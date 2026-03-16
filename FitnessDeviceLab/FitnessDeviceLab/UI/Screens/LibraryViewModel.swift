@@ -4,7 +4,9 @@ import SwiftUI
 
 @Observable
 public class LibraryViewModel {
-    private let repository = WorkoutRepository.shared
+    private let repository: WorkoutRepository
+    private let workoutManager: WorkoutSessionManager
+    public let settings: SettingsManager
     
     public var searchText = ""
     public var selectedZoneFilter: WorkoutZone? = nil
@@ -18,7 +20,11 @@ public class LibraryViewModel {
         public var id: String { rawValue }
     }
     
-    public init() {}
+    public init(repository: WorkoutRepository, workoutManager: WorkoutSessionManager, settings: SettingsManager) {
+        self.repository = repository
+        self.workoutManager = workoutManager
+        self.settings = settings
+    }
     
     public var filteredWorkouts: [StructuredWorkout] {
         var workouts = repository.allWorkouts
@@ -52,5 +58,9 @@ public class LibraryViewModel {
         }
         
         return workouts
+    }
+    
+    public func selectWorkout(_ workout: StructuredWorkout) {
+        workoutManager.selectedWorkout = workout
     }
 }

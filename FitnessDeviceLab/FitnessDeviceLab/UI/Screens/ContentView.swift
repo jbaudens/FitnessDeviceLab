@@ -3,6 +3,9 @@ import SwiftUI
 struct ContentView: View {
     @Bindable var devicesViewModel: DevicesViewModel
     @Bindable var workoutPlayerViewModel: WorkoutPlayerViewModel
+    
+    let workoutManager: WorkoutSessionManager
+    let settingsManager: SettingsManager
 
     var body: some View {
         TabView {
@@ -16,7 +19,11 @@ struct ContentView: View {
 
             // Tab 2: Library
             NavigationStack {
-                WorkoutLibraryView()
+                WorkoutLibraryView(
+                    repository: WorkoutRepository.shared,
+                    workoutManager: workoutManager,
+                    settings: settingsManager
+                )
             }
             .tabItem {
                 Label("Library", systemImage: "books.vertical")
@@ -32,7 +39,7 @@ struct ContentView: View {
 
             // Tab 4: Settings
             NavigationStack {
-                SettingsView()
+                SettingsView(settings: settingsManager)
             }
             .tabItem {
                 Label("Settings", systemImage: "gear")

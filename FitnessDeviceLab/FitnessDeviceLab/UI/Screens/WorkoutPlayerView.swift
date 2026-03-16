@@ -53,7 +53,7 @@ struct WorkoutPlayerContentView: View {
         VStack(spacing: 0) {
             // Active Workout Header (Summary targets)
             if let workout = viewModel.workoutManager.selectedWorkout {
-                WorkoutTargetHeader(workout: workout)
+                WorkoutTargetHeader(workoutManager: viewModel.workoutManager, workout: workout)
                     .padding()
                     .background(Color.secondary.opacity(0.05))
             }
@@ -72,7 +72,7 @@ struct WorkoutPlayerContentView: View {
                 }
                 
                 // Laps View
-                LapsHistoryView()
+                LapsHistoryView(workoutManager: viewModel.workoutManager, settings: viewModel.settings)
             }
             #if os(iOS)
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
@@ -103,6 +103,7 @@ struct WorkoutPlayerContentView: View {
             if let workout = viewModel.workoutManager.selectedWorkout {
                 WorkoutGraphView(
                     workout: workout,
+                    userFTP: viewModel.settings.userFTP,
                     elapsedTime: viewModel.workoutManager.workoutElapsedTime,
                     recorder: recorder,
                     scale: viewModel.workoutManager.workoutDifficultyScale
@@ -116,7 +117,9 @@ struct WorkoutPlayerContentView: View {
             
             DataFieldGrid(
                 engine: title == "SET A" ? viewModel.workoutManager.engineA : viewModel.workoutManager.engineB,
-                fields: fields
+                fields: fields,
+                workoutManager: viewModel.workoutManager,
+                settings: viewModel.settings
             )
             .padding(.horizontal)
         }
@@ -306,7 +309,7 @@ struct WorkoutPlayerContentView: View {
             Text(workout.name)
                 .font(.headline)
             
-            WorkoutGraphView(workout: workout, showAxis: false, scale: viewModel.workoutManager.workoutDifficultyScale)
+            WorkoutGraphView(workout: workout, userFTP: viewModel.settings.userFTP, showAxis: false, scale: viewModel.workoutManager.workoutDifficultyScale)
                 .frame(height: 60)
                 .padding(.vertical, 4)
             
@@ -477,8 +480,7 @@ struct SummaryMetric: View {
 }
 
 struct WorkoutTargetHeader: View {
-    @Environment(WorkoutSessionManager.self) var workoutManager
-    @Environment(SettingsManager.self) var settings
+    @Bindable var workoutManager: WorkoutSessionManager
     let workout: StructuredWorkout
     
     private let timeFormatter: DateFormatter = {
@@ -681,7 +683,7 @@ struct WorkoutTargetHeader: View {
             if workoutManager.currentStepIndex < workout.steps.count - 1 {
                 let nextStep = workout.steps[workoutManager.currentStepIndex + 1]
                 let scale = workoutManager.workoutDifficultyScale
-                let nextWatts = Int(round((nextStep.targetPowerPercent ?? 0.0) * scale * settings.userFTP))
+                let nextWatts = Int(round((nextStep.targetPowerPercent ?? 0.0) * scale * workoutManager.settings.userFTP))
                 HStack {
                     Spacer()
                     Text("Next: \(nextWatts)W (\(Int(round((nextStep.targetPowerPercent ?? 0.0) * scale * 100)))%) for \(Int(nextStep.duration / 60))m")
@@ -700,7 +702,8 @@ struct WorkoutTargetHeader: View {
 }
 
 struct LapsHistoryView: View {
-    @Environment(WorkoutSessionManager.self) var workoutManager
+    @Bindable var workoutManager: WorkoutSessionManager
+    let settings: SettingsProvider
     
     private let timeFormatter: DateFormatter = {
         let df = DateFormatter()
@@ -764,9 +767,9 @@ struct LapsHistoryView: View {
                         
                         // Lap Summary Table (A vs B)
                         HStack(spacing: 20) {
-                            LapSummaryColumn(label: "SET A", recorder: workoutManager.recorderA, lapIndex: lap.index, color: .blue)
+                            LapSummaryColumn(label: "SET A", lap: lap, settings: settings, recorder: workoutManager.recorderA, color: .blue)
                             Divider()
-                            LapSummaryColumn(label: "SET B", recorder: workoutManager.recorderB, lapIndex: lap.index, color: .purple)
+                            LapSummaryColumn(label: "SET B", lap: lap, settings: settings, recorder: workoutManager.recorderB, color: .purple)
                         }
                         .padding(10)
                         .background(Color.secondary.opacity(0.05))
@@ -788,14 +791,12 @@ struct LapsHistoryView: View {
 
 struct LapSummaryColumn: View {
     let label: String
+    let lap: Lap
+    let settings: SettingsProvider
     let recorder: SessionRecorder
-    let lapIndex: Int
     let color: Color
-    @Environment(WorkoutSessionManager.self) var workoutManager
-    @Environment(SettingsManager.self) var settings
     
     var body: some View {
-        let lap = workoutManager.laps[lapIndex]
         let points = recorder.trackpoints.filter { 
             $0.time >= lap.startTime && (lap.endTime == nil || $0.time < lap.endTime!)
         }

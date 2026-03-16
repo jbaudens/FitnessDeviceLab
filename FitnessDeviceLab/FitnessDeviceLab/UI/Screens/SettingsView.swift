@@ -1,25 +1,20 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @Environment(SettingsManager.self) var settings
+    @State private var viewModel: SettingsViewModel
     
-    // Local state to avoid layout loops during typing
-    @State private var userFTP: String = ""
-    @State private var userWeight: String = ""
-    @State private var maxHR: String = ""
-    @State private var userLTHR: String = ""
-    @State private var ftpAltitude: String = ""
-    @State private var altitudeOverride: String = ""
-    @State private var useAltitudeOverride: Bool = false
+    init(settings: SettingsManager) {
+        _viewModel = State(initialValue: SettingsViewModel(settings: settings))
+    }
     
     var body: some View {
-        @Bindable var settings = settings
+        @Bindable var vm = viewModel
         List {
             Section("User Profile") {
                 HStack {
                     Text("FTP (Watts)")
                     Spacer()
-                    TextField("250", text: $userFTP)
+                    TextField("250", text: $vm.userFTP)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 80)
                         .textFieldStyle(.roundedBorder)
@@ -27,16 +22,14 @@ struct SettingsView: View {
                         .keyboardType(.decimalPad)
                         #endif
                 }
-                .onChange(of: userFTP) { _, newValue in
-                    if let val = Double(newValue) {
-                        settings.setUserFTP(val)
-                    }
+                .onChange(of: vm.userFTP) { _, newValue in
+                    vm.updateFTP(newValue)
                 }
                 
                 HStack {
                     Text("Weight (kg)")
                     Spacer()
-                    TextField("75", text: $userWeight)
+                    TextField("75", text: $vm.userWeight)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 80)
                         .textFieldStyle(.roundedBorder)
@@ -44,16 +37,14 @@ struct SettingsView: View {
                         .keyboardType(.decimalPad)
                         #endif
                 }
-                .onChange(of: userWeight) { _, newValue in
-                    if let val = Double(newValue) {
-                        settings.setUserWeight(val)
-                    }
+                .onChange(of: vm.userWeight) { _, newValue in
+                    vm.updateWeight(newValue)
                 }
 
                 HStack {
                     Text("Max Heart Rate (BPM)")
                     Spacer()
-                    TextField("190", text: $maxHR)
+                    TextField("190", text: $vm.maxHR)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 80)
                         .textFieldStyle(.roundedBorder)
@@ -61,16 +52,14 @@ struct SettingsView: View {
                         .keyboardType(.numberPad)
                         #endif
                 }
-                .onChange(of: maxHR) { _, newValue in
-                    if let val = Int(newValue) {
-                        settings.setMaxHR(val)
-                    }
+                .onChange(of: vm.maxHR) { _, newValue in
+                    vm.updateMaxHR(newValue)
                 }
 
                 HStack {
                     Text("LTHR (BPM)")
                     Spacer()
-                    TextField("170", text: $userLTHR)
+                    TextField("170", text: $vm.userLTHR)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 80)
                         .textFieldStyle(.roundedBorder)
@@ -78,10 +67,8 @@ struct SettingsView: View {
                         .keyboardType(.numberPad)
                         #endif
                 }
-                .onChange(of: userLTHR) { _, newValue in
-                    if let val = Int(newValue) {
-                        settings.setUserLTHR(val)
-                    }
+                .onChange(of: vm.userLTHR) { _, newValue in
+                    vm.updateUserLTHR(newValue)
                 }
             }
             
@@ -89,7 +76,7 @@ struct SettingsView: View {
                 HStack {
                     Text("Training Altitude (m)")
                     Spacer()
-                    TextField("0", text: $ftpAltitude)
+                    TextField("0", text: $vm.ftpAltitude)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 80)
                         .textFieldStyle(.roundedBorder)
@@ -97,26 +84,20 @@ struct SettingsView: View {
                         .keyboardType(.decimalPad)
                         #endif
                 }
-                .onChange(of: ftpAltitude) { _, newValue in
-                    if let val = Double(newValue) {
-                        settings.setFTPAltitude(val)
-                    }
+                .onChange(of: vm.ftpAltitude) { _, newValue in
+                    vm.updateFTPAltitude(newValue)
                 }
                 
-                Toggle("Manual Altitude Override", isOn: $useAltitudeOverride)
-                    .onChange(of: useAltitudeOverride) { _, newValue in
-                        if !newValue {
-                            settings.setAltitudeOverride(nil)
-                        } else if let val = Double(altitudeOverride) {
-                            settings.setAltitudeOverride(val)
-                        }
+                Toggle("Manual Altitude Override", isOn: $vm.useAltitudeOverride)
+                    .onChange(of: vm.useAltitudeOverride) { _, newValue in
+                        vm.updateAltitudeOverrideToggle(newValue)
                     }
                 
-                if useAltitudeOverride {
+                if vm.useAltitudeOverride {
                     HStack {
                         Text("Fixed Altitude (m)")
                         Spacer()
-                        TextField("500", text: $altitudeOverride)
+                        TextField("500", text: $vm.altitudeOverride)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 80)
                             .textFieldStyle(.roundedBorder)
@@ -124,43 +105,19 @@ struct SettingsView: View {
                             .keyboardType(.decimalPad)
                             #endif
                     }
-                    .onChange(of: altitudeOverride) { _, newValue in
-                        if let val = Double(newValue) {
-                            settings.setAltitudeOverride(val)
-                        }
+                    .onChange(of: vm.altitudeOverride) { _, newValue in
+                        vm.updateAltitudeOverrideValue(newValue)
                     }
                 }
             }
             
             Section {
                 Button("Reset to Defaults") {
-                    settings.setUserFTP(200)
-                    settings.setUserWeight(75)
-                    settings.setFTPAltitude(0)
-                    settings.setAltitudeOverride(nil)
-                    syncLocalState()
+                    vm.resetToDefaults()
                 }
                 .foregroundColor(.red)
             }
         }
         .navigationTitle("Profile & Environment")
-        .onAppear {
-            syncLocalState()
-        }
-    }
-    
-    private func syncLocalState() {
-        userFTP = String(format: "%.0f", settings.userFTP)
-        userWeight = String(format: "%.1f", settings.userWeight)
-        maxHR = String(format: "%d", settings.maxHR)
-        userLTHR = String(format: "%d", settings.userLTHR)
-        ftpAltitude = String(format: "%.0f", settings.ftpAltitude)
-        if let over = settings.altitudeOverride {
-            altitudeOverride = String(format: "%.0f", over)
-            useAltitudeOverride = true
-        } else {
-            altitudeOverride = ""
-            useAltitudeOverride = false
-        }
     }
 }

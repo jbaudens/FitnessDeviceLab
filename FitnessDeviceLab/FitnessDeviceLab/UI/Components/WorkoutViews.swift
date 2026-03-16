@@ -2,19 +2,21 @@ import SwiftUI
 import Charts
 
 struct WorkoutGraphView: View {
-    @Environment(WorkoutSessionManager.self) var workoutManager
-    @Environment(SettingsManager.self) var settings
     let workout: StructuredWorkout
+    let userFTP: Double
     var showAxis: Bool = true
     var elapsedTime: TimeInterval? = nil
     var recorder: SessionRecorder? = nil
+    var sessionStartTime: Date? = nil
     var scale: Double = 1.0
     
-    init(workout: StructuredWorkout, showAxis: Bool = true, elapsedTime: TimeInterval? = nil, recorder: SessionRecorder? = nil, scale: Double = 1.0) {
+    init(workout: StructuredWorkout, userFTP: Double, showAxis: Bool = true, elapsedTime: TimeInterval? = nil, recorder: SessionRecorder? = nil, sessionStartTime: Date? = nil, scale: Double = 1.0) {
         self.workout = workout
+        self.userFTP = userFTP
         self.showAxis = showAxis
         self.elapsedTime = elapsedTime
         self.recorder = recorder
+        self.sessionStartTime = sessionStartTime
         self.scale = scale
     }
     
@@ -24,7 +26,7 @@ struct WorkoutGraphView: View {
                 let width = geometry.size.width
                 let height = geometry.size.height
                 let totalDuration = workout.totalDuration
-                let ftp = settings.userFTP
+                let ftp = userFTP
                 // Max height is based on the highest interval or highest data point
                 let scale = scale
                 let maxTarget = workout.steps.map { ($0.targetPowerPercent ?? $0.targetHeartRatePercent ?? 0.0) * scale }.max() ?? 1.0
@@ -105,8 +107,8 @@ struct WorkoutGraphView: View {
                         PerformanceChart(
                             recorder: recorder,
                             totalDuration: totalDuration,
-                            maxPower: maxPercent * settings.userFTP,
-                            startTime: workoutManager.sessionStartTime
+                            maxPower: maxPercent * ftp,
+                            startTime: sessionStartTime
                         )
                         .frame(width: width, height: height)
                     }
@@ -223,6 +225,7 @@ struct PerformanceChart: View {
 
 struct WorkoutRowView: View {
     let workout: StructuredWorkout
+    let userFTP: Double
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -258,7 +261,7 @@ struct WorkoutRowView: View {
                     .foregroundColor(.secondary)
             }
             
-            WorkoutGraphView(workout: workout, showAxis: false)
+            WorkoutGraphView(workout: workout, userFTP: userFTP, showAxis: false)
                 .frame(height: 40)
         }
         .padding(.vertical, 8)
