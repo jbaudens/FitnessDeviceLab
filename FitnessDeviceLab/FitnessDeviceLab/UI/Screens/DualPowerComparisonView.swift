@@ -385,10 +385,13 @@ private struct DeltaChart: View {
         let progress = Double(i) / 900.0
         
         var basePower: Double = 120.0
-        // Three distinct work intervals
+        // Recovery segments in between
         if i > 100 && i < 250 { basePower = 200.0 }
+        else if i > 250 && i < 350 { basePower = 100.0 } // Recovery
         else if i > 350 && i < 500 { basePower = 350.0 }
+        else if i > 500 && i < 600 { basePower = 100.0 } // Recovery
         else if i > 600 && i < 750 { basePower = 450.0 }
+        else if i > 750 { basePower = 100.0 } // Recovery
         
         let pA = basePower * 1.01 + Double.random(in: -2...2)
         pointsA.append(Trackpoint(time: time, power: Int(max(0, pA))))
