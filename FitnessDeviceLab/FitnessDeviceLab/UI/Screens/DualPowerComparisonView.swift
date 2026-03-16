@@ -336,3 +336,40 @@ private struct DeltaChart: View {
         }
     }
 }
+
+#Preview {
+    let settings = SettingsManager()
+    let recA = SessionRecorder(settings: settings)
+    let recB = SessionRecorder(settings: settings)
+    
+    // Generate 15 minutes of mock data with intervals and drift
+    let now = Date()
+    var pointsA: [Trackpoint] = []
+    var pointsB: [Trackpoint] = []
+    
+    for i in 0..<900 {
+        let time = now.addingTimeInterval(TimeInterval(i))
+        let progress = Double(i) / 900.0
+        
+        // Base power pattern (warmup -> 3 intervals -> cooldown)
+        var basePower: Double = 120.0
+        if i > 100 && i < 250 { basePower = 200.0 } // Z2
+        else if i > 350 && i < 500 { basePower = 350.0 } // Z4
+        else if i > 600 && i < 750 { basePower = 450.0 } // Z5
+        
+        // Sensor A: Vector3 (Stable + 1% high)
+        let pA = basePower * 1.01 + Double.random(in: -2...2)
+        pointsA.append(Trackpoint(time: time, power: Int(max(0, pA))))
+        
+        // Sensor B: SB20 (Drifts -8w over 15 mins + 2% low at high power)
+        let drift = progress * -8.0
+        let scalingError = (basePower > 300) ? 0.96 : 0.98
+        let pB = basePower * scalingError + drift + Double.random(in: -3...3)
+        pointsB.append(Trackpoint(time: time, power: Int(max(0, pB))))
+    }
+    
+    recA.trackpoints = pointsA
+    recB.trackpoints = pointsB
+    
+    return DualPowerComparisonView(recorderA: recA, recorderB: recB)
+}
