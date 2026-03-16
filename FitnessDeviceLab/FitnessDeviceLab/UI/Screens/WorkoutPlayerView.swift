@@ -118,7 +118,6 @@ struct WorkoutPlayerContentView: View {
             DataFieldGrid(
                 engine: title == "SET A" ? viewModel.workoutManager.engineA : viewModel.workoutManager.engineB,
                 fields: fields,
-                workoutManager: viewModel.workoutManager,
                 settings: viewModel.settings
             )
             .padding(.horizontal)
@@ -667,15 +666,6 @@ struct WorkoutTargetHeader: View {
                     Label("HR", systemImage: "heart.fill").foregroundColor(.red)
                 }
                 .font(.system(size: 10, weight: .bold))
-                
-                Picker("Mode", selection: $wmBindable.currentDataFieldMode) {
-                    ForEach(WorkoutSessionManager.DataFieldMode.allCases) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(width: 140)
             }
             .font(.system(size: 10, weight: .bold))
             .foregroundColor(.secondary)
@@ -800,7 +790,7 @@ struct LapSummaryColumn: View {
         let points = recorder.trackpoints.filter { 
             $0.time >= lap.startTime && (lap.endTime == nil || $0.time < lap.endTime!)
         }
-        let m = DataFieldEngine.calculate(from: points, settings: settings.metricsSettings)
+        let (m, _) = DataFieldEngine.calculate(from: points, settings: settings.metricsSettings)
         
         VStack(alignment: .leading, spacing: 6) {
             Text(label)

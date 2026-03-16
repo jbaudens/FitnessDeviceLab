@@ -5,7 +5,24 @@ public struct ActivityProfile: Identifiable, Codable, Hashable {
     public var name: String
     public var pages: [DataPage]
     
+    
     public static let defaultProfile = ActivityProfile(
+        name: "Cycling",
+        pages: [
+            // Page 1: General
+            DataPage(fields: [
+                // instant
+                .currentPower, .power3s, .slPower, .slPower3s, .powerBalance,
+                .currentHR, .dfaAlpha1, .speed, .cadence,
+                //lap
+                .lapAvgPower, .lapNP, .lapAvgHR, .lapAvgCadence,
+                //overall
+                .avgPower, .normalizedPower, .slAvgPower, .slNP, .distance
+            ]),
+        ]
+    )
+    
+    /*public static let defaultProfile = ActivityProfile(
         name: "Cycling",
         pages: [
             // Page 1: General
@@ -58,7 +75,7 @@ public struct ActivityProfile: Identifiable, Codable, Hashable {
                 .avnn, .pnn50
             ]),
         ]
-    )
+    )*/
 }
 
 public struct DataPage: Identifiable, Codable, Hashable {
