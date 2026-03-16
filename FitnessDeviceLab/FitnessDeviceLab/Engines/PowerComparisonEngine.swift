@@ -3,6 +3,7 @@ import Foundation
 public struct ComparisonPoint: Identifiable {
     public let id = UUID()
     public let timestamp: Date
+    public let elapsedSeconds: TimeInterval
     public let powerA: Int?
     public let powerB: Int?
     
@@ -19,8 +20,8 @@ public struct ComparisonPoint: Identifiable {
 
 public struct DetectedInterval: Identifiable {
     public let id = UUID()
-    public let start: Date
-    public let end: Date
+    public let startSeconds: TimeInterval
+    public let endSeconds: TimeInterval
     public let duration: TimeInterval
     public let avgPowerA: Double
     public let avgPowerB: Double
@@ -46,7 +47,6 @@ public struct ComparisonSummary {
 public class PowerComparisonEngine {
     
     public static func alignAndCompare(pointsA: [Trackpoint], pointsB: [Trackpoint]) -> [ComparisonPoint] {
-        // Find common time range
         guard let startA = pointsA.first?.time, let startB = pointsB.first?.time,
               let endA = pointsA.last?.time, let endB = pointsB.last?.time else {
             return []
@@ -56,14 +56,13 @@ public class PowerComparisonEngine {
         let endTime = min(endA, endB)
         
         var comparisonPoints: [ComparisonPoint] = []
-        
-        // We iterate every second from start to end
         var currentTime = startTime
         while currentTime <= endTime {
             let pA = findClosestPower(at: currentTime, in: pointsA)
             let pB = findClosestPower(at: currentTime, in: pointsB)
             
-            comparisonPoints.append(ComparisonPoint(timestamp: currentTime, powerA: pA, powerB: pB))
+            let elapsed = currentTime.timeIntervalSince(startTime)
+            comparisonPoints.append(ComparisonPoint(timestamp: currentTime, elapsedSeconds: elapsed, powerA: pA, powerB: pB))
             currentTime = currentTime.addingTimeInterval(1.0)
         }
         
@@ -116,22 +115,28 @@ public class PowerComparisonEngine {
     }
     
     public static func detectIntervals(in points: [ComparisonPoint]) -> [DetectedInterval] {
-        let windowSize = 5 
-        let minDuration: TimeInterval = 15.0
+        let windowSize = 5
+        let minDuration: TimeInterval = 10.0
         let powerThreshold = 100.0
         
         var intervals: [DetectedInterval] = []
-        var currentStart: Date?
+        var currentStart: ComparisonPoint?
         
-        func finalizeInterval(end: Date) {
+        func finalizeInterval(end: ComparisonPoint) {
             guard let start = currentStart else { return }
-            let duration = end.timeIntervalSince(start)
+            let duration = end.elapsedSeconds - start.elapsedSeconds
             if duration >= minDuration {
-                let intervalPoints = points.filter { $0.timestamp >= start && $0.timestamp <= end }
+                let intervalPoints = points.filter { $0.elapsedSeconds >= start.elapsedSeconds && $0.elapsedSeconds <= end.elapsedSeconds }
                 let avgA = intervalPoints.compactMap { Double($0.powerA ?? 0) }.reduce(0, +) / Double(intervalPoints.count)
                 let avgB = intervalPoints.compactMap { Double($0.powerB ?? 0) }.reduce(0, +) / Double(intervalPoints.count)
                 
-                intervals.append(DetectedInterval(start: start, end: end, duration: duration, avgPowerA: avgA, avgPowerB: avgB))
+                intervals.append(DetectedInterval(
+                    startSeconds: start.elapsedSeconds,
+                    endSeconds: end.elapsedSeconds,
+                    duration: duration,
+                    avgPowerA: avgA,
+                    avgPowerB: avgB
+                ))
             }
         }
         
@@ -141,19 +146,18 @@ public class PowerComparisonEngine {
             
             if avgPower > powerThreshold {
                 if currentStart == nil {
-                    currentStart = points[i].timestamp
+                    currentStart = points[i]
                 }
             } else {
                 if let _ = currentStart {
-                    finalizeInterval(end: points[i].timestamp)
+                    finalizeInterval(end: points[i])
                     currentStart = nil
                 }
             }
         }
         
-        // Finalize if still in an interval at the end of the data
-        if let start = currentStart, let lastTimestamp = points.last?.timestamp {
-            finalizeInterval(end: lastTimestamp)
+        if let start = currentStart, let lastPoint = points.last {
+            finalizeInterval(end: lastPoint)
         }
         
         return intervals
@@ -166,9 +170,9 @@ public class PowerComparisonEngine {
         for i in 0..<intervals.count {
             for j in (i+1)..<intervals.count {
                 let pDiff = abs(intervals[i].avgPowerB - intervals[j].avgPowerB)
-                if pDiff < 20 { // Same intensity
-                    let hourDiff = intervals[j].start.timeIntervalSince(intervals[i].start) / 3600.0
-                    if hourDiff > 0.2 { // At least 12 mins apart
+                if pDiff < 20 { 
+                    let hourDiff = (intervals[j].startSeconds - intervals[i].startSeconds) / 3600.0
+                    if hourDiff > 0.1 { 
                         let deltaChange = intervals[j].delta - intervals[i].delta
                         results.append(deltaChange / hourDiff)
                     }

@@ -170,6 +170,12 @@ struct DualPowerComparisonView: View {
             .padding(.horizontal)
         }
     }
+    
+    private func formatElapsed(_ seconds: TimeInterval) -> String {
+        let mins = Int(seconds) / 60
+        let secs = Int(seconds) % 60
+        return String(format: "%02d:%02d", mins, secs)
+    }
 }
 
 private struct IntervalRow: View {
@@ -180,7 +186,7 @@ private struct IntervalRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("\(Int(interval.duration))s Interval")
                     .font(.headline)
-                Text("Target: \(interval.intensity)w")
+                Text("Start: \(formatElapsed(interval.startSeconds)) | Target: \(interval.intensity)w")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -204,6 +210,12 @@ private struct IntervalRow: View {
         .padding()
         .background(Color.secondarySystemGroupedBackground)
         .cornerRadius(12)
+    }
+    
+    private func formatElapsed(_ seconds: TimeInterval) -> String {
+        let mins = Int(seconds) / 60
+        let secs = Int(seconds) % 60
+        return String(format: "%02d:%02d", mins, secs)
     }
 }
 
@@ -261,7 +273,7 @@ private struct PowerOverlayChart: View {
             ForEach(points) { point in
                 if let pA = point.powerA {
                     LineMark(
-                        x: .value("Time", point.timestamp),
+                        x: .value("Time", point.elapsedSeconds),
                         y: .value("Power A", pA),
                         series: .value("Series", "A")
                     )
@@ -271,7 +283,7 @@ private struct PowerOverlayChart: View {
                 
                 if let pB = point.powerB {
                     LineMark(
-                        x: .value("Time", point.timestamp),
+                        x: .value("Time", point.elapsedSeconds),
                         y: .value("Power B", pB),
                         series: .value("Series", "B")
                     )
@@ -281,12 +293,12 @@ private struct PowerOverlayChart: View {
             }
         }
         .chartXAxis {
-            AxisMarks(values: .stride(by: .minute, count: 5)) { value in
+            AxisMarks(values: .stride(by: 300)) { value in
                 AxisGridLine()
                 AxisTick()
-                if let date = value.as(Date.self) {
+                if let seconds = value.as(Double.self) {
                     AxisValueLabel {
-                        Text(date, format: .dateTime.minute().second())
+                        Text(formatElapsed(seconds))
                     }
                 }
             }
@@ -297,6 +309,12 @@ private struct PowerOverlayChart: View {
         .padding()
         .background(Color.secondarySystemGroupedBackground)
         .cornerRadius(12)
+    }
+    
+    private func formatElapsed(_ seconds: TimeInterval) -> String {
+        let mins = Int(seconds) / 60
+        let secs = Int(seconds) % 60
+        return String(format: "%02d:%02d", mins, secs)
     }
 }
 
@@ -312,14 +330,14 @@ private struct DeltaChart: View {
             ForEach(points) { point in
                 if let delta = point.delta {
                     AreaMark(
-                        x: .value("Time", point.timestamp),
+                        x: .value("Time", point.elapsedSeconds),
                         y: .value("Delta", delta)
                     )
                     .foregroundStyle(delta >= 0 ? Color.green.opacity(0.3) : Color.red.opacity(0.3))
                     .interpolationMethod(.linear)
                     
                     LineMark(
-                        x: .value("Time", point.timestamp),
+                        x: .value("Time", point.elapsedSeconds),
                         y: .value("Delta", delta)
                     )
                     .foregroundStyle(delta >= 0 ? Color.green : Color.red)
@@ -328,12 +346,12 @@ private struct DeltaChart: View {
             }
         }
         .chartXAxis {
-            AxisMarks(values: .stride(by: .minute, count: 5)) { value in
+            AxisMarks(values: .stride(by: 300)) { value in
                 AxisGridLine()
                 AxisTick()
-                if let date = value.as(Date.self) {
+                if let seconds = value.as(Double.self) {
                     AxisValueLabel {
-                        Text(date, format: .dateTime.minute().second())
+                        Text(formatElapsed(seconds))
                     }
                 }
             }
@@ -345,6 +363,12 @@ private struct DeltaChart: View {
         .background(Color.secondarySystemGroupedBackground)
         .cornerRadius(12)
     }
+    
+    private func formatElapsed(_ seconds: TimeInterval) -> String {
+        let mins = Int(seconds) / 60
+        let secs = Int(seconds) % 60
+        return String(format: "%02d:%02d", mins, secs)
+    }
 }
 
 #Preview {
@@ -352,7 +376,6 @@ private struct DeltaChart: View {
     let recA = SessionRecorder(settings: settings)
     let recB = SessionRecorder(settings: settings)
     
-    // Generate 15 minutes of mock data with intervals and drift
     let now = Date()
     var pointsA: [Trackpoint] = []
     var pointsB: [Trackpoint] = []
@@ -361,17 +384,15 @@ private struct DeltaChart: View {
         let time = now.addingTimeInterval(TimeInterval(i))
         let progress = Double(i) / 900.0
         
-        // Base power pattern (warmup -> 3 intervals -> cooldown)
         var basePower: Double = 120.0
-        if i > 100 && i < 250 { basePower = 200.0 } // Z2
-        else if i > 350 && i < 500 { basePower = 350.0 } // Z4
-        else if i > 600 && i < 750 { basePower = 450.0 } // Z5
+        // Three distinct work intervals
+        if i > 100 && i < 250 { basePower = 200.0 }
+        else if i > 350 && i < 500 { basePower = 350.0 }
+        else if i > 600 && i < 750 { basePower = 450.0 }
         
-        // Sensor A: Vector3 (Stable + 1% high)
         let pA = basePower * 1.01 + Double.random(in: -2...2)
         pointsA.append(Trackpoint(time: time, power: Int(max(0, pA))))
         
-        // Sensor B: SB20 (Drifts -8w over 15 mins + 2% low at high power)
         let drift = progress * -8.0
         let scalingError = (basePower > 300) ? 0.96 : 0.98
         let pB = basePower * scalingError + drift + Double.random(in: -3...3)
