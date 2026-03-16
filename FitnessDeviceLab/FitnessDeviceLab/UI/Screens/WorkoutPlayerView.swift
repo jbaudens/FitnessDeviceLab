@@ -41,10 +41,12 @@ struct WorkoutPlayerContentView: View {
                     Spacer()
                 }
                 .navigationTitle("Session Summary")
+                .hideNavigationBarOnMobile()
             } else if viewModel.isActiveState {
                 activeView
             } else {
                 setupView
+                    .hideNavigationBarOnMobile()
             }
         }
     }

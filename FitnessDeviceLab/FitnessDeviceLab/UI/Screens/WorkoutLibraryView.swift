@@ -74,6 +74,7 @@ struct WorkoutLibraryView: View {
             }
             .navigationTitle("Workout Library")
             .searchable(text: $vm.searchText, prompt: "Search workouts...")
+            .hideNavigationBarOnMobile()
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {

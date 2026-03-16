@@ -13,24 +13,35 @@ struct DevicesListContent: View {
     @Bindable var viewModel: DevicesViewModel
     
     var body: some View {
-        VStack(spacing: 0) {
-            headerSection
+        List {
+            Section {
+                headerSection
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
             
-            ScrollView {
-                VStack(spacing: 12) {
-                    if viewModel.peripherals.isEmpty {
-                        emptyStateView
-                    } else {
-                        ForEach(viewModel.peripherals, id: \.id) { peripheral in
-                            PeripheralCardView(peripheral: peripheral, viewModel: viewModel)
-                        }
+            if viewModel.peripherals.isEmpty {
+                Section {
+                    emptyStateView
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .frame(maxWidth: .infinity, minHeight: 400)
+                }
+            } else {
+                Section {
+                    ForEach(viewModel.peripherals, id: \.id) { peripheral in
+                        PeripheralCardView(peripheral: peripheral, viewModel: viewModel)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                     }
                 }
-                .padding()
             }
         }
+        .adaptiveListStyle()
         .navigationTitle("Devices")
-        .background(Color.gray.opacity(0.05))
+        .background(Color.systemGroupedBackground)
+        .hideNavigationBarOnMobile()
     }
     
     private var headerSection: some View {
@@ -83,13 +94,14 @@ struct DevicesListContent: View {
             }
         }
         .padding()
-        .background(Color.white)
-        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 5)
+        .background(Color.systemBackground)
+        .cornerRadius(12)
+        .padding(.horizontal)
+        .padding(.top, 8)
     }
     
     private var emptyStateView: some View {
         VStack(spacing: 20) {
-            Spacer().frame(height: 100)
             Image(systemName: "antenna.radiowaves.left.and.right")
                 .font(.system(size: 50))
                 .foregroundColor(.secondary.opacity(0.5))
@@ -197,7 +209,7 @@ struct PeripheralCardView: View {
                 .background(Color.secondary.opacity(0.03))
             }
         }
-        .background(Color.white)
+        .background(Color.secondarySystemGroupedBackground)
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
@@ -205,6 +217,7 @@ struct PeripheralCardView: View {
         )
         .shadow(color: Color.black.opacity(0.03), radius: 2, x: 0, y: 2)
     }
+
     
     private func capabilityBadge(icon: String, color: Color) -> some View {
         Image(systemName: icon)

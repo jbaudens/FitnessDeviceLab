@@ -119,5 +119,6 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Profile & Environment")
+        .hideNavigationBarOnMobile()
     }
 }
