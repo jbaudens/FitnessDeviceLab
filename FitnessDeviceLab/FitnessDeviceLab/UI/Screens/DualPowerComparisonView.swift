@@ -7,30 +7,40 @@ struct DualPowerComparisonView: View {
     
     @State private var comparisonPoints: [ComparisonPoint] = []
     @State private var summary: ComparisonSummary?
+    @State private var selectedTab: Int = 0
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    if let summary {
-                        SummaryDashboard(summary: summary)
-                            .padding(.horizontal)
-                    }
-                    
-                    if !comparisonPoints.isEmpty {
-                        PowerOverlayChart(points: comparisonPoints)
-                            .frame(height: 300)
-                            .padding(.horizontal)
-                        
-                        DeltaChart(points: comparisonPoints)
-                            .frame(height: 200)
-                            .padding(.horizontal)
-                    } else {
-                        ContentUnavailableView("No Power Data", systemImage: "bolt.slash.fill", description: Text("Both recorders must have power data to generate a comparison."))
-                    }
+            VStack(spacing: 0) {
+                Picker("Analysis Mode", selection: $selectedTab) {
+                    Text("Overview").tag(0)
+                    Text("Intervals").tag(1)
+                    Text("Drift & Bias").tag(2)
                 }
-                .padding(.vertical)
+                .pickerStyle(.segmented)
+                .padding()
+                .background(Color.systemBackground)
+                
+                ScrollView {
+                    VStack(spacing: 24) {
+                        if let summary {
+                            switch selectedTab {
+                            case 0:
+                                overviewTab(summary: summary)
+                            case 1:
+                                intervalsTab(summary: summary)
+                            case 2:
+                                driftTab(summary: summary)
+                            default:
+                                EmptyView()
+                            }
+                        } else {
+                            ContentUnavailableView("Analyzing...", systemImage: "timer")
+                        }
+                    }
+                    .padding(.vertical)
+                }
             }
             .background(Color.systemGroupedBackground)
             .navigationTitle("Dual Power Lab")
@@ -54,6 +64,133 @@ struct DualPowerComparisonView: View {
         self.comparisonPoints = points
         self.summary = PowerComparisonEngine.summarize(points: points)
     }
+    
+    @ViewBuilder
+    private func overviewTab(summary: ComparisonSummary) -> some View {
+        VStack(spacing: 24) {
+            SummaryDashboard(summary: summary)
+                .padding(.horizontal)
+            
+            PowerOverlayChart(points: comparisonPoints)
+                .frame(height: 300)
+                .padding(.horizontal)
+            
+            DeltaChart(points: comparisonPoints)
+                .frame(height: 200)
+                .padding(.horizontal)
+        }
+    }
+    
+    @ViewBuilder
+    private func intervalsTab(summary: ComparisonSummary) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("DETECTED WORK INTERVALS")
+                .font(.system(size: 10, weight: .black))
+                .foregroundColor(.secondary)
+                .padding(.horizontal)
+            
+            if summary.detectedIntervals.isEmpty {
+                ContentUnavailableView("No Intervals Detected", systemImage: "waveform.path.ecg", description: Text("No sustained power efforts (>100w) were identified."))
+            } else {
+                ForEach(summary.detectedIntervals) { interval in
+                    IntervalRow(interval: interval)
+                        .padding(.horizontal)
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func driftTab(summary: ComparisonSummary) -> some View {
+        VStack(alignment: .leading, spacing: 24) {
+            // Drift Card
+            VStack(alignment: .leading, spacing: 12) {
+                Text("THERMAL / TEMPORAL DRIFT")
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(.secondary)
+                
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text(summary.estimatedDrift != nil ? String(format: "%+.1f w/hr", summary.estimatedDrift!) : "N/A")
+                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .foregroundColor(abs(summary.estimatedDrift ?? 0) < 5 ? .green : .orange)
+                        Text("Estimated drift rate")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "thermometer.medium")
+                        .font(.largeTitle)
+                        .foregroundColor(.secondary.opacity(0.5))
+                }
+                .padding()
+                .background(Color.secondarySystemGroupedBackground)
+                .cornerRadius(12)
+            }
+            .padding(.horizontal)
+            
+            // Bias per Intensity Chart
+            VStack(alignment: .leading, spacing: 12) {
+                Text("ACCURACY BY INTENSITY")
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(.secondary)
+                
+                Chart {
+                    ForEach(summary.detectedIntervals) { interval in
+                        BarMark(
+                            x: .value("Intensity", "\(interval.intensity)w"),
+                            y: .value("Delta %", interval.percentDelta)
+                        )
+                        .foregroundStyle(interval.percentDelta >= 0 ? Color.green : Color.red)
+                    }
+                }
+                .frame(height: 200)
+                .padding()
+                .background(Color.secondarySystemGroupedBackground)
+                .cornerRadius(12)
+                
+                Text("Shows the percentage difference (A vs B) for each detected work set.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal)
+        }
+    }
+}
+
+private struct IntervalRow: View {
+    let interval: DetectedInterval
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("\(Int(interval.duration))s Interval")
+                    .font(.headline)
+                Text("Target: \(interval.intensity)w")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            VStack(alignment: .trailing, spacing: 4) {
+                HStack(spacing: 4) {
+                    Text(String(format: "%+.1f w", interval.delta))
+                        .fontWeight(.bold)
+                    Text("(\(String(format: "%+.1f%%", interval.percentDelta)))")
+                }
+                .foregroundColor(abs(interval.percentDelta) < 2 ? .green : (abs(interval.percentDelta) < 5 ? .orange : .red))
+                .font(.system(.subheadline, design: .monospaced))
+                
+                Text("A:\(Int(interval.avgPowerA))w | B:\(Int(interval.avgPowerB))w")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding()
+        .background(Color.secondarySystemGroupedBackground)
+        .cornerRadius(12)
+    }
 }
 
 private struct SummaryDashboard: View {
@@ -70,13 +207,6 @@ private struct SummaryDashboard: View {
                 MetricCard(title: "AVG DELTA", value: String(format: "%.1f", summary.avgDelta), unit: "w", color: .orange)
                 MetricCard(title: "DIVERGENCE", value: "\(summary.divergencePoints)", unit: "pts", color: .red)
             }
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Divergence points are samples where the delta is greater than 5% between sensors.")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
@@ -127,6 +257,7 @@ private struct PowerOverlayChart: View {
                             series: .value("Series", "A")
                         )
                         .foregroundStyle(.blue)
+                        .interpolationMethod(.catmullRom)
                     }
                     
                     if let pB = point.powerB {
@@ -136,7 +267,15 @@ private struct PowerOverlayChart: View {
                             series: .value("Series", "B")
                         )
                         .foregroundStyle(.purple)
+                        .interpolationMethod(.catmullRom)
                     }
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .minute)) { value in
+                    AxisGridLine()
+                    AxisTick()
+                    AxisValueLabel(format: .dateTime.minute().second())
                 }
             }
             .chartYAxis {
@@ -170,13 +309,22 @@ private struct DeltaChart: View {
                             y: .value("Delta", delta)
                         )
                         .foregroundStyle(delta >= 0 ? Color.green.opacity(0.3) : Color.red.opacity(0.3))
+                        .interpolationMethod(.linear)
                         
                         LineMark(
                             x: .value("Time", point.timestamp),
                             y: .value("Delta", delta)
                         )
                         .foregroundStyle(delta >= 0 ? Color.green : Color.red)
+                        .interpolationMethod(.linear)
                     }
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .minute)) { value in
+                    AxisGridLine()
+                    AxisTick()
+                    AxisValueLabel(format: .dateTime.minute().second())
                 }
             }
             .chartYAxis {

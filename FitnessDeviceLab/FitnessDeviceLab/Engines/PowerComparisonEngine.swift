@@ -17,6 +17,19 @@ public struct ComparisonPoint: Identifiable {
     }
 }
 
+public struct DetectedInterval: Identifiable {
+    public let id = UUID()
+    public let start: Date
+    public let end: Date
+    public let duration: TimeInterval
+    public let avgPowerA: Double
+    public let avgPowerB: Double
+    
+    public var delta: Double { avgPowerA - avgPowerB }
+    public var percentDelta: Double { (delta / avgPowerB) * 100.0 }
+    public var intensity: Int { Int(avgPowerB) }
+}
+
 public struct ComparisonSummary {
     public let avgPowerA: Double
     public let avgPowerB: Double
@@ -25,7 +38,9 @@ public struct ComparisonSummary {
     public let avgDelta: Double
     public let maxDelta: Int
     public let totalPoints: Int
-    public let divergencePoints: Int // Points where delta > 5%
+    public let divergencePoints: Int 
+    public let detectedIntervals: [DetectedInterval]
+    public let estimatedDrift: Double? // Watts per hour drift
 }
 
 public class PowerComparisonEngine {
@@ -58,7 +73,18 @@ public class PowerComparisonEngine {
     public static func summarize(points: [ComparisonPoint]) -> ComparisonSummary {
         let validPoints = points.filter { $0.powerA != nil && $0.powerB != nil }
         guard !validPoints.isEmpty else {
-            return ComparisonSummary(avgPowerA: 0, avgPowerB: 0, maxPowerA: 0, maxPowerB: 0, avgDelta: 0, maxDelta: 0, totalPoints: 0, divergencePoints: 0)
+            return ComparisonSummary(
+                avgPowerA: 0, 
+                avgPowerB: 0, 
+                maxPowerA: 0, 
+                maxPowerB: 0, 
+                avgDelta: 0, 
+                maxDelta: 0, 
+                totalPoints: 0, 
+                divergencePoints: 0, 
+                detectedIntervals: [], 
+                estimatedDrift: nil
+            )
         }
         
         let avgA = validPoints.compactMap { Double($0.powerA!) }.reduce(0, +) / Double(validPoints.count)
@@ -72,6 +98,9 @@ public class PowerComparisonEngine {
         
         let divergenceCount = validPoints.filter { abs($0.percentDelta ?? 0) > 5.0 }.count
         
+        let intervals = detectIntervals(in: points)
+        let drift = calculateDrift(intervals: intervals)
+        
         return ComparisonSummary(
             avgPowerA: avgA,
             avgPowerB: avgB,
@@ -80,18 +109,73 @@ public class PowerComparisonEngine {
             avgDelta: avgDelta,
             maxDelta: maxDelta,
             totalPoints: validPoints.count,
-            divergencePoints: divergenceCount
+            divergencePoints: divergenceCount,
+            detectedIntervals: intervals,
+            estimatedDrift: drift
         )
     }
     
+    public static func detectIntervals(in points: [ComparisonPoint]) -> [DetectedInterval] {
+        let windowSize = 5 
+        let minDuration: TimeInterval = 15.0
+        let powerThreshold = 100.0
+        
+        var intervals: [DetectedInterval] = []
+        var currentStart: Date?
+        
+        for i in 0..<(points.count - windowSize) {
+            let slice = points[i..<i+windowSize]
+            let avgPower = slice.compactMap { Double($0.powerB ?? 0) }.reduce(0, +) / Double(windowSize)
+            
+            if avgPower > powerThreshold {
+                if currentStart == nil {
+                    currentStart = points[i].timestamp
+                }
+            } else {
+                if let start = currentStart {
+                    let end = points[i].timestamp
+                    let duration = end.timeIntervalSince(start)
+                    
+                    if duration >= minDuration {
+                        let intervalPoints = points.filter { $0.timestamp >= start && $0.timestamp <= end }
+                        let avgA = intervalPoints.compactMap { Double($0.powerA ?? 0) }.reduce(0, +) / Double(intervalPoints.count)
+                        let avgB = intervalPoints.compactMap { Double($0.powerB ?? 0) }.reduce(0, +) / Double(intervalPoints.count)
+                        
+                        intervals.append(DetectedInterval(start: start, end: end, duration: duration, avgPowerA: avgA, avgPowerB: avgB))
+                    }
+                    currentStart = nil
+                }
+            }
+        }
+        
+        return intervals
+    }
+    
+    private static func calculateDrift(intervals: [DetectedInterval]) -> Double? {
+        guard intervals.count >= 2 else { return nil }
+        
+        var results: [Double] = []
+        for i in 0..<intervals.count {
+            for j in (i+1)..<intervals.count {
+                let pDiff = abs(intervals[i].avgPowerB - intervals[j].avgPowerB)
+                if pDiff < 20 { // Same intensity
+                    let hourDiff = intervals[j].start.timeIntervalSince(intervals[i].start) / 3600.0
+                    if hourDiff > 0.2 { // At least 12 mins apart
+                        let deltaChange = intervals[j].delta - intervals[i].delta
+                        results.append(deltaChange / hourDiff)
+                    }
+                }
+            }
+        }
+        
+        return results.isEmpty ? nil : results.reduce(0, +) / Double(results.count)
+    }
+    
     private static func findClosestPower(at time: Date, in points: [Trackpoint]) -> Int? {
-        // Simple strategy: find exact second or last known within 2 seconds
-        // In a more advanced version, we would interpolate
         let threshold: TimeInterval = 2.0
         let closest = points.first { abs($0.time.timeIntervalSince(time)) < 0.5 }
         if let p = closest?.power { return p }
         
-        // Fallback to last known if within threshold
         let lastKnown = points.last { $0.time <= time && time.timeIntervalSince($0.time) < threshold }
         return lastKnown?.power
     }
