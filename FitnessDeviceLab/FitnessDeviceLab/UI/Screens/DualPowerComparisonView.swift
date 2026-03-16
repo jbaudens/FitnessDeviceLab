@@ -16,7 +16,6 @@ struct DualPowerComparisonView: View {
                 Picker("Analysis Mode", selection: $selectedTab) {
                     Text("Overview").tag(0)
                     Text("Intervals").tag(1)
-                    Text("Drift & Bias").tag(2)
                 }
                 .pickerStyle(.segmented)
                 .padding()
@@ -30,8 +29,6 @@ struct DualPowerComparisonView: View {
                                 overviewTab(summary: summary)
                             case 1:
                                 intervalsTab(summary: summary)
-                            case 2:
-                                driftTab(summary: summary)
                             default:
                                 EmptyView()
                             }
@@ -104,7 +101,7 @@ struct DualPowerComparisonView: View {
                 .padding(.horizontal)
             
             if summary.detectedIntervals.isEmpty {
-                ContentUnavailableView("No Intervals Detected", systemImage: "waveform.path.ecg", description: Text("No sustained power efforts (>100w) were identified."))
+                ContentUnavailableView("No Intervals Detected", systemImage: "waveform.path.ecg", description: Text("No sustained power efforts were identified."))
             } else {
                 ForEach(summary.detectedIntervals) { interval in
                     IntervalRow(interval: interval)
@@ -112,69 +109,6 @@ struct DualPowerComparisonView: View {
                 }
             }
         }
-    }
-    
-    @ViewBuilder
-    private func driftTab(summary: ComparisonSummary) -> some View {
-        VStack(alignment: .leading, spacing: 24) {
-            // Drift Card
-            VStack(alignment: .leading, spacing: 12) {
-                Text("THERMAL / TEMPORAL DRIFT")
-                    .font(.system(size: 10, weight: .black))
-                    .foregroundColor(.secondary)
-                
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text(summary.estimatedDrift != nil ? String(format: "%+.1f w/hr", summary.estimatedDrift!) : "N/A")
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
-                            .foregroundColor(abs(summary.estimatedDrift ?? 0) < 5 ? .green : .orange)
-                        Text("Estimated drift rate")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer()
-                    Image(systemName: "thermometer.medium")
-                        .font(.largeTitle)
-                        .foregroundColor(.secondary.opacity(0.5))
-                }
-                .padding()
-                .background(Color.secondarySystemGroupedBackground)
-                .cornerRadius(12)
-            }
-            .padding(.horizontal)
-            
-            // Bias per Intensity Chart
-            VStack(alignment: .leading, spacing: 12) {
-                Text("ACCURACY BY INTENSITY")
-                    .font(.system(size: 10, weight: .black))
-                    .foregroundColor(.secondary)
-                
-                Chart {
-                    ForEach(summary.detectedIntervals) { interval in
-                        BarMark(
-                            x: .value("Intensity", "\(interval.intensity)w"),
-                            y: .value("Delta %", interval.percentDelta)
-                        )
-                        .foregroundStyle(interval.percentDelta >= 0 ? Color.green : Color.red)
-                    }
-                }
-                .frame(height: 200)
-                .padding()
-                .background(Color.secondarySystemGroupedBackground)
-                .cornerRadius(12)
-                
-                Text("Shows the percentage difference (A vs B) for each detected work set.")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            .padding(.horizontal)
-        }
-    }
-    
-    private func formatElapsed(_ seconds: TimeInterval) -> String {
-        let mins = Int(seconds) / 60
-        let secs = Int(seconds) % 60
-        return String(format: "%02d:%02d", mins, secs)
     }
 }
 
@@ -385,13 +319,12 @@ private struct DeltaChart: View {
         let progress = Double(i) / 900.0
         
         var basePower: Double = 120.0
-        // Recovery segments in between
         if i > 100 && i < 250 { basePower = 200.0 }
-        else if i > 250 && i < 350 { basePower = 100.0 } // Recovery
+        else if i > 250 && i < 350 { basePower = 100.0 } 
         else if i > 350 && i < 500 { basePower = 350.0 }
-        else if i > 500 && i < 600 { basePower = 100.0 } // Recovery
+        else if i > 500 && i < 600 { basePower = 100.0 } 
         else if i > 600 && i < 750 { basePower = 450.0 }
-        else if i > 750 { basePower = 100.0 } // Recovery
+        else if i > 750 { basePower = 100.0 } 
         
         let pA = basePower * 1.01 + Double.random(in: -2...2)
         pointsA.append(Trackpoint(time: time, power: Int(max(0, pA))))

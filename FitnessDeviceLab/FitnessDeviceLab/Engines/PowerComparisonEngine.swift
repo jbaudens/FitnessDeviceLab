@@ -41,7 +41,6 @@ public struct ComparisonSummary {
     public let totalPoints: Int
     public let divergencePoints: Int 
     public let detectedIntervals: [DetectedInterval]
-    public let estimatedDrift: Double? 
 }
 
 public class PowerComparisonEngine {
@@ -75,7 +74,7 @@ public class PowerComparisonEngine {
             return ComparisonSummary(
                 avgPowerA: 0, avgPowerB: 0, maxPowerA: 0, maxPowerB: 0, 
                 avgDelta: 0, maxDelta: 0, totalPoints: 0, divergencePoints: 0, 
-                detectedIntervals: [], estimatedDrift: nil
+                detectedIntervals: []
             )
         }
         
@@ -91,7 +90,6 @@ public class PowerComparisonEngine {
         let divergenceCount = validPoints.filter { abs($0.percentDelta ?? 0) > 5.0 }.count
         
         let intervals = detectIntervals(in: points)
-        let drift = calculateDrift(intervals: intervals)
         
         return ComparisonSummary(
             avgPowerA: avgA,
@@ -102,12 +100,10 @@ public class PowerComparisonEngine {
             maxDelta: maxDelta,
             totalPoints: validPoints.count,
             divergencePoints: divergenceCount,
-            detectedIntervals: intervals,
-            estimatedDrift: drift
+            detectedIntervals: intervals
         )
     }
     
-    /// Detects sustained power intervals using a delta-based threshold (catching changes in intensity).
     public static func detectIntervals(in points: [ComparisonPoint]) -> [DetectedInterval] {
         let windowSize = 5
         let minDuration: TimeInterval = 15.0
@@ -139,18 +135,15 @@ public class PowerComparisonEngine {
             let avgPower = slice.compactMap { Double($0.powerB ?? 0) }.reduce(0, +) / Double(windowSize)
             
             if let base = currentBasePower {
-                // If power changes by more than 15% or 30w, it's a new interval
                 let powerDiff = abs(avgPower - base)
                 let percentDiff = powerDiff / base
                 
                 if powerDiff > 30 || percentDiff > 0.15 {
-                    // Finalize current and start new
                     finalizeInterval(end: points[i])
                     currentStart = points[i]
                     currentBasePower = avgPower
                 }
             } else {
-                // Initial start
                 currentStart = points[i]
                 currentBasePower = avgPower
             }
@@ -161,28 +154,6 @@ public class PowerComparisonEngine {
         }
         
         return intervals
-    }
-    
-    private static func calculateDrift(intervals: [DetectedInterval]) -> Double? {
-        guard intervals.count >= 2 else { return nil }
-        
-        var results: [Double] = []
-        for i in 0..<intervals.count {
-            for j in (i+1)..<intervals.count {
-                let pDiff = abs(intervals[i].avgPowerB - intervals[j].avgPowerB)
-                // If intensities are within 10% or 15w, consider them "comparable" for drift
-                let pBase = max(intervals[i].avgPowerB, 1.0)
-                if pDiff < 15 || (pDiff / pBase) < 0.1 { 
-                    let hourDiff = (intervals[j].startSeconds - intervals[i].startSeconds) / 3600.0
-                    if hourDiff > 0.1 { 
-                        let deltaChange = intervals[j].delta - intervals[i].delta
-                        results.append(deltaChange / hourDiff)
-                    }
-                }
-            }
-        }
-        
-        return results.isEmpty ? nil : results.reduce(0, +) / Double(results.count)
     }
     
     private static func findClosestPower(at time: Date, in points: [Trackpoint]) -> Int? {
