@@ -31,25 +31,41 @@ struct DevicesListContent: View {
     @Bindable var viewModel: DevicesViewModel
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                if viewModel.peripherals.isEmpty {
+        List {
+            Section {
+                headerSection
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
+            
+            if viewModel.peripherals.isEmpty {
+                Section {
                     emptyStateView
-                } else {
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .frame(maxWidth: .infinity, minHeight: 400)
+                }
+            } else {
+                Section {
                     ForEach(viewModel.peripherals, id: \.id) { peripheral in
                         PeripheralCardView(peripheral: peripheral, viewModel: viewModel)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                     }
                 }
             }
-            .padding()
         }
+        #if os(iOS)
+        .listStyle(.grouped)
+        #else
+        .listStyle(.inset)
+        #endif
         .navigationTitle("Devices")
         .background(Color.systemGroupedBackground)
-        .safeAreaInset(edge: .top) {
-            headerSection
-                .background(Color.systemBackground)
-                .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 5)
-        }
+        #if os(iOS)
+        .toolbar(.hidden, for: .navigationBar)
+        #endif
     }
     
     private var headerSection: some View {
@@ -102,11 +118,14 @@ struct DevicesListContent: View {
             }
         }
         .padding()
+        .background(Color.systemBackground)
+        .cornerRadius(12)
+        .padding(.horizontal)
+        .padding(.top, 8)
     }
     
     private var emptyStateView: some View {
         VStack(spacing: 20) {
-            Spacer().frame(height: 100)
             Image(systemName: "antenna.radiowaves.left.and.right")
                 .font(.system(size: 50))
                 .foregroundColor(.secondary.opacity(0.5))

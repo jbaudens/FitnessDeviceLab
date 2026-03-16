@@ -119,5 +119,8 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Profile & Environment")
+        #if os(iOS)
+        .toolbar(.hidden, for: .navigationBar)
+        #endif
     }
 }

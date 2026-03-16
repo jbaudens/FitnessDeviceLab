@@ -41,10 +41,16 @@ struct WorkoutPlayerContentView: View {
                     Spacer()
                 }
                 .navigationTitle("Session Summary")
+                #if os(iOS)
+                .toolbar(.hidden, for: .navigationBar)
+                #endif
             } else if viewModel.isActiveState {
                 activeView
             } else {
                 setupView
+                    #if os(iOS)
+                    .toolbar(.hidden, for: .navigationBar)
+                    #endif
             }
         }
     }
