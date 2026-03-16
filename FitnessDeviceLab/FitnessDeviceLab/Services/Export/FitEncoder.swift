@@ -98,6 +98,16 @@ class FitEncoder {
             if let cad = pt.cadence { try? record.setCadence(UInt8(cad)) }
             if let alt = pt.altitude { try? record.setAltitude(Float64(alt)) }
             
+            // Power Balance (L/R)
+            if let balance = pt.powerBalance {
+                // FIT expects balance as a UInt8: 
+                // Bits 0-6: % balance (e.g., 50)
+                // Bit 7: 0 for Right, 1 for Left. 
+                // However, common usage for single-value % is just the % if it represents 'Left'.
+                // Most platforms interpret 0-100 as % Left.
+                try? record.setLeftRightBalance(UInt8(round(balance)))
+            }
+            
             // Speed and Distance Estimation
             let power = Double(pt.power ?? 0)
             let speed = PhysicsUtilities.estimateSpeed(power: power, totalWeight: totalWeight)

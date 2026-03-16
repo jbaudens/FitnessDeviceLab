@@ -16,7 +16,8 @@ struct ExportTests {
                 hr: 140 + (i % 5),
                 power: 200 + (i % 10),
                 cadence: 90,
-                altitude: 100.0 + Double(i) * 0.1
+                altitude: 100.0 + Double(i) * 0.1,
+                powerBalance: 50.0 + (i % 2 == 0 ? 1.0 : -1.0)
             )
             trackpoints.append(pt)
         }
