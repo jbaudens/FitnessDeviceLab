@@ -1,24 +1,6 @@
 import SwiftUI
 import CoreBluetooth
 
-#if canImport(UIKit)
-import UIKit
-extension Color {
-    static let systemBackground = Color(uiColor: .systemBackground)
-    static let secondarySystemBackground = Color(uiColor: .secondarySystemBackground)
-    static let systemGroupedBackground = Color(uiColor: .systemGroupedBackground)
-    static let secondarySystemGroupedBackground = Color(uiColor: .secondarySystemGroupedBackground)
-}
-#elseif canImport(AppKit)
-import AppKit
-extension Color {
-    static let systemBackground = Color(nsColor: .windowBackgroundColor)
-    static let secondarySystemBackground = Color(nsColor: .controlBackgroundColor)
-    static let systemGroupedBackground = Color(nsColor: .windowBackgroundColor)
-    static let secondarySystemGroupedBackground = Color(nsColor: .controlBackgroundColor)
-}
-#endif
-
 struct DevicesTabView: View {
     @Bindable var viewModel: DevicesViewModel
     
@@ -56,16 +38,10 @@ struct DevicesListContent: View {
                 }
             }
         }
-        #if os(iOS)
-        .listStyle(.grouped)
-        #else
-        .listStyle(.inset)
-        #endif
+        .adaptiveListStyle()
         .navigationTitle("Devices")
         .background(Color.systemGroupedBackground)
-        #if os(iOS)
-        .toolbar(.hidden, for: .navigationBar)
-        #endif
+        .hideNavigationBarOnMobile()
     }
     
     private var headerSection: some View {
