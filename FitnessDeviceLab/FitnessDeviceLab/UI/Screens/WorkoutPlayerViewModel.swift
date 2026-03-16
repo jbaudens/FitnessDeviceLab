@@ -14,6 +14,7 @@ public class WorkoutPlayerViewModel {
     
     public var showingStopConfirmation = false
     public var showingDiscardConfirmation = false
+    public var showingComparison = false
     
     public init(workoutManager: WorkoutSessionManager, bluetoothManager: BluetoothManager, settings: SettingsProvider) {
         self.workoutManager = workoutManager
@@ -64,11 +65,11 @@ public class WorkoutPlayerViewModel {
     }
     
     public var isSummaryState: Bool {
-        !workoutManager.exportedFiles.isEmpty
+        !workoutManager.exportedFiles.isEmpty && !workoutManager.isRecording
     }
     
     public var isActiveState: Bool {
-        workoutManager.isLoaded || workoutManager.isRecording
+        (workoutManager.isLoaded || workoutManager.isRecording) && !isSummaryState
     }
     
     // MARK: - Actions
