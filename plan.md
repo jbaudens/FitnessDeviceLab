@@ -34,43 +34,47 @@ The transition to the **Swift 6 Observation framework (@Observable)** is complet
 ## 2. Refined Refactor Plan: Small, Reviewable Steps
 
 ### Phase 3A: Singleton Elimination (DI Injection)
-*   [x] **Step 3.1: Inject `SettingsManager`**: Refactor all classes to accept `SettingsManager` in their `init`. Remove global `.shared` usage in `DataFieldEngine` and `WorkoutSessionManager`.
-*   [x] **Step 3.2: Inject `LocationManager`**: Refactor `WorkoutSessionManager` to receive altitude updates via a delegate or stream instead of polling `LocationManager.shared`.
-*   [x] **Step 3.3: ViewModel DI**: Update `WorkoutPlayerViewModel` and `DevicesViewModel` to receive their managers via initializers in the App entry point, removing the reliance on `@Environment` for core business logic.
+*   [x] **Step 3.1: Inject `SettingsManager`**: Refactor all classes to accept `SettingsManager` in their `init`.
+*   [x] **Step 3.2: Inject `LocationManager`**: Refactor `WorkoutSessionManager` to receive altitude updates via a delegate or stream.
+*   [x] **Step 3.3: ViewModel DI**: Update ViewModels to receive managers via initializers.
 
 ### Phase 3B: Decoupling `WorkoutSessionManager`
-*   [x] **Step 3.4: Extract `TargetPowerCalculator`**: Move the complex ERG and HR-control logic (found in `tick()`) into a pure, stateless struct. 
-*   [x] **Step 3.5: [TEST] `TargetPowerCalculator`**: Add unit tests for all workout step types (Power, %FTP, %HR) and difficulty scaling.
-*   [x] **Step 3.6: Extract `WorkoutTimer`**: Move the `Timer.publish` logic into a dedicated class to allow for easier testing of "time-skipped" workouts in the future.
-*   [x] **Step 3.7: Extract `TrainerController`**: Move the logic that commands the `controlSource` (trainer) into a dedicated component.
-*   [x] **Step 3.7.1: [TEST] `WorkoutSessionManager`**: Add unit tests for workout orchestration, step transitions, and timer-based state changes using the decoupled `WorkoutTimer`.
+*   [x] **Step 3.4: Extract `TargetPowerCalculator`**: Move ERG and HR-control logic into a stateless struct. 
+*   [x] **Step 3.5: [TEST] `TargetPowerCalculator`**: Add unit tests for all workout step types.
+*   [x] **Step 3.6: Extract `WorkoutTimer`**: Move timer logic into a dedicated class.
+*   [x] **Step 3.7: Extract `TrainerController`**: Move trainer command logic into a dedicated component.
+*   [x] **Step 3.7.1: [TEST] `WorkoutSessionManager`**: Add unit tests for orchestration and transitions.
 
-### Phase 3C: Core Logic Refinement (High Priority)
-*   [ ] **Step 3.8: Refactor `StructuredWorkout` Logic**: Move `intensityFactor` and NP calculation logic out of the `StructuredWorkout` struct and into a dedicated `WorkoutPhysicsEngine` or similar service to keep models lean.
-*   [ ] **Step 3.9: Harmonize `DataFieldEngine` & `StructuredWorkout` NP logic**: Ensure the rolling average and 4th-power math is shared between the live engine and the static workout analyzer.
+### Phase 3C: Core Logic Refinement (Centralized Math)
+*   [x] **Step 3.8: Refactor `StructuredWorkout` Logic**: Move `intensityFactor` and NP logic out of the model and into `WorkoutPhysicsEngine`.
+*   [x] **Step 3.9: Harmonize NP logic with `PowerMath`**: Create a shared `PowerMath` utility used by both live and static analyzers.
 
 ### Phase 3D: [COMPLETED] Environment Removal
-*   [x] **Step 3.10: Settings & Library ViewModels**: Create dedicated ViewModels for `SettingsView` and `WorkoutLibraryView` to remove their reliance on `@Environment`.
-*   [x] **Step 3.11: Component Dependency Injection**: Refactor sub-components (like `WorkoutGraphView`, `WorkoutTargetHeader`, `LapsHistoryView`, `DataFieldTile`, `LapSummaryColumn`) to take dependencies via initializers instead of `@Environment`.
-*   [x] **Step 3.12: App Entry Point Cleanup**: Remove all `.environment(...)` calls from `FitnessDeviceLabApp` to ensure a strictly explicit dependency graph.
+*   [x] **Step 3.10: Settings & Library ViewModels**: Create dedicated ViewModels to remove `@Environment`.
+*   [x] **Step 3.11: Component Dependency Injection**: Refactor all sub-components to take explicit dependencies.
+*   [x] **Step 3.12: App Entry Point Cleanup**: Remove all `.environment(...)` calls from `FitnessDeviceLabApp`.
 
-### Phase 3E: DataFieldEngine Audit & Improvement
-*   [ ] **Step 3.13: Metric Correctness Audit**: Verify the math in `DataFieldEngine` for NP, TSS, and IF. Ensure it handles gaps in data, pauses, and extreme altitude values correctly.
-*   [ ] **Step 3.14: Concurrency & Performance Audit**: Review the `calculationTask` in `DataFieldEngine`. Ensure it doesn't leak memory or trigger unnecessary MainActor hops.
-*   [ ] **Step 3.15: HRV Logic Validation**: Review `HRVEngine` and its integration to ensure metrics like DFA Alpha-1 are being calculated on valid, filtered RR-interval windows.
+### Phase 3E: DataFieldEngine Redesign (Garmin Model)
+*   [ ] **Step 3.13: Explicit Lap Fields**: Redefine `DataFieldType` to include explicit Lap-specific variants (e.g., `lapAvgPower`, `lapDistance`) instead of a global mode toggle.
+*   [ ] **Step 3.14: Dual-Stream Calculation**: Refactor `DataFieldEngine` to calculate and expose both `sessionMetrics` and `lapMetrics` simultaneously.
+*   [ ] **Step 3.15: Metric Correctness Audit**: Verify NP, TSS, and IF math against standard test cases (handling gaps and pauses).
 
-### Phase 3F: Workout Library Research & Design
-*   [ ] **Step 3.16: Format Research**: Evaluate existing formats (Zwift `.zwo`, TrainerRoad, `.erg`, `.mrc`) vs. a custom JSON schema.
-*   [ ] **Step 3.17: Storage Strategy Design**: Compare SwiftData vs. File-based storage (JSON/XML) for the library. Decide on a path that supports user customization and easy sharing.
+### Phase 3F: UI & UX Refinement
+*   [ ] **Step 3.16: Remove Mode Toggle**: Delete the "Session/Lap" toggle logic from the UI and Manager.
+*   [ ] **Step 3.17: Update Default Profiles**: Revise `ActivityProfile` to use a mix of session and lap fields across data pages.
 
-### Phase 3G: Export Strategy
-*   [ ] **Step 3.18: FIT Stability Confirmation**: Extensively test `FitEncoder` outputs in Garmin Connect/Strava.
-*   [ ] **Step 3.19: TCX Deprecation**: Mark `TCXExporter` as deprecated and move it to a legacy support state (no new features).
+### Phase 3G: Workout Library Research & Design (DESIGN PHASE)
+*   [ ] **Step 3.18: Format Research**: Evaluate Zwift `.zwo` (XML) vs. TrainerRoad vs. Custom JSON.
+*   [ ] **Step 3.19: Storage Strategy**: Compare SwiftData vs. File-based (JSON) storage for user workouts and favorites.
+
+### Phase 3H: Export Strategy
+*   [ ] **Step 3.20: FIT Stability Confirmation**: Extensively test `FitEncoder` outputs in Garmin Connect/Strava.
+*   [ ] **Step 3.21: TCX Deprecation**: Mark `TCXExporter` as legacy and eventually remove it.
 
 ### Phase 4: Verification & Integration
-*   [ ] **Step 4.1: Unit Test `DataFieldEngine`**: Ensure all calculated metrics (NP, TSS, IF) are correct against a known set of power samples. Add tests for altitude-adjusted FTP.
-*   [ ] **Step 4.2: Unit Test `WorkoutPlayerViewModel`**: Use the simulation layer to verify that UI actions (Pause, Lap, Stop) trigger the correct manager states.
-*   [ ] **Step 4.3: End-to-End XCUITest**: Create a "Full Workout" UI test that runs a 1-minute simulated workout and verifies the export files are generated.
+*   [ ] **Step 4.1: Unit Test `DataFieldEngine`**: Correctness check for all live metrics.
+*   [ ] **Step 4.2: Unit Test `WorkoutPlayerViewModel`**: Verify UI actions trigger correct state changes.
+*   [ ] **Step 4.3: End-to-End XCUITest**: Run a full simulated 1-minute workout and verify exports.
 
 ---
 
@@ -80,8 +84,8 @@ The transition to the **Swift 6 Observation framework (@Observable)** is complet
 | :--- | :--- | :--- |
 | `SensorDataParser` | Unit | ✅ Passed |
 | `PhysicsUtilities` | Unit | ✅ Passed |
-| `TargetPowerCalculator` | Unit | ✅ Passed (Step 3.5) |
-| `WorkoutSessionManager` | Unit | ✅ Passed (Step 3.7.1) |
+| `TargetPowerCalculator` | Unit | ✅ Passed |
+| `WorkoutSessionManager` | Unit | ✅ Passed |
 | `DataFieldEngine` | Unit | ❌ Missing |
 | `WorkoutPlayerViewModel` | Unit | ❌ Missing |
 | UI Workflows | UI (XCUITest) | ❌ Missing |

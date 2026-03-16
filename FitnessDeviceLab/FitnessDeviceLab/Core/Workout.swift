@@ -136,65 +136,18 @@ public struct StructuredWorkout: Identifiable, Codable, Hashable {
     }
     
     public var averageIntensity: Double {
-        guard !steps.isEmpty else { return 0 }
-        let powerSteps = steps.filter { $0.targetPowerPercent != nil }
-        guard !powerSteps.isEmpty else { return 0 }
-        
-        let totalWork = powerSteps.reduce(0.0) { $0 + ((($1.targetPowerPercent! + $1.endTargetPowerPercent!) / 2.0) * $1.duration) }
-        let powerDuration = powerSteps.reduce(0.0) { $0 + $1.duration }
-        return totalWork / powerDuration
+        WorkoutPhysicsEngine.calculateAverageIntensity(for: steps)
     }
     
     public var intensityFactor: Double {
-        guard !steps.isEmpty else { return 0 }
-        
-        // Generate second-by-second intensity profile (using power steps only for now)
-        var samples = [Double]()
-        for step in steps {
-            let count = Int(step.duration)
-            if let start = step.targetPowerPercent {
-                for i in 0..<count {
-                    samples.append(step.powerAt(time: Double(i)) ?? start)
-                }
-            } else if let hr = step.targetHeartRatePercent {
-                // Approximate intensity for HR steps to keep NP/IF useful
-                // This is a rough estimate
-                for _ in 0..<count {
-                    samples.append(hr) // Use HR % as a proxy for Power % for NP purposes
-                }
-            }
-        }
-        
-        guard !samples.isEmpty else { return 0 }
-        
-        var rollingAverages = [Double]()
-        var currentSum = 0.0
-        for i in 0..<samples.count {
-            currentSum += samples[i]
-            if i >= 30 {
-                currentSum -= samples[i - 30]
-            }
-            let count = Double(min(i + 1, 30))
-            rollingAverages.append(currentSum / count)
-        }
-        
-        // NP calculation: 4th root of average of 4th powers
-        let sum4 = rollingAverages.reduce(0.0) { $0 + pow($1, 4) }
-        return pow(sum4 / Double(rollingAverages.count), 0.25)
+        WorkoutPhysicsEngine.calculateIntensityFactor(for: steps)
+    }
+    
+    public var tss: Double {
+        WorkoutPhysicsEngine.calculateTSS(for: steps)
     }
     
     public var primaryZone: WorkoutZone {
-        // Find the zone with the most duration in 'work' steps
-        let workSteps = steps.filter { $0.type == .work }
-        if workSteps.isEmpty { return .z1 }
-        
-        // Count total duration per zone
-        var zoneDurations: [WorkoutZone: TimeInterval] = [:]
-        for step in workSteps {
-            let zone = step.currentZone
-            zoneDurations[zone, default: 0] += step.duration
-        }
-        
-        return zoneDurations.max(by: { $0.value < $1.value })?.key ?? .z1
+        WorkoutPhysicsEngine.determinePrimaryZone(for: steps)
     }
 }
