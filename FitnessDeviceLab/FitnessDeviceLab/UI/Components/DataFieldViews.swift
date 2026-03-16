@@ -84,7 +84,7 @@ public enum DataFieldType: String, CaseIterable, Identifiable, Codable {
         }
     }
     
-    func value(for engine: DataFieldEngine, workoutManager: WorkoutSessionManager? = nil, settings: SettingsManager) -> Double? {
+    func value(for engine: DataFieldEngine, workoutManager: WorkoutSessionManager? = nil, settings: SettingsProvider) -> Double? {
         let sessionMetrics = engine.calculatedMetrics
         let lapMetrics = engine.currentLapMetrics
         let hrv = engine.hrvMetrics
@@ -204,6 +204,8 @@ public enum DataFieldType: String, CaseIterable, Identifiable, Codable {
 struct DataFieldGrid: View {
     var engine: DataFieldEngine
     let fields: [DataFieldType]
+    let workoutManager: WorkoutSessionManager
+    let settings: SettingsProvider
     
     var body: some View {
         let columnsCount = fields.count <= 2 ? 1 : (fields.count <= 4 ? 2 : 3)
@@ -211,17 +213,17 @@ struct DataFieldGrid: View {
         
         LazyVGrid(columns: cols, spacing: 8) {
             ForEach(fields) { field in
-                DataFieldTile(type: field, engine: engine)
+                DataFieldTile(type: field, engine: engine, workoutManager: workoutManager, settings: settings)
             }
         }
     }
 }
 
 struct DataFieldTile: View {
-    @Environment(WorkoutSessionManager.self) var workoutManager
-    @Environment(SettingsManager.self) var settings
     let type: DataFieldType
     var engine: DataFieldEngine
+    let workoutManager: WorkoutSessionManager
+    let settings: SettingsProvider
     
     var body: some View {
         HStack(alignment: .lastTextBaseline, spacing: 4) {

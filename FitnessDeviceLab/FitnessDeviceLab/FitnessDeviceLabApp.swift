@@ -29,11 +29,10 @@ struct FitnessDeviceLabApp: App {
         WindowGroup {
             BluetoothSelectorView(
                 devicesViewModel: devicesViewModel,
-                workoutPlayerViewModel: workoutPlayerViewModel
+                workoutPlayerViewModel: workoutPlayerViewModel,
+                workoutManager: workoutManager,
+                settingsManager: settingsManager
             )
-            .environment(workoutManager)
-            .environment(bluetoothManager)
-            .environment(settingsManager)
         }
     }
 }
