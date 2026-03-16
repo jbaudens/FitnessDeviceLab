@@ -1,6 +1,24 @@
 import SwiftUI
 import CoreBluetooth
 
+#if canImport(UIKit)
+import UIKit
+extension Color {
+    static let systemBackground = Color(uiColor: .systemBackground)
+    static let secondarySystemBackground = Color(uiColor: .secondarySystemBackground)
+    static let systemGroupedBackground = Color(uiColor: .systemGroupedBackground)
+    static let secondarySystemGroupedBackground = Color(uiColor: .secondarySystemGroupedBackground)
+}
+#elseif canImport(AppKit)
+import AppKit
+extension Color {
+    static let systemBackground = Color(nsColor: .windowBackgroundColor)
+    static let secondarySystemBackground = Color(nsColor: .controlBackgroundColor)
+    static let systemGroupedBackground = Color(nsColor: .windowBackgroundColor)
+    static let secondarySystemGroupedBackground = Color(nsColor: .controlBackgroundColor)
+}
+#endif
+
 struct DevicesTabView: View {
     @Bindable var viewModel: DevicesViewModel
     
@@ -13,24 +31,25 @@ struct DevicesListContent: View {
     @Bindable var viewModel: DevicesViewModel
     
     var body: some View {
-        VStack(spacing: 0) {
-            headerSection
-            
-            ScrollView {
-                VStack(spacing: 12) {
-                    if viewModel.peripherals.isEmpty {
-                        emptyStateView
-                    } else {
-                        ForEach(viewModel.peripherals, id: \.id) { peripheral in
-                            PeripheralCardView(peripheral: peripheral, viewModel: viewModel)
-                        }
+        ScrollView {
+            VStack(spacing: 12) {
+                if viewModel.peripherals.isEmpty {
+                    emptyStateView
+                } else {
+                    ForEach(viewModel.peripherals, id: \.id) { peripheral in
+                        PeripheralCardView(peripheral: peripheral, viewModel: viewModel)
                     }
                 }
-                .padding()
             }
+            .padding()
         }
         .navigationTitle("Devices")
-        .background(Color.gray.opacity(0.05))
+        .background(Color.systemGroupedBackground)
+        .safeAreaInset(edge: .top) {
+            headerSection
+                .background(Color.systemBackground)
+                .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 5)
+        }
     }
     
     private var headerSection: some View {
@@ -83,8 +102,6 @@ struct DevicesListContent: View {
             }
         }
         .padding()
-        .background(Color.white)
-        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 5)
     }
     
     private var emptyStateView: some View {
@@ -197,7 +214,7 @@ struct PeripheralCardView: View {
                 .background(Color.secondary.opacity(0.03))
             }
         }
-        .background(Color.white)
+        .background(Color.secondarySystemGroupedBackground)
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
@@ -205,6 +222,7 @@ struct PeripheralCardView: View {
         )
         .shadow(color: Color.black.opacity(0.03), radius: 2, x: 0, y: 2)
     }
+
     
     private func capabilityBadge(icon: String, color: Color) -> some View {
         Image(systemName: icon)
