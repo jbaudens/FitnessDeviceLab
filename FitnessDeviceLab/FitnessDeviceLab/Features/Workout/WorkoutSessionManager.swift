@@ -4,14 +4,6 @@ import Observation
 
 @Observable
 public class WorkoutSessionManager {
-    public enum DataFieldMode: String, CaseIterable, Identifiable {
-        case session = "Session"
-        case lap = "Lap"
-        public var id: String { rawValue }
-    }
-    
-    public var currentDataFieldMode: DataFieldMode = .session
-    
     // MARK: - Recorders (Injected from outside)
     public var recorderA: SessionRecorder
     public var recorderB: SessionRecorder
