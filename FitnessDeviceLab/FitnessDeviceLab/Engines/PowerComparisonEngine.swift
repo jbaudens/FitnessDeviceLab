@@ -123,6 +123,18 @@ public class PowerComparisonEngine {
         var intervals: [DetectedInterval] = []
         var currentStart: Date?
         
+        func finalizeInterval(end: Date) {
+            guard let start = currentStart else { return }
+            let duration = end.timeIntervalSince(start)
+            if duration >= minDuration {
+                let intervalPoints = points.filter { $0.timestamp >= start && $0.timestamp <= end }
+                let avgA = intervalPoints.compactMap { Double($0.powerA ?? 0) }.reduce(0, +) / Double(intervalPoints.count)
+                let avgB = intervalPoints.compactMap { Double($0.powerB ?? 0) }.reduce(0, +) / Double(intervalPoints.count)
+                
+                intervals.append(DetectedInterval(start: start, end: end, duration: duration, avgPowerA: avgA, avgPowerB: avgB))
+            }
+        }
+        
         for i in 0..<(points.count - windowSize) {
             let slice = points[i..<i+windowSize]
             let avgPower = slice.compactMap { Double($0.powerB ?? 0) }.reduce(0, +) / Double(windowSize)
@@ -132,20 +144,16 @@ public class PowerComparisonEngine {
                     currentStart = points[i].timestamp
                 }
             } else {
-                if let start = currentStart {
-                    let end = points[i].timestamp
-                    let duration = end.timeIntervalSince(start)
-                    
-                    if duration >= minDuration {
-                        let intervalPoints = points.filter { $0.timestamp >= start && $0.timestamp <= end }
-                        let avgA = intervalPoints.compactMap { Double($0.powerA ?? 0) }.reduce(0, +) / Double(intervalPoints.count)
-                        let avgB = intervalPoints.compactMap { Double($0.powerB ?? 0) }.reduce(0, +) / Double(intervalPoints.count)
-                        
-                        intervals.append(DetectedInterval(start: start, end: end, duration: duration, avgPowerA: avgA, avgPowerB: avgB))
-                    }
+                if let _ = currentStart {
+                    finalizeInterval(end: points[i].timestamp)
                     currentStart = nil
                 }
             }
+        }
+        
+        // Finalize if still in an interval at the end of the data
+        if let start = currentStart, let lastTimestamp = points.last?.timestamp {
+            finalizeInterval(end: lastTimestamp)
         }
         
         return intervals

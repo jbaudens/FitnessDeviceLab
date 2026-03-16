@@ -67,17 +67,31 @@ struct DualPowerComparisonView: View {
     
     @ViewBuilder
     private func overviewTab(summary: ComparisonSummary) -> some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 32) {
             SummaryDashboard(summary: summary)
                 .padding(.horizontal)
             
-            PowerOverlayChart(points: comparisonPoints)
-                .frame(height: 300)
-                .padding(.horizontal)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("POWER OVERLAY")
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal)
+                
+                PowerOverlayChart(points: comparisonPoints)
+                    .frame(height: 400)
+                    .padding(.horizontal)
+            }
             
-            DeltaChart(points: comparisonPoints)
-                .frame(height: 200)
-                .padding(.horizontal)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("POWER DELTA (A - B)")
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal)
+                
+                DeltaChart(points: comparisonPoints)
+                    .frame(height: 250)
+                    .padding(.horizontal)
+            }
         }
     }
     
@@ -243,48 +257,46 @@ private struct PowerOverlayChart: View {
     let points: [ComparisonPoint]
     
     var body: some View {
-        VStack(alignment: .leading) {
-            Text("POWER OVERLAY")
-                .font(.system(size: 10, weight: .black))
-                .foregroundColor(.secondary)
-            
-            Chart {
-                ForEach(points) { point in
-                    if let pA = point.powerA {
-                        LineMark(
-                            x: .value("Time", point.timestamp),
-                            y: .value("Power A", pA),
-                            series: .value("Series", "A")
-                        )
-                        .foregroundStyle(.blue)
-                        .interpolationMethod(.catmullRom)
-                    }
-                    
-                    if let pB = point.powerB {
-                        LineMark(
-                            x: .value("Time", point.timestamp),
-                            y: .value("Power B", pB),
-                            series: .value("Series", "B")
-                        )
-                        .foregroundStyle(.purple)
-                        .interpolationMethod(.catmullRom)
-                    }
+        Chart {
+            ForEach(points) { point in
+                if let pA = point.powerA {
+                    LineMark(
+                        x: .value("Time", point.timestamp),
+                        y: .value("Power A", pA),
+                        series: .value("Series", "A")
+                    )
+                    .foregroundStyle(.blue)
+                    .interpolationMethod(.catmullRom)
+                }
+                
+                if let pB = point.powerB {
+                    LineMark(
+                        x: .value("Time", point.timestamp),
+                        y: .value("Power B", pB),
+                        series: .value("Series", "B")
+                    )
+                    .foregroundStyle(.purple)
+                    .interpolationMethod(.catmullRom)
                 }
             }
-            .chartXAxis {
-                AxisMarks(values: .stride(by: .minute)) { value in
-                    AxisGridLine()
-                    AxisTick()
-                    AxisValueLabel(format: .dateTime.minute().second())
-                }
-            }
-            .chartYAxis {
-                AxisMarks(position: .leading)
-            }
-            .padding()
-            .background(Color.secondarySystemGroupedBackground)
-            .cornerRadius(12)
         }
+        .chartXAxis {
+            AxisMarks(values: .stride(by: .minute, count: 5)) { value in
+                AxisGridLine()
+                AxisTick()
+                if let date = value.as(Date.self) {
+                    AxisValueLabel {
+                        Text(date, format: .dateTime.minute().second())
+                    }
+                }
+            }
+        }
+        .chartYAxis {
+            AxisMarks(position: .leading)
+        }
+        .padding()
+        .background(Color.secondarySystemGroupedBackground)
+        .cornerRadius(12)
     }
 }
 
@@ -292,48 +304,46 @@ private struct DeltaChart: View {
     let points: [ComparisonPoint]
     
     var body: some View {
-        VStack(alignment: .leading) {
-            Text("POWER DELTA (A - B)")
-                .font(.system(size: 10, weight: .black))
-                .foregroundColor(.secondary)
+        Chart {
+            RuleMark(y: .value("Zero", 0))
+                .lineStyle(StrokeStyle(lineWidth: 1, dash: [5]))
+                .foregroundStyle(.secondary)
             
-            Chart {
-                RuleMark(y: .value("Zero", 0))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5]))
-                    .foregroundStyle(.secondary)
-                
-                ForEach(points) { point in
-                    if let delta = point.delta {
-                        AreaMark(
-                            x: .value("Time", point.timestamp),
-                            y: .value("Delta", delta)
-                        )
-                        .foregroundStyle(delta >= 0 ? Color.green.opacity(0.3) : Color.red.opacity(0.3))
-                        .interpolationMethod(.linear)
-                        
-                        LineMark(
-                            x: .value("Time", point.timestamp),
-                            y: .value("Delta", delta)
-                        )
-                        .foregroundStyle(delta >= 0 ? Color.green : Color.red)
-                        .interpolationMethod(.linear)
+            ForEach(points) { point in
+                if let delta = point.delta {
+                    AreaMark(
+                        x: .value("Time", point.timestamp),
+                        y: .value("Delta", delta)
+                    )
+                    .foregroundStyle(delta >= 0 ? Color.green.opacity(0.3) : Color.red.opacity(0.3))
+                    .interpolationMethod(.linear)
+                    
+                    LineMark(
+                        x: .value("Time", point.timestamp),
+                        y: .value("Delta", delta)
+                    )
+                    .foregroundStyle(delta >= 0 ? Color.green : Color.red)
+                    .interpolationMethod(.linear)
+                }
+            }
+        }
+        .chartXAxis {
+            AxisMarks(values: .stride(by: .minute, count: 5)) { value in
+                AxisGridLine()
+                AxisTick()
+                if let date = value.as(Date.self) {
+                    AxisValueLabel {
+                        Text(date, format: .dateTime.minute().second())
                     }
                 }
             }
-            .chartXAxis {
-                AxisMarks(values: .stride(by: .minute)) { value in
-                    AxisGridLine()
-                    AxisTick()
-                    AxisValueLabel(format: .dateTime.minute().second())
-                }
-            }
-            .chartYAxis {
-                AxisMarks(position: .leading)
-            }
-            .padding()
-            .background(Color.secondarySystemGroupedBackground)
-            .cornerRadius(12)
         }
+        .chartYAxis {
+            AxisMarks(position: .leading)
+        }
+        .padding()
+        .background(Color.secondarySystemGroupedBackground)
+        .cornerRadius(12)
     }
 }
 
