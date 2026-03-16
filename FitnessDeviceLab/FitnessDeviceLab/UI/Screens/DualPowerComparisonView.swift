@@ -34,9 +34,9 @@ struct DualPowerComparisonView: View {
             }
             .background(Color.systemGroupedBackground)
             .navigationTitle("Dual Power Lab")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavigationBarTitle()
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .adaptiveTrailing) {
                     Button("Done") { dismiss() }
                 }
             }
