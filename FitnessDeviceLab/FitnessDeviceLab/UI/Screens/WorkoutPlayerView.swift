@@ -259,10 +259,52 @@ struct WorkoutPlayerContentView: View {
                 liveDataPreview
             }
 
+            trainerSelectionCard
+            
             sensorSelectionSection
             
             setupControls
         }
+    }
+    
+    private var trainerSelectionCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("CONTROL SOURCE")
+                    .font(.caption)
+                    .fontWeight(.black)
+                    .foregroundColor(.green)
+                Text("Device used for ERG and Resistance commands")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+            
+            Divider()
+            
+            HStack {
+                Label {
+                    Text("Smart Trainer").font(.subheadline)
+                } icon: {
+                    Image(systemName: "cpu").foregroundColor(.green)
+                }
+                Spacer()
+                Picker("Trainer", selection: $viewModel.controlSource) {
+                    Text("Read Only (No Control)").tag(nil as ControllableTrainer?)
+                    ForEach(viewModel.availableTrainers, id: \.id) { trainer in
+                        Text(trainer.name).tag(trainer as ControllableTrainer?)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+            }
+        }
+        .padding()
+        .background(Color.green.opacity(0.05))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.green.opacity(0.2), lineWidth: 1)
+        )
     }
     
     private var setupHeader: some View {
