@@ -11,6 +11,7 @@ public class WorkoutPlayerViewModel {
     
     public var recorderA: SessionRecorder
     public var recorderB: SessionRecorder
+    public var controlSource: ControllableTrainer?
     
     public var showingStopConfirmation = false
     public var showingDiscardConfirmation = false
@@ -24,22 +25,30 @@ public class WorkoutPlayerViewModel {
         self.recorderB = SessionRecorder(settings: settings)
     }
     
-    // MARK: - Role-Specific Adaptor Lists for UI Pickers
+    // MARK: - Role-Specific Adaptor Lists for UI Pickers (Connected Only)
     
     public var availableHRSensors: [HeartRateSensor] {
-        bluetoothManager.peripherals.compactMap { HeartRateSensor(peripheral: $0) }
+        bluetoothManager.peripherals
+            .filter { $0.isConnected }
+            .compactMap { HeartRateSensor(peripheral: $0) }
     }
     
     public var availablePowerSensors: [PowerSensor] {
-        bluetoothManager.peripherals.compactMap { PowerSensor(peripheral: $0) }
+        bluetoothManager.peripherals
+            .filter { $0.isConnected }
+            .compactMap { PowerSensor(peripheral: $0) }
     }
     
     public var availableCadenceSensors: [CadenceSensor] {
-        bluetoothManager.peripherals.compactMap { CadenceSensor(peripheral: $0) }
+        bluetoothManager.peripherals
+            .filter { $0.isConnected }
+            .compactMap { CadenceSensor(peripheral: $0) }
     }
     
     public var availableTrainers: [ControllableTrainer] {
-        bluetoothManager.peripherals.compactMap { ControllableTrainer(peripheral: $0) }
+        bluetoothManager.peripherals
+            .filter { $0.isConnected }
+            .compactMap { ControllableTrainer(peripheral: $0) }
     }
     
     // UI Helpers for Sources from Recorders
@@ -75,17 +84,7 @@ public class WorkoutPlayerViewModel {
     // MARK: - Actions
     
     public func loadWorkout() {
-        var trainer: ControllableTrainer?
-        // Resolve Control Source from Recorder A's power selection if it's a trainer
-        if let pwrA = recorderA.powerSource {
-            // Find the peripheral that matches Power A and see if it's also a trainer
-            if let peripheral = bluetoothManager.peripherals.first(where: { $0.id == pwrA.id }),
-               let controllable = ControllableTrainer(peripheral: peripheral) {
-                trainer = controllable
-            }
-        }
-        
-        workoutManager.startWorkout(recA: recorderA, recB: recorderB, control: trainer)
+        workoutManager.startWorkout(recA: recorderA, recB: recorderB, control: controlSource)
     }
     
     public func discardSession() {
@@ -101,6 +100,7 @@ public class WorkoutPlayerViewModel {
         recorderB.powerSource = nil
         recorderB.cadenceSource = nil
         
+        controlSource = nil
         workoutManager.selectedWorkout = nil
     }
     

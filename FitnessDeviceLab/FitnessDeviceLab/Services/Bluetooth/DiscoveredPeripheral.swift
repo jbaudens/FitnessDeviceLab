@@ -65,6 +65,20 @@ public class DiscoveredPeripheral: NSObject, Identifiable, SensorPeripheral {
     // FTMS State
     public var controlPointCharacteristic: CBCharacteristic?
     public var isControlRequested = false
+    public var isMachineStarted = false
+    
+    // FTMS Range Data
+    public var minResistance: Double = 0
+    public var maxResistance: Double = 100
+    public var resistanceIncrement: Double = 1.0
+    
+    // FTMS Capabilities (from 0x2ACC)
+    public var supportsResistanceControl = false
+    public var supportsPowerControl = false
+    public var supportsSimulationControl = false
+    
+    private var pendingPower: Int?
+    private var pendingResistance: Double?
     
     public init(peripheral: CBPeripheral, rssi: NSNumber) {
         self.id = peripheral.identifier
@@ -93,6 +107,7 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
     private static let fitnessMachineControlPointUUID = CBUUID(string: "2AD9")
     private static let fitnessMachineFeatureUUID = CBUUID(string: "2ACC")
     private static let fitnessMachineStatusUUID = CBUUID(string: "2ADA")
+    private static let supportedResistanceLevelRangeUUID = CBUUID(string: "2AD6")
     
     private static let manufacturerNameUUID = CBUUID(string: "2A29")
     private static let modelNumberUUID = CBUUID(string: "2A24")
@@ -129,7 +144,8 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
                         Self.indoorBikeDataUUID,
                         Self.fitnessMachineControlPointUUID,
                         Self.fitnessMachineFeatureUUID,
-                        Self.fitnessMachineStatusUUID
+                        Self.fitnessMachineStatusUUID,
+                        Self.supportedResistanceLevelRangeUUID
                     ], for: service)
                 case Self.cscServiceUUID:
                     peripheral.discoverCharacteristics([Self.cscMeasurementUUID], for: service)
@@ -170,6 +186,10 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
             self.rawDataHex = data.map { String(format: "%02hhx", $0) }.joined(separator: " ")
             
             switch characteristic.uuid {
+            case Self.fitnessMachineFeatureUUID:
+                self.parseFTMSFeatures(data: data)
+            case Self.supportedResistanceLevelRangeUUID:
+                self.parseResistanceRange(data: data)
             case Self.heartRateMeasurementUUID:
                 let result = SensorDataParser.parseHeartRate(data: data)
                 self.heartRate = result.hr
@@ -208,30 +228,119 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
         }
     }
     
+    private func parseFTMSFeatures(data: Data) {
+        // FTMS Feature: 8 bytes (4 for Machine Features, 4 for Target Setting Features)
+        guard data.count >= 8 else { return }
+        
+        // We are mostly interested in Target Setting Features (Bytes 4-7)
+        let targetFeatures = UInt32(data[4]) | (UInt32(data[5]) << 8) | (UInt32(data[6]) << 16) | (UInt32(data[7]) << 24)
+        
+        self.supportsResistanceControl = (targetFeatures & 0x01) != 0
+        self.supportsPowerControl = (targetFeatures & 0x02) != 0
+        self.supportsSimulationControl = (targetFeatures & 0x08) != 0
+        
+        print("FTMS Features for \(name): Resistance=\(supportsResistanceControl), Power=\(supportsPowerControl), Sim=\(supportsSimulationControl)")
+    }
+    
+    private func parseResistanceRange(data: Data) {
+        guard data.count >= 6 else { return }
+        
+        let minRaw = Int16(bitPattern: UInt16(data[0]) | (UInt16(data[1]) << 8))
+        let maxRaw = Int16(bitPattern: UInt16(data[2]) | (UInt16(data[3]) << 8))
+        let incRaw = UInt16(data[4]) | (UInt16(data[5]) << 8)
+        
+        self.minResistance = Double(minRaw) * 0.1
+        self.maxResistance = Double(maxRaw) * 0.1
+        self.resistanceIncrement = Double(incRaw) * 0.1
+        
+        print("Resistance Range for \(name): \(minResistance) to \(maxResistance) step \(resistanceIncrement)")
+    }
+    
     private func handleControlPointResponse(data: Data) {
         guard data.count >= 3 else { return }
         let responseCode = data[0]
-        let opCode = data[1]
+        let requestOpCode = data[1]
         let result = data[2]
         
         if responseCode == 0x80 { // Response Code
-            if opCode == 0x00 { // Request Control
+            switch requestOpCode {
+            case 0x00: // Request Control
                 if result == 0x01 { // Success
                     self.isControlRequested = true
-                    print("Control acquired for \(name)")
+                    print("Control acquired for \(name). Starting machine...")
+                    sendStartMachine()
+                } else if result == 0x04 { // Operation Failed / Already Controlled
+                    print("Failed to acquire control for \(name): Error 4 (Already controlled or busy). Attempting Reset...")
+                    sendResetMachine()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        self.requestControl()
+                    }
                 } else {
                     print("Failed to acquire control for \(name): \(result)")
                 }
+            case 0x07: // Start or Resume
+                if result == 0x01 {
+                    self.isMachineStarted = true
+                    print("Machine started for \(name). Processing pending commands.")
+                    processPendingCommands()
+                } else {
+                    print("Failed to start machine for \(name): \(result)")
+                }
+            default:
+                if result != 0x01 {
+                    print("FTMS Command \(requestOpCode) failed with result \(result)")
+                }
             }
+        }
+    }
+    
+    private func sendStartMachine() {
+        guard let cp = controlPointCharacteristic else { return }
+        let startData = Data([0x07]) // Start or Resume OpCode
+        peripheral.writeValue(startData, for: cp, type: .withResponse)
+    }
+    
+    private func sendResetMachine() {
+        guard let cp = controlPointCharacteristic else { return }
+        let resetData = Data([0x01]) // Reset OpCode
+        peripheral.writeValue(resetData, for: cp, type: .withResponse)
+    }
+    
+    private func requestControl() {
+        guard let cp = controlPointCharacteristic else { return }
+        let requestControlData = Data([0x00])
+        peripheral.writeValue(requestControlData, for: cp, type: .withResponse)
+    }
+    
+    private func processPendingCommands() {
+        if let pwr = pendingPower {
+            setTargetPower(pwr)
+            pendingPower = nil
+        }
+        if let res = pendingResistance {
+            setResistanceLevel(res)
+            pendingResistance = nil
         }
     }
     
     public func setTargetPower(_ watts: Int) {
         guard let cp = controlPointCharacteristic else { return }
         
+        if !supportsPowerControl {
+            print("Warning: \(name) does not support Power Target control.")
+            // Even if not strictly reported, some trainers work anyway. 
+            // We'll proceed but log the warning.
+        }
+        
         if !isControlRequested {
-            let requestControlData = Data([0x00])
-            peripheral.writeValue(requestControlData, for: cp, type: .withResponse)
+            pendingPower = watts
+            requestControl()
+            return
+        }
+        
+        if !isMachineStarted {
+            pendingPower = watts
+            sendStartMachine()
             return
         }
         
@@ -246,15 +355,28 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
     public func setResistanceLevel(_ level: Double) {
         guard let cp = controlPointCharacteristic else { return }
         
+        if !supportsResistanceControl {
+            print("Warning: \(name) does not support Resistance control.")
+        }
+        
         if !isControlRequested {
-            let requestControlData = Data([0x00])
-            peripheral.writeValue(requestControlData, for: cp, type: .withResponse)
+            pendingResistance = level
+            requestControl()
+            return
+        }
+        
+        if !isMachineStarted {
+            pendingResistance = level
+            sendStartMachine()
             return
         }
         
         var data = Data([0x04]) // Set Resistance Level OpCode
-        let val = UInt8(max(0, min(level, 255)))
-        data.append(val)
+        
+        let scaledLevel = minResistance + (maxResistance - minResistance) * (level / 100.0)
+        let val = Int16(round(scaledLevel * 10.0))
+        data.append(UInt8(UInt16(bitPattern: val) & 0xFF))
+        data.append(UInt8((UInt16(bitPattern: val) >> 8) & 0xFF))
         
         peripheral.writeValue(data, for: cp, type: .withResponse)
     }

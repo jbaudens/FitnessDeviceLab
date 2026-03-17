@@ -139,7 +139,10 @@ public class WorkoutSessionManager {
     }
     
     public var canEnableErgMode: Bool {
-        trainerController.trainer != nil
+        guard let trainer = trainerController.trainer as? DiscoveredPeripheral else {
+            return trainerController.trainer != nil // If it's a simulated trainer, assume yes
+        }
+        return trainer.supportsPowerControl
     }
     
     private func startNewLap(type: WorkoutStepType) {

@@ -14,7 +14,8 @@ public struct DefaultWorkouts {
         hrTest,
         antelopePlus2,
         hrQuickTest,
-        powerQuickTest  
+        powerQuickTest,
+        powerQuickTest2
     ]
     
     private static let hrQuickTest = StructuredWorkout(
@@ -38,6 +39,26 @@ public struct DefaultWorkouts {
             WorkoutStep(duration: 60, targetPowerPercent: 0.50, type: .warmup),
             WorkoutStep(duration: 60, targetPowerPercent: 0.55, type: .warmup),
             WorkoutStep(duration: 60, targetPowerPercent: 0.60, type: .warmup),
+        ]
+    )
+    
+    private static let powerQuickTest2 = StructuredWorkout(
+        name: "Power Quick Test 2",
+        description: "Just to test things work.",
+        steps: [
+            WorkoutStep(duration: 60, targetPowerPercent: 0.50, type: .warmup),
+            WorkoutStep(duration: 60, targetPowerPercent: 0.60, type: .warmup),
+            WorkoutStep(duration: 60, targetPowerPercent: 0.75, type: .warmup),
+            WorkoutStep(duration: 60, targetPowerPercent: 0.85, type: .warmup),
+            WorkoutStep(duration: 60, targetPowerPercent: 0.40, type: .recovery),
+            WorkoutStep(duration: 60, targetPowerPercent: 0.90, type: .work),
+            WorkoutStep(duration: 60, targetPowerPercent: 0.40, type: .recovery),
+            WorkoutStep(duration: 60, targetPowerPercent: 1.00, type: .work),
+            WorkoutStep(duration: 60, targetPowerPercent: 0.40, type: .recovery),
+            WorkoutStep(duration: 60, targetPowerPercent: 1.20, type: .work),
+            WorkoutStep(duration: 60, targetPowerPercent: 0.40, type: .recovery),
+            WorkoutStep(duration: 30, targetPowerPercent: 1.30, type: .work),
+            WorkoutStep(duration: 60, targetPowerPercent: 0.40, type: .recovery),
         ]
     )
     
