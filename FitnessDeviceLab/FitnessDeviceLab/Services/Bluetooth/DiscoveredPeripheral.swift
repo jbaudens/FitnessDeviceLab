@@ -72,6 +72,11 @@ public class DiscoveredPeripheral: NSObject, Identifiable, SensorPeripheral {
     public var maxResistance: Double = 100
     public var resistanceIncrement: Double = 1.0
     
+    // FTMS Capabilities (from 0x2ACC)
+    public var supportsResistanceControl = false
+    public var supportsPowerControl = false
+    public var supportsSimulationControl = false
+    
     private var pendingPower: Int?
     private var pendingResistance: Double?
     
@@ -181,6 +186,8 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
             self.rawDataHex = data.map { String(format: "%02hhx", $0) }.joined(separator: " ")
             
             switch characteristic.uuid {
+            case Self.fitnessMachineFeatureUUID:
+                self.parseFTMSFeatures(data: data)
             case Self.supportedResistanceLevelRangeUUID:
                 self.parseResistanceRange(data: data)
             case Self.heartRateMeasurementUUID:
@@ -219,6 +226,20 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
                 break
             }
         }
+    }
+    
+    private func parseFTMSFeatures(data: Data) {
+        // FTMS Feature: 8 bytes (4 for Machine Features, 4 for Target Setting Features)
+        guard data.count >= 8 else { return }
+        
+        // We are mostly interested in Target Setting Features (Bytes 4-7)
+        let targetFeatures = UInt32(data[4]) | (UInt32(data[5]) << 8) | (UInt32(data[6]) << 16) | (UInt32(data[7]) << 24)
+        
+        self.supportsResistanceControl = (targetFeatures & 0x01) != 0
+        self.supportsPowerControl = (targetFeatures & 0x02) != 0
+        self.supportsSimulationControl = (targetFeatures & 0x08) != 0
+        
+        print("FTMS Features for \(name): Resistance=\(supportsResistanceControl), Power=\(supportsPowerControl), Sim=\(supportsSimulationControl)")
     }
     
     private func parseResistanceRange(data: Data) {
@@ -305,6 +326,12 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
     public func setTargetPower(_ watts: Int) {
         guard let cp = controlPointCharacteristic else { return }
         
+        if !supportsPowerControl {
+            print("Warning: \(name) does not support Power Target control.")
+            // Even if not strictly reported, some trainers work anyway. 
+            // We'll proceed but log the warning.
+        }
+        
         if !isControlRequested {
             pendingPower = watts
             requestControl()
@@ -327,6 +354,10 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
     
     public func setResistanceLevel(_ level: Double) {
         guard let cp = controlPointCharacteristic else { return }
+        
+        if !supportsResistanceControl {
+            print("Warning: \(name) does not support Resistance control.")
+        }
         
         if !isControlRequested {
             pendingResistance = level
