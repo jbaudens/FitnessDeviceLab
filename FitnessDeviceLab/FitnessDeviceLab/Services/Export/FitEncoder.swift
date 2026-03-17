@@ -100,11 +100,9 @@ class FitEncoder {
             
             // Power Balance (L/R)
             if let balance = pt.powerBalance {
-                // FIT spec for left_right_balance:
-                // Bits 0-6: % balance
-                // Bit 7: 1 = % Balance, 0 = mask (raw)
-                // We set bit 7 (0x80) to indicate this is a valid percentage.
-                let fitBalance = UInt8(round(balance)) | 0x80
+                // SB20 balance is % Left. FIT standard for cycling is % Right with Bit 7 (0x80) set to 1.
+                let rightPercent = 100.0 - balance
+                let fitBalance = UInt8(max(0, min(round(rightPercent), 100))) | 0x80
                 try? record.setLeftRightBalance(LeftRightBalance(fitBalance))
             }
             
@@ -149,6 +147,15 @@ class FitEncoder {
                     try? lapMesg.setMaxPower(UInt16(pwrSamples.max() ?? 0))
                 }
                 
+                let lrSamples = lapPoints.compactMap { $0.powerBalance }
+                if !lrSamples.isEmpty {
+                    let avgLeft = lrSamples.reduce(0, +) / Double(lrSamples.count)
+                    let avgRight = 100.0 - avgLeft
+                    // LeftRightBalance100 uses scale 100 and bit 15 (0x8000) for Right
+                    let fitAvgLRValue = UInt16(max(0, min(round(avgRight * 100.0), 10000))) | 0x8000
+                    try? lapMesg.setLeftRightBalance(LeftRightBalance100(fitAvgLRValue))
+                }
+                
                 let hrSamples = lapPoints.compactMap { $0.hr }
                 if !hrSamples.isEmpty {
                     try? lapMesg.setAvgHeartRate(UInt8(hrSamples.reduce(0, +) / hrSamples.count))
@@ -186,6 +193,15 @@ class FitEncoder {
         if !pwrSamples.isEmpty {
             try? session.setAvgPower(UInt16(pwrSamples.reduce(0, +) / pwrSamples.count))
             try? session.setMaxPower(UInt16(pwrSamples.max() ?? 0))
+        }
+        
+        let lrSamples = trackpoints.compactMap { $0.powerBalance }
+        if !lrSamples.isEmpty {
+            let avgLeft = lrSamples.reduce(0, +) / Double(lrSamples.count)
+            let avgRight = 100.0 - avgLeft
+            // LeftRightBalance100 uses scale 100 and bit 15 (0x8000) for Right
+            let fitAvgLRValue = UInt16(max(0, min(round(avgRight * 100.0), 10000))) | 0x8000
+            try? session.setLeftRightBalance(LeftRightBalance100(fitAvgLRValue))
         }
         
         encoder.write(mesg: session)
