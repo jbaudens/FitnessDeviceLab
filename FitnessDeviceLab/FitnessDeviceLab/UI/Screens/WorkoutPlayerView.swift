@@ -20,6 +20,17 @@ struct WorkoutPlayerContentView: View {
                     SessionSummaryCard(files: viewModel.workoutManager.exportedFiles, engine: viewModel.workoutManager.engineA)
                         .padding()
                     
+                    Button {
+                        viewModel.showingComparison = true
+                    } label: {
+                        Label("Compare Sensors", systemImage: "chart.bar.xaxis")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.blue)
+                    .padding(.horizontal)
+                    
                     Button(role: .destructive) {
                         viewModel.showingDiscardConfirmation = true
                     } label: {
@@ -42,6 +53,12 @@ struct WorkoutPlayerContentView: View {
                 }
                 .navigationTitle("Session Summary")
                 .hideNavigationBarOnMobile()
+                .sheet(isPresented: $viewModel.showingComparison) {
+                    DualPowerComparisonView(
+                        recorderA: viewModel.workoutManager.recorderA,
+                        recorderB: viewModel.workoutManager.recorderB
+                    )
+                }
             } else if viewModel.isActiveState {
                 activeView
             } else {

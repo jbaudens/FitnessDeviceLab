@@ -21,6 +21,27 @@ extension View {
         self.listStyle(.inset)
         #endif
     }
+    
+    /// Sets the navigation title display mode to inline on iOS, and does nothing on macOS.
+    @ViewBuilder
+    func inlineNavigationBarTitle() -> some View {
+        #if os(iOS)
+        self.navigationBarTitleDisplayMode(.inline)
+        #else
+        self
+        #endif
+    }
+}
+
+// MARK: - Semantic Toolbar Placements
+extension ToolbarItemPlacement {
+    static var adaptiveTrailing: ToolbarItemPlacement {
+        #if os(iOS)
+        return .topBarTrailing
+        #else
+        return .confirmationAction
+        #endif
+    }
 }
 
 // MARK: - Cross-Platform Semantic Colors
