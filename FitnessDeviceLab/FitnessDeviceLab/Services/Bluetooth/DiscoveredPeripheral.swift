@@ -248,6 +248,12 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
                     self.isControlRequested = true
                     print("Control acquired for \(name). Starting machine...")
                     sendStartMachine()
+                } else if result == 0x04 { // Operation Failed / Already Controlled
+                    print("Failed to acquire control for \(name): Error 4 (Already controlled or busy). Attempting Reset...")
+                    sendResetMachine()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        self.requestControl()
+                    }
                 } else {
                     print("Failed to acquire control for \(name): \(result)")
                 }
@@ -273,6 +279,18 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
         peripheral.writeValue(startData, for: cp, type: .withResponse)
     }
     
+    private func sendResetMachine() {
+        guard let cp = controlPointCharacteristic else { return }
+        let resetData = Data([0x01]) // Reset OpCode
+        peripheral.writeValue(resetData, for: cp, type: .withResponse)
+    }
+    
+    private func requestControl() {
+        guard let cp = controlPointCharacteristic else { return }
+        let requestControlData = Data([0x00])
+        peripheral.writeValue(requestControlData, for: cp, type: .withResponse)
+    }
+    
     private func processPendingCommands() {
         if let pwr = pendingPower {
             setTargetPower(pwr)
@@ -289,8 +307,7 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
         
         if !isControlRequested {
             pendingPower = watts
-            let requestControlData = Data([0x00])
-            peripheral.writeValue(requestControlData, for: cp, type: .withResponse)
+            requestControl()
             return
         }
         
@@ -313,8 +330,7 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
         
         if !isControlRequested {
             pendingResistance = level
-            let requestControlData = Data([0x00])
-            peripheral.writeValue(requestControlData, for: cp, type: .withResponse)
+            requestControl()
             return
         }
         
