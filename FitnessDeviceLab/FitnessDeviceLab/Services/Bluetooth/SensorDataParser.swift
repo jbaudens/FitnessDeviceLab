@@ -56,7 +56,7 @@ nonisolated public struct SensorDataParser {
             offset += 1
         }
         
-        if accumulatedTorquePresent { offset += 2 }
+        if accumulatedTorquePresent { offset += 4 }
         if wheelRevolutionDataPresent { offset += 6 }
         
         var cadence: Int? = nil
