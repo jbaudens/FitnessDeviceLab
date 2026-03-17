@@ -100,12 +100,12 @@ class FitEncoder {
             
             // Power Balance (L/R)
             if let balance = pt.powerBalance {
-                // FIT expects balance as a UInt8: 
-                // Bits 0-6: % balance (e.g., 50)
-                // Bit 7: 0 for Right, 1 for Left. 
-                // However, common usage for single-value % is just the % if it represents 'Left'.
-                // Most platforms interpret 0-100 as % Left.
-                try? record.setLeftRightBalance(UInt8(round(balance)))
+                // FIT spec for left_right_balance:
+                // Bits 0-6: % balance
+                // Bit 7: 1 = % Balance, 0 = mask (raw)
+                // We set bit 7 (0x80) to indicate this is a valid percentage.
+                let fitBalance = UInt8(round(balance)) | 0x80
+                try? record.setLeftRightBalance(LeftRightBalance(fitBalance))
             }
             
             // Speed and Distance Estimation
