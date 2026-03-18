@@ -44,7 +44,7 @@ public struct DefaultWorkouts {
         neuromuscularMaxSprints,
         
         // Legacy/Existing
-        dynamicWarmup,
+            dynamicWarmup,
         gabriel,
         antelopePlus2,
         hrTest
