@@ -27,8 +27,10 @@ struct ExportTests {
     @Test func tcxExport() throws {
         let trackpoints = createTrackpoints()
         let exporter = TCXExporter()
-        let url = try #require(exporter.encode(label: "Test Workout", trackpoints: trackpoints, userWeight: userWeight))
+        let metadata = ExportMetadata(workoutName: "Test Workout")
+        let url = try #require(exporter.encode(metadata: metadata, trackpoints: trackpoints, userWeight: userWeight))
         
+        #expect(url.lastPathComponent.contains("Test_Workout"))
         #expect(FileManager.default.fileExists(atPath: url.path))
         
         let content = try String(contentsOf: url, encoding: .utf8)
@@ -63,5 +65,26 @@ struct ExportTests {
             let signature = String(data: data.subdata(in: 8..<12), encoding: .ascii)
             #expect(signature == ".FIT")
         }
+    }
+}
+
+struct FileNameGeneratorTests {
+    @Test func testFileNameGeneration() {
+        let startTime = Date(timeIntervalSince1970: 1710792000) // 2024-03-18 20:00:00 UTC
+        
+        // 1. Full Metadata
+        let meta1 = ExportMetadata(workoutName: "Threshold Intervals", powerMeterName: "Quarq", hrmName: "HRM-Dual")
+        let name1 = FileNameGenerator.generate(metadata: meta1, startTime: startTime, extension: "fit")
+        #expect(name1 == "Threshold_Intervals_Quarq_HRM-Dual_2024-03-18T20-00-00.fit")
+        
+        // 2. Minimal Metadata
+        let meta2 = ExportMetadata(workoutName: "FreeRide")
+        let name2 = FileNameGenerator.generate(metadata: meta2, startTime: startTime, extension: "tcx")
+        #expect(name2 == "FreeRide_2024-03-18T20-00-00.tcx")
+        
+        // 3. Metadata with spaces
+        let meta3 = ExportMetadata(workoutName: "Long Ride", powerMeterName: "Stages Power", hrmName: nil)
+        let name3 = FileNameGenerator.generate(metadata: meta3, startTime: startTime, extension: "fit")
+        #expect(name3 == "Long_Ride_Stages_Power_2024-03-18T20-00-00.fit")
     }
 }
