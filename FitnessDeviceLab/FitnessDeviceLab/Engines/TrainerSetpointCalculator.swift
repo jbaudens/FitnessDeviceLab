@@ -44,6 +44,20 @@ public class TrainerSetpointCalculator {
         hrControlBaseWatts = nil
     }
     
+    public func calculateManualHR(targetHR: Double, currentHR: Int?, ftp: Double) -> Int? {
+        var base = hrControlBaseWatts ?? (ftp * 0.5)
+        
+        if let hr = currentHR, hr > 0 {
+            let error = targetHR - Double(hr)
+            let adjustment = error * 0.15 // Simple proportional adjustment
+            base += adjustment
+            base = max(50, min(base, ftp * 1.5))
+        }
+        
+        hrControlBaseWatts = base
+        return Int(round(base))
+    }
+    
     public func calculate(input: Input) -> Int? {
         guard !input.isFinished else {
             hrControlBaseWatts = nil

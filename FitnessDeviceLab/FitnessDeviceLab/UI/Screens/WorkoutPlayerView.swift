@@ -70,9 +70,13 @@ struct WorkoutPlayerContentView: View {
     
     private var activeView: some View {
         VStack(spacing: 0) {
-            // Active Workout Header (Summary targets)
+            // Active Workout Header
             if let workout = viewModel.workoutManager.selectedWorkout {
                 WorkoutTargetHeader(workoutManager: viewModel.workoutManager, workout: workout)
+                    .padding()
+                    .background(Color.secondary.opacity(0.05))
+            } else {
+                FreeRideHeader(workoutManager: viewModel.workoutManager)
                     .padding()
                     .background(Color.secondary.opacity(0.05))
             }
@@ -98,9 +102,15 @@ struct WorkoutPlayerContentView: View {
             .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .always))
             #endif
             
+            if viewModel.workoutManager.selectedWorkout == nil {
+                FreeRideControlView(workoutManager: viewModel.workoutManager)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+            }
+            
             activeControls
         }
-        .navigationTitle(viewModel.workoutManager.activeProfile.name)
+        .navigationTitle(viewModel.workoutManager.selectedWorkout?.name ?? "Free Ride")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -126,6 +136,16 @@ struct WorkoutPlayerContentView: View {
                     elapsedTime: viewModel.workoutManager.workoutElapsedTime,
                     recorder: recorder,
                     scale: viewModel.workoutManager.workoutDifficultyScale
+                )
+                .frame(height: 140)
+                .padding(8)
+                .background(Color.secondary.opacity(0.05))
+                .cornerRadius(12)
+                .padding(.horizontal)
+            } else {
+                SessionGraphView(
+                    recorder: recorder,
+                    userFTP: viewModel.settings.userFTP
                 )
                 .frame(height: 140)
                 .padding(8)
@@ -445,7 +465,7 @@ struct WorkoutPlayerContentView: View {
                 Button(action: {
                     viewModel.loadWorkout()
                 }) {
-                    Label("Reload Workout", systemImage: "arrow.down.doc.fill")
+                    Label(viewModel.workoutManager.selectedWorkout != nil ? "Reload Workout" : "Reset Free Ride", systemImage: "arrow.down.doc.fill")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -456,7 +476,7 @@ struct WorkoutPlayerContentView: View {
                 Button(action: {
                     viewModel.loadWorkout()
                 }) {
-                    Label("Load Workout", systemImage: "arrow.down.doc.fill")
+                    Label(viewModel.workoutManager.selectedWorkout != nil ? "Load Workout" : "Start Free Ride", systemImage: viewModel.workoutManager.selectedWorkout != nil ? "arrow.down.doc.fill" : "play.circle.fill")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -467,6 +487,126 @@ struct WorkoutPlayerContentView: View {
             }
         }
         .padding(.top)
+    }
+}
+
+// MARK: - Free Ride Components
+
+struct FreeRideHeader: View {
+    @Bindable var workoutManager: WorkoutSessionManager
+    
+    var body: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(formatDuration(workoutManager.workoutElapsedTime))
+                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                Text("SESSION TIME")
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            VStack(alignment: .center, spacing: 2) {
+                Text("LAP \(workoutManager.laps.count)")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                Text(formatDuration(workoutManager.laps.last?.duration ?? 0))
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            VStack(alignment: .trailing, spacing: 2) {
+                if workoutManager.freeRideControlMode == .heartRate {
+                    Text("\(workoutManager.manualTargetHR)")
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .foregroundColor(.red)
+                    Text("GOAL BPM")
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundColor(.secondary)
+                } else if workoutManager.freeRideControlMode == .power {
+                    Text("\(workoutManager.manualTargetPower)")
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .foregroundColor(.yellow)
+                    Text("TARGET W")
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("\(Int(workoutManager.resistanceLevel))%")
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .foregroundColor(.orange)
+                    Text("RESISTANCE")
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+    
+    func formatDuration(_ interval: TimeInterval) -> String {
+        let mins = Int(interval) / 60
+        let secs = Int(interval) % 60
+        return String(format: "%02d:%02d", mins, secs)
+    }
+}
+
+struct FreeRideControlView: View {
+    @Bindable var workoutManager: WorkoutSessionManager
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            Picker("Mode", selection: $workoutManager.freeRideControlMode) {
+                ForEach(WorkoutSessionManager.FreeRideControlMode.allCases) { mode in
+                    Text(mode.rawValue).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            
+            HStack(spacing: 20) {
+                Button(action: { workoutManager.decreaseDifficulty() }) {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.system(size: 32))
+                }
+                .buttonStyle(.plain)
+                
+                Spacer()
+                
+                if workoutManager.freeRideControlMode == .heartRate {
+                    VStack {
+                        Text("\(workoutManager.manualTargetHR)")
+                            .font(.system(size: 24, weight: .bold, design: .monospaced))
+                        Text("BPM").font(.caption2).foregroundColor(.secondary)
+                    }
+                } else if workoutManager.freeRideControlMode == .power {
+                    VStack {
+                        Text("\(workoutManager.manualTargetPower)")
+                            .font(.system(size: 24, weight: .bold, design: .monospaced))
+                        Text("WATTS").font(.caption2).foregroundColor(.secondary)
+                    }
+                } else {
+                    VStack {
+                        Text("\(Int(workoutManager.resistanceLevel))%")
+                            .font(.system(size: 24, weight: .bold, design: .monospaced))
+                        Text("LEVEL").font(.caption2).foregroundColor(.secondary)
+                    }
+                }
+                
+                Spacer()
+                
+                Button(action: { workoutManager.increaseDifficulty() }) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 32))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 40)
+            .foregroundColor(.blue)
+        }
+        .padding()
+        .background(Color.secondary.opacity(0.1))
+        .cornerRadius(12)
     }
 }
 
