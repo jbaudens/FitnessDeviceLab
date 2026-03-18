@@ -19,19 +19,13 @@ struct WorkoutPlayerView: View {
     
     let viewModel = WorkoutPlayerViewModel(workoutManager: manager, bluetoothManager: bluetooth, settings: settings)
     
-    // Setup some mock data for Free Ride
     let _ = {
         manager.isLoaded = true
         manager.isRecording = true
-        manager.workoutElapsedTime = 1200 // 20 mins
-        
+        manager.workoutElapsedTime = 1200
         let now = Date()
         for i in 0..<1200 {
-            let pt = Trackpoint(
-                time: now.addingTimeInterval(Double(i)),
-                hr: 130 + Int(sin(Double(i)/30.0) * 10),
-                power: 220 + Int(cos(Double(i)/30.0) * 40)
-            )
+            let pt = Trackpoint(time: now.addingTimeInterval(Double(i)), hr: 130, power: 220)
             manager.recorderA.trackpoints.append(pt)
         }
         manager.freeRideControlMode = .power
@@ -44,51 +38,25 @@ struct WorkoutPlayerView: View {
     }
 }
 
-#Preview("Structured Workout") {
+#Preview("iPad 13-inch", traits: .landscapeLeft) {
     let settings = SettingsManager()
     let locationManager = LocationManager()
     let timer = WorkoutTimer()
     let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, workoutTimer: timer)
     let bluetooth = BluetoothManager(settings: settings)
-    
-    let workout = StructuredWorkout(
-        name: "Power Pyramids",
-        description: "Classic intervals",
-        steps: [
-            WorkoutStep(duration: 300, targetPowerPercent: 0.5),
-            WorkoutStep(duration: 300, targetPowerPercent: 0.7),
-            WorkoutStep(duration: 300, targetPowerPercent: 0.9),
-            WorkoutStep(duration: 300, targetPowerPercent: 0.7),
-            WorkoutStep(duration: 300, targetPowerPercent: 0.5)
-        ]
-    )
-    
     let viewModel = WorkoutPlayerViewModel(workoutManager: manager, bluetoothManager: bluetooth, settings: settings)
     
-    // Setup some mock data for Workout
     let _ = {
-        manager.selectedWorkout = workout
         manager.isLoaded = true
         manager.isRecording = true
-        manager.workoutElapsedTime = 750 // 12.5 mins
-        manager.currentStepIndex = 2
-        manager.timeInStep = 150
-        
-        let now = Date()
-        for i in 0..<750 {
-            let pt = Trackpoint(
-                time: now.addingTimeInterval(Double(i)),
-                hr: 120 + Int(Double(i)/10.0),
-                power: 200 + Int(sin(Double(i)/20.0) * 20)
-            )
-            manager.recorderA.trackpoints.append(pt)
-        }
+        manager.workoutElapsedTime = 600
         return true
     }()
     
     NavigationStack {
         WorkoutPlayerView(viewModel: viewModel)
     }
+    .previewDevice("iPad Pro (13-inch) (M4)")
 }
 
 struct WorkoutPlayerContentView: View {
@@ -167,9 +135,11 @@ struct WorkoutPlayerContentView: View {
                 // Data Pages
                 ForEach(viewModel.workoutManager.activeProfile.pages) { page in
                     ScrollView {
-                        VStack(spacing: 24) {
+                        VStack(spacing: 32) {
                             sensorSetSection(title: "SET A", color: Color.blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
+                            
                             Divider().padding(.horizontal)
+                            
                             sensorSetSection(title: "SET B", color: Color.purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
                         }
                         .padding(.vertical)
@@ -180,8 +150,7 @@ struct WorkoutPlayerContentView: View {
                 LapsHistoryView(workoutManager: viewModel.workoutManager, settings: viewModel.settings)
             }
             #if os(iOS)
-            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
-            .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .always))
+            .tabViewStyle(.page(indexDisplayMode: .always))
             #endif
             
             // Cockpit Zone (Bottom Interaction)
@@ -198,7 +167,7 @@ struct WorkoutPlayerContentView: View {
     }
     
     private func sensorSetSection(title: String, color: Color, recorder: SessionRecorder, fields: [DataFieldType]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Label(title, systemImage: title == "SET A" ? "1.circle.fill" : "2.circle.fill")
                 Spacer()
@@ -712,7 +681,7 @@ struct InteractionCockpit: View {
             // Center Value Hero
             VStack(spacing: 0) {
                 Text(value)
-                    .font(.system(size: 32, weight: .bold, design: .monospaced))
+                    .font(.system(size: 28, weight: .bold, design: .monospaced))
                     .foregroundColor(.primary)
                 Text(label)
                     .font(.system(size: 10, weight: .black))

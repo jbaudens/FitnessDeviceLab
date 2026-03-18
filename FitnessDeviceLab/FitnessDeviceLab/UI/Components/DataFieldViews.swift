@@ -277,10 +277,11 @@ struct DataFieldGrid: View {
     let settings: SettingsProvider
     
     var body: some View {
-        let columnsCount = 6
-        let cols = Array(repeating: GridItem(.flexible(), spacing: 8), count: columnsCount)
+        let cols = [
+            GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 8)
+        ]
         
-        LazyVGrid(columns: cols, spacing: 8) {
+        LazyVGrid(columns: cols, alignment: .leading, spacing: 8) {
             ForEach(fields) { field in
                 DataFieldTile(type: field, engine: engine, settings: settings)
             }
