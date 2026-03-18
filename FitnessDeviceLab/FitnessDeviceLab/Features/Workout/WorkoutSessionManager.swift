@@ -156,14 +156,7 @@ public class WorkoutSessionManager {
             workoutDifficultyScale = min(2.0, workoutDifficultyScale + 0.01)
         } else {
             // Manual adjustment for Free Ride
-            switch freeRideControlMode {
-            case .resistance:
-                resistanceLevel = min(100.0, resistanceLevel + 1.0)
-            case .power:
-                manualTargetPower += 5
-            case .heartRate:
-                manualTargetHR += 1
-            }
+            adjustManualTarget(amount: 5)
         }
     }
     
@@ -171,15 +164,19 @@ public class WorkoutSessionManager {
         if selectedWorkout != nil {
             workoutDifficultyScale = max(0.5, workoutDifficultyScale - 0.01)
         } else {
-            // Manual adjustment for Free Ride
-            switch freeRideControlMode {
-            case .resistance:
-                resistanceLevel = max(0.0, resistanceLevel - 1.0)
-            case .power:
-                manualTargetPower = max(0, manualTargetPower - 5)
-            case .heartRate:
-                manualTargetHR = max(40, manualTargetHR - 1)
-            }
+            // Manual adjustment for Free Ride (backward compatibility with existing buttons)
+            adjustManualTarget(amount: -5)
+        }
+    }
+    
+    public func adjustManualTarget(amount: Int) {
+        switch freeRideControlMode {
+        case .resistance:
+            resistanceLevel = min(100.0, max(0.0, resistanceLevel + Double(amount)))
+        case .power:
+            manualTargetPower = max(0, manualTargetPower + amount)
+        case .heartRate:
+            manualTargetHR = max(40, manualTargetHR + amount)
         }
     }
     

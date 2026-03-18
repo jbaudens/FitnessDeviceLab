@@ -556,7 +556,7 @@ struct FreeRideControlView: View {
     @Bindable var workoutManager: WorkoutSessionManager
     
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             Picker("Mode", selection: $workoutManager.freeRideControlMode) {
                 ForEach(WorkoutSessionManager.FreeRideControlMode.allCases) { mode in
                     Text(mode.rawValue).tag(mode)
@@ -564,44 +564,82 @@ struct FreeRideControlView: View {
             }
             .pickerStyle(.segmented)
             
-            HStack(spacing: 20) {
-                Button(action: { workoutManager.decreaseDifficulty() }) {
-                    Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 32))
+            HStack(spacing: 0) {
+                // Coarse Decrease
+                Button(action: { workoutManager.adjustManualTarget(amount: workoutManager.freeRideControlMode == .power ? -10 : -5) }) {
+                    VStack(spacing: 2) {
+                        Image(systemName: "minus.circle.fill")
+                            .font(.system(size: 24))
+                        Text(workoutManager.freeRideControlMode == .power ? "-10" : "-5")
+                            .font(.system(size: 8, weight: .black))
+                    }
                 }
                 .buttonStyle(.plain)
+                .frame(width: 44)
+                
+                // Fine Decrease
+                Button(action: { workoutManager.adjustManualTarget(amount: -1) }) {
+                    VStack(spacing: 2) {
+                        Image(systemName: "minus.circle")
+                            .font(.system(size: 20))
+                        Text("-1")
+                            .font(.system(size: 8, weight: .black))
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(width: 44)
+                .padding(.leading, 8)
                 
                 Spacer()
                 
                 if workoutManager.freeRideControlMode == .heartRate {
                     VStack {
                         Text("\(workoutManager.manualTargetHR)")
-                            .font(.system(size: 24, weight: .bold, design: .monospaced))
+                            .font(.system(size: 28, weight: .bold, design: .monospaced))
                         Text("BPM").font(.caption2).foregroundColor(.secondary)
                     }
                 } else if workoutManager.freeRideControlMode == .power {
                     VStack {
                         Text("\(workoutManager.manualTargetPower)")
-                            .font(.system(size: 24, weight: .bold, design: .monospaced))
+                            .font(.system(size: 28, weight: .bold, design: .monospaced))
                         Text("WATTS").font(.caption2).foregroundColor(.secondary)
                     }
                 } else {
                     VStack {
                         Text("\(Int(workoutManager.resistanceLevel))%")
-                            .font(.system(size: 24, weight: .bold, design: .monospaced))
+                            .font(.system(size: 28, weight: .bold, design: .monospaced))
                         Text("LEVEL").font(.caption2).foregroundColor(.secondary)
                     }
                 }
                 
                 Spacer()
                 
-                Button(action: { workoutManager.increaseDifficulty() }) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 32))
+                // Fine Increase
+                Button(action: { workoutManager.adjustManualTarget(amount: 1) }) {
+                    VStack(spacing: 2) {
+                        Image(systemName: "plus.circle")
+                            .font(.system(size: 20))
+                        Text("+1")
+                            .font(.system(size: 8, weight: .black))
+                    }
                 }
                 .buttonStyle(.plain)
+                .frame(width: 44)
+                .padding(.trailing, 8)
+                
+                // Coarse Increase
+                Button(action: { workoutManager.adjustManualTarget(amount: workoutManager.freeRideControlMode == .power ? 10 : 5) }) {
+                    VStack(spacing: 2) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 24))
+                        Text(workoutManager.freeRideControlMode == .power ? "+10" : "+5")
+                            .font(.system(size: 8, weight: .black))
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(width: 44)
             }
-            .padding(.horizontal, 40)
+            .padding(.horizontal, 10)
             .foregroundColor(.blue)
         }
         .padding()

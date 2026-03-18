@@ -176,4 +176,30 @@ struct WorkoutSessionManagerTests {
         #expect(mockTrainer.lastSetTargetPower != nil)
         #expect(sut.currentTargetHR == 140)
     }
+    
+    @Test func testManualTargetAdjustments() async throws {
+        let (sut, _, _, _) = makeSUT()
+        
+        sut.freeRideControlMode = .power
+        sut.manualTargetPower = 200
+        
+        sut.adjustManualTarget(amount: 1)
+        #expect(sut.manualTargetPower == 201)
+        
+        sut.adjustManualTarget(amount: -1)
+        #expect(sut.manualTargetPower == 200)
+        
+        sut.adjustManualTarget(amount: 10)
+        #expect(sut.manualTargetPower == 210)
+        
+        sut.freeRideControlMode = .heartRate
+        sut.manualTargetHR = 150
+        sut.adjustManualTarget(amount: 1)
+        #expect(sut.manualTargetHR == 151)
+        
+        sut.freeRideControlMode = .resistance
+        sut.resistanceLevel = 50.0
+        sut.adjustManualTarget(amount: 5)
+        #expect(sut.resistanceLevel == 55.0)
+    }
 }
