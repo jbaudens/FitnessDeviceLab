@@ -4,6 +4,7 @@ public struct DefaultWorkouts {
     public static let all: [StructuredWorkout] = [
         // Test Workouts
         testIntervalDetection,
+        testMicroIntervals,
         test5min,
         test15min,
         test30min,
@@ -44,7 +45,7 @@ public struct DefaultWorkouts {
         neuromuscularMaxSprints,
         
         // Legacy/Existing
-            dynamicWarmup,
+        dynamicWarmup,
         gabriel,
         antelopePlus2,
         hrTest
@@ -54,16 +55,37 @@ public struct DefaultWorkouts {
     
     private static let testIntervalDetection = StructuredWorkout(
         name: "Test: Interval Detection",
-        description: "Short workout with sharp power changes to test the interval detection algorithm.",
+        description: "Workout with sharp but doable power changes (capped at 130% FTP) to test detection.",
         steps: [
             WorkoutStep(duration: 120, targetPowerPercent: 0.50, type: .warmup),
-            WorkoutStep(duration: 30, targetPowerPercent: 1.20, type: .work),
-            WorkoutStep(duration: 30, targetPowerPercent: 0.50, type: .recovery),
-            WorkoutStep(duration: 30, targetPowerPercent: 1.50, type: .work),
-            WorkoutStep(duration: 30, targetPowerPercent: 0.50, type: .recovery),
-            WorkoutStep(duration: 30, targetPowerPercent: 1.80, type: .work),
+            WorkoutStep(duration: 60, targetPowerPercent: 1.10, type: .work),
+            WorkoutStep(duration: 60, targetPowerPercent: 0.55, type: .recovery),
+            WorkoutStep(duration: 60, targetPowerPercent: 1.20, type: .work),
+            WorkoutStep(duration: 60, targetPowerPercent: 0.55, type: .recovery),
+            WorkoutStep(duration: 60, targetPowerPercent: 1.30, type: .work),
+            WorkoutStep(duration: 60, targetPowerPercent: 0.55, type: .recovery),
+            WorkoutStep(duration: 60, targetPowerPercent: 1.15, type: .work),
             WorkoutStep(duration: 120, targetPowerPercent: 0.40, type: .cooldown)
         ]
+    )
+    
+    private static let testMicroIntervals = StructuredWorkout(
+        name: "Test: Rapid Micro-Intervals",
+        description: "Many very short intervals with slight power variations to test detection sensitivity.",
+        steps: {
+            var s: [WorkoutStep] = []
+            s.append(WorkoutStep(duration: 180, targetPowerPercent: 0.50, type: .warmup))
+            
+            // 15 sets of 15s/15s with slight power wandering
+            for i in 0..<15 {
+                let intensity = 0.90 + (Double(i % 3) * 0.10) // Alternates between 90%, 100%, 110%
+                s.append(WorkoutStep(duration: 15, targetPowerPercent: intensity, type: .work))
+                s.append(WorkoutStep(duration: 15, targetPowerPercent: 0.60, type: .recovery))
+            }
+            
+            s.append(WorkoutStep(duration: 180, targetPowerPercent: 0.40, type: .cooldown))
+            return s
+        }()
     )
     
     private static let test5min = StructuredWorkout(
