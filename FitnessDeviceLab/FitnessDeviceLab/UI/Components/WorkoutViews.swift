@@ -111,6 +111,7 @@ struct WorkoutGraphView: View {
                             startTime: sessionStartTime
                         )
                         .frame(width: width, height: height)
+                        .padding(.bottom, 15) // Match SessionGraphView for consistency
                     }
                     
                     // Playhead
@@ -343,17 +344,51 @@ struct PerformanceChart: View {
 #Preview("Session Graph") {
     let recorder = SessionRecorder(settings: SettingsManager())
     
-    // We can't use a loop here easily, so let's just add a few points manually
-    // or use a helper if needed. For now, let's just use empty or a few points.
-    let now = Date()
-    let _ = recorder.trackpoints.append(Trackpoint(time: now, hr: 120, power: 200))
-    let _ = recorder.trackpoints.append(Trackpoint(time: now.addingTimeInterval(300), hr: 140, power: 250))
-    let _ = recorder.trackpoints.append(Trackpoint(time: now.addingTimeInterval(600), hr: 150, power: 300))
-    let _ = recorder.trackpoints.append(Trackpoint(time: now.addingTimeInterval(900), hr: 160, power: 350))
+    // Add 1000 points to ensure we have enough duration for labels
+    let _ = {
+        let now = Date()
+        for i in 0..<1000 {
+            let pt = Trackpoint(
+                time: now.addingTimeInterval(Double(i)),
+                hr: 120 + Int(sin(Double(i)/20.0) * 10),
+                power: 200 + Int(cos(Double(i)/20.0) * 50)
+            )
+            recorder.trackpoints.append(pt)
+        }
+        return true
+    }()
     
-    SessionGraphView(recorder: recorder, userFTP: 200)
-        .frame(height: 200)
-        .padding()
+    VStack(alignment: .leading) {
+        Text("Free Ride Graph").font(.headline)
+        SessionGraphView(recorder: recorder, userFTP: 200)
+            .frame(height: 140)
+            .padding(8)
+            .background(Color.secondary.opacity(0.05))
+            .cornerRadius(12)
+    }
+    .padding()
+}
+
+#Preview("Workout Graph") {
+    let workout = StructuredWorkout(
+        name: "Threshold Intervals",
+        description: "Hard work",
+        steps: [
+            WorkoutStep(duration: 300, targetPowerPercent: 0.5),
+            WorkoutStep(duration: 600, targetPowerPercent: 0.9, endTargetPowerPercent: 1.0),
+            WorkoutStep(duration: 300, targetPowerPercent: 0.5)
+        ]
+    )
+    
+    VStack(alignment: .leading) {
+        Text("Structured Workout Graph").font(.headline)
+        WorkoutGraphView(workout: workout, userFTP: 250)
+            .frame(height: 140)
+            .padding(8)
+            .background(Color.secondary.opacity(0.05))
+            .cornerRadius(12)
+    }
+    .padding()
 }
 
 struct WorkoutRowView: View {
