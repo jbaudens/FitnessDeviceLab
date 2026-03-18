@@ -131,6 +131,7 @@ struct WorkoutGraphView: View {
                             HStack(spacing: 8) {
                                 Spacer()
                                 Label("Power", systemImage: "bolt.fill").foregroundColor(.yellow)
+                                Label("Cadence", systemImage: "bicycle").foregroundColor(.blue)
                                 Label("HR", systemImage: "heart.fill").foregroundColor(.red)
                             }
                             .font(.system(size: 8, weight: .black))
@@ -237,6 +238,7 @@ struct SessionGraphView: View {
                             HStack(spacing: 8) {
                                 Spacer()
                                 Label("Power", systemImage: "bolt.fill").foregroundColor(.yellow)
+                                Label("Cadence", systemImage: "bicycle").foregroundColor(.blue)
                                 Label("HR", systemImage: "heart.fill").foregroundColor(.red)
                             }
                             .font(.system(size: 8, weight: .black))
