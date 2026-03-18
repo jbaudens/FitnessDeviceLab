@@ -201,7 +201,7 @@ struct SessionGraphView: View {
                             let x = (CGFloat(t) / CGFloat(totalDuration)) * width
                             Text("\(Int(t/60))m")
                                 .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                .foregroundColor(.secondary.opacity(0.5))
+                                .foregroundColor(.secondary.opacity(0.8))
                                 .position(x: x, y: height - 6)
                         }
                     }
@@ -212,6 +212,7 @@ struct SessionGraphView: View {
                         maxPower: maxPercent * ftp
                     )
                     .frame(width: width, height: height)
+                    .padding(.bottom, 15) // Make room for labels
                 }
             }
         }
@@ -337,6 +338,22 @@ struct PerformanceChart: View {
         .chartYAxis(.hidden)
         .animation(.none, value: recorder.trackpoints.count) // Disable chart animation for performance
     }
+}
+
+#Preview("Session Graph") {
+    let recorder = SessionRecorder(settings: SettingsManager())
+    
+    // We can't use a loop here easily, so let's just add a few points manually
+    // or use a helper if needed. For now, let's just use empty or a few points.
+    let now = Date()
+    let _ = recorder.trackpoints.append(Trackpoint(time: now, hr: 120, power: 200))
+    let _ = recorder.trackpoints.append(Trackpoint(time: now.addingTimeInterval(300), hr: 140, power: 250))
+    let _ = recorder.trackpoints.append(Trackpoint(time: now.addingTimeInterval(600), hr: 150, power: 300))
+    let _ = recorder.trackpoints.append(Trackpoint(time: now.addingTimeInterval(900), hr: 160, power: 350))
+    
+    SessionGraphView(recorder: recorder, userFTP: 200)
+        .frame(height: 200)
+        .padding()
 }
 
 struct WorkoutRowView: View {
