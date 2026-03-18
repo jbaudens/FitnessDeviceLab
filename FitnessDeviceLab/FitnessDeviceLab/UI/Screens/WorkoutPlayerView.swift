@@ -12,7 +12,7 @@ struct WorkoutPlayerView: View {
 
 #Preview("Free Ride") {
     let settings = SettingsManager()
-    let locationManager = LocationManager() // Using real one or mock if available
+    let locationManager = LocationManager()
     let timer = WorkoutTimer()
     let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, workoutTimer: timer)
     let bluetooth = BluetoothManager(settings: settings)
@@ -70,7 +70,7 @@ struct WorkoutPlayerView: View {
         manager.selectedWorkout = workout
         manager.isLoaded = true
         manager.isRecording = true
-        manager.workoutElapsedTime = 750 // 12.5 mins (middle of 3rd step)
+        manager.workoutElapsedTime = 750 // 12.5 mins
         manager.currentStepIndex = 2
         manager.timeInStep = 150
         
@@ -97,7 +97,6 @@ struct WorkoutPlayerContentView: View {
     var body: some View {
         Group {
             if viewModel.isSummaryState {
-                // Focused Post-Workout Summary View
                 VStack {
                     Spacer()
                     SessionSummaryCard(files: viewModel.workoutManager.exportedFiles, engine: viewModel.workoutManager.engineA)
@@ -153,7 +152,7 @@ struct WorkoutPlayerContentView: View {
     
     private var activeView: some View {
         VStack(spacing: 0) {
-            // Active Workout Header
+            // Status Dashboard (Top)
             if let workout = viewModel.workoutManager.selectedWorkout {
                 WorkoutTargetHeader(workoutManager: viewModel.workoutManager, workout: workout)
                     .padding()
@@ -185,11 +184,10 @@ struct WorkoutPlayerContentView: View {
             .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .always))
             #endif
             
-            if viewModel.workoutManager.selectedWorkout == nil {
-                FreeRideControlView(workoutManager: viewModel.workoutManager)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-            }
+            // Cockpit Zone (Bottom Interaction)
+            InteractionCockpit(workoutManager: viewModel.workoutManager)
+                .padding(.horizontal)
+                .padding(.top, 8)
             
             activeControls
         }
@@ -573,7 +571,7 @@ struct WorkoutPlayerContentView: View {
     }
 }
 
-// MARK: - Free Ride Components
+// MARK: - Components
 
 struct FreeRideHeader: View {
     @Bindable var workoutManager: WorkoutSessionManager
@@ -635,168 +633,170 @@ struct FreeRideHeader: View {
     }
 }
 
-struct FreeRideControlView: View {
+struct InteractionCockpit: View {
     @Bindable var workoutManager: WorkoutSessionManager
     
     var body: some View {
-        VStack(spacing: 16) {
-            Picker("Mode", selection: $workoutManager.freeRideControlMode) {
-                ForEach(WorkoutSessionManager.FreeRideControlMode.allCases) { mode in
-                    Text(mode.rawValue).tag(mode)
+        VStack(spacing: 12) {
+            if workoutManager.selectedWorkout == nil {
+                // Free Ride Controls
+                VStack(spacing: 12) {
+                    Picker("Mode", selection: $workoutManager.freeRideControlMode) {
+                        ForEach(WorkoutSessionManager.FreeRideControlMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    
+                    HStack(spacing: 0) {
+                        // Coarse Decrease
+                        Button(action: { workoutManager.adjustManualTarget(amount: workoutManager.freeRideControlMode == .power ? -10 : -5) }) {
+                            VStack(spacing: 2) {
+                                Image(systemName: "minus.circle.fill")
+                                    .font(.system(size: 24))
+                                Text(workoutManager.freeRideControlMode == .power ? "-10" : "-5")
+                                    .font(.system(size: 8, weight: .black))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .frame(width: 44)
+                        
+                        // Fine Decrease
+                        Button(action: { workoutManager.adjustManualTarget(amount: -1) }) {
+                            VStack(spacing: 2) {
+                                Image(systemName: "minus.circle")
+                                    .font(.system(size: 20))
+                                Text("-1")
+                                    .font(.system(size: 8, weight: .black))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .frame(width: 44)
+                        .padding(.leading, 8)
+                        
+                        Spacer()
+                        
+                        // Center Value
+                        if workoutManager.freeRideControlMode == .heartRate {
+                            VStack {
+                                Text("\(workoutManager.manualTargetHR)")
+                                    .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                Text("BPM").font(.caption2).foregroundColor(.secondary)
+                            }
+                        } else if workoutManager.freeRideControlMode == .power {
+                            VStack {
+                                Text("\(workoutManager.manualTargetPower)")
+                                    .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                Text("WATTS").font(.caption2).foregroundColor(.secondary)
+                            }
+                        } else {
+                            VStack {
+                                Text("\(Int(workoutManager.resistanceLevel))%")
+                                    .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                Text("LEVEL").font(.caption2).foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        // Fine Increase
+                        Button(action: { workoutManager.adjustManualTarget(amount: 1) }) {
+                            VStack(spacing: 2) {
+                                Image(systemName: "plus.circle")
+                                    .font(.system(size: 20))
+                                Text("+1")
+                                    .font(.system(size: 8, weight: .black))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .frame(width: 44)
+                        .padding(.trailing, 8)
+                        
+                        // Coarse Increase
+                        Button(action: { workoutManager.adjustManualTarget(amount: workoutManager.freeRideControlMode == .power ? 10 : 5) }) {
+                            VStack(spacing: 2) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 24))
+                                Text(workoutManager.freeRideControlMode == .power ? "+10" : "+5")
+                                    .font(.system(size: 8, weight: .black))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .frame(width: 44)
+                    }
+                    .padding(.horizontal, 10)
+                }
+            } else {
+                // Structured Workout Controls
+                @Bindable var wmBindable = workoutManager
+                HStack(spacing: 16) {
+                    // Mode Selection Dropdown
+                    Menu {
+                        Button(action: { workoutManager.ergModeEnabled = true }) {
+                            HStack {
+                                Text("ERG Mode")
+                                if workoutManager.ergModeEnabled { Image(systemName: "checkmark") }
+                            }
+                        }
+                        .disabled(!workoutManager.canEnableErgMode)
+                        
+                        Button(action: { workoutManager.ergModeEnabled = false }) {
+                            HStack {
+                                Text("Resistance Mode")
+                                if !workoutManager.ergModeEnabled { Image(systemName: "checkmark") }
+                            }
+                        }
+                        .disabled(!workoutManager.canEnableErgMode)
+                    } label: {
+                        Text(workoutManager.ergModeEnabled ? "ERG" : "RES")
+                            .font(.system(size: 12, weight: .black))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 6)
+                            .background(workoutManager.ergModeEnabled ? Color.green.opacity(0.8) : Color.orange.opacity(0.8))
+                            .foregroundColor(.white)
+                            .cornerRadius(6)
+                    }
+                    
+                    // Difficulty Controls
+                    HStack(spacing: 12) {
+                        Button(action: { workoutManager.decreaseDifficulty() }) {
+                            Image(systemName: "minus.circle.fill")
+                                .font(.system(size: 28))
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Text("\(Int(round(workoutManager.workoutDifficultyScale * 100)))%")
+                            .font(.system(size: 16, weight: .bold, design: .monospaced))
+                            .frame(width: 60)
+                        
+                        Button(action: { workoutManager.increaseDifficulty() }) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 28))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    
+                    if !workoutManager.ergModeEnabled {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plusminus.circle.fill")
+                                .foregroundColor(.blue)
+                            Slider(value: $wmBindable.resistanceLevel, in: 0...100, step: 1)
+                                .frame(maxWidth: 150)
+                                .disabled(!workoutManager.canEnableErgMode)
+                            Text("\(Int(workoutManager.resistanceLevel))%")
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .frame(width: 30)
+                        }
+                    }
+                    
+                    Spacer()
                 }
             }
-            .pickerStyle(.segmented)
-            
-            HStack(spacing: 0) {
-                // Coarse Decrease
-                Button(action: { workoutManager.adjustManualTarget(amount: workoutManager.freeRideControlMode == .power ? -10 : -5) }) {
-                    VStack(spacing: 2) {
-                        Image(systemName: "minus.circle.fill")
-                            .font(.system(size: 24))
-                        Text(workoutManager.freeRideControlMode == .power ? "-10" : "-5")
-                            .font(.system(size: 8, weight: .black))
-                    }
-                }
-                .buttonStyle(.plain)
-                .frame(width: 44)
-                
-                // Fine Decrease
-                Button(action: { workoutManager.adjustManualTarget(amount: -1) }) {
-                    VStack(spacing: 2) {
-                        Image(systemName: "minus.circle")
-                            .font(.system(size: 20))
-                        Text("-1")
-                            .font(.system(size: 8, weight: .black))
-                    }
-                }
-                .buttonStyle(.plain)
-                .frame(width: 44)
-                .padding(.leading, 8)
-                
-                Spacer()
-                
-                if workoutManager.freeRideControlMode == .heartRate {
-                    VStack {
-                        Text("\(workoutManager.manualTargetHR)")
-                            .font(.system(size: 28, weight: .bold, design: .monospaced))
-                        Text("BPM").font(.caption2).foregroundColor(.secondary)
-                    }
-                } else if workoutManager.freeRideControlMode == .power {
-                    VStack {
-                        Text("\(workoutManager.manualTargetPower)")
-                            .font(.system(size: 28, weight: .bold, design: .monospaced))
-                        Text("WATTS").font(.caption2).foregroundColor(.secondary)
-                    }
-                } else {
-                    VStack {
-                        Text("\(Int(workoutManager.resistanceLevel))%")
-                            .font(.system(size: 28, weight: .bold, design: .monospaced))
-                        Text("LEVEL").font(.caption2).foregroundColor(.secondary)
-                    }
-                }
-                
-                Spacer()
-                
-                // Fine Increase
-                Button(action: { workoutManager.adjustManualTarget(amount: 1) }) {
-                    VStack(spacing: 2) {
-                        Image(systemName: "plus.circle")
-                            .font(.system(size: 20))
-                        Text("+1")
-                            .font(.system(size: 8, weight: .black))
-                    }
-                }
-                .buttonStyle(.plain)
-                .frame(width: 44)
-                .padding(.trailing, 8)
-                
-                // Coarse Increase
-                Button(action: { workoutManager.adjustManualTarget(amount: workoutManager.freeRideControlMode == .power ? 10 : 5) }) {
-                    VStack(spacing: 2) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 24))
-                        Text(workoutManager.freeRideControlMode == .power ? "+10" : "+5")
-                            .font(.system(size: 8, weight: .black))
-                    }
-                }
-                .buttonStyle(.plain)
-                .frame(width: 44)
-            }
-            .padding(.horizontal, 10)
-            .foregroundColor(.blue)
         }
         .padding()
         .background(Color.secondary.opacity(0.1))
         .cornerRadius(12)
-    }
-}
-
-// MARK: - Subviews
-
-struct SessionSummaryCard: View {
-    let files: [URL]
-    let engine: DataFieldEngine
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("SESSION SUMMARY")
-                    .font(.caption)
-                    .fontWeight(.black)
-                    .foregroundColor(.green)
-                Spacer()
-                Image(systemName: "checkmark.seal.fill")
-                    .foregroundColor(.green)
-            }
-            
-            let m = engine.calculatedMetrics
-            
-            Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 12) {
-                GridRow {
-                    SummaryMetric(label: "AVG POWER", value: "\(Int(round(m.standard.avgPower ?? 0)))W")
-                    SummaryMetric(label: "NP", value: "\(Int(round(m.standard.normalizedPower ?? 0)))W")
-                }
-                GridRow {
-                    SummaryMetric(label: "IF", value: String(format: "%.2f", m.standard.intensityFactor ?? 0))
-                    SummaryMetric(label: "TSS", value: "\(Int(round(m.standard.tss ?? 0)))")
-                }
-                GridRow {
-                    SummaryMetric(label: "AVG HR", value: "\(Int(round(m.hr.avg ?? 0))) BPM")
-                    SummaryMetric(label: "MAX HR", value: "\(Int(round(Double(m.hr.max ?? 0)))) BPM")
-                }
-            }
-            
-            ShareLink(items: files) {
-                Label("Export Session (.TCX & .FIT)", systemImage: "square.and.arrow.up")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.green)
-        }
-        .padding()
-        .background(Color.green.opacity(0.05))
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.green.opacity(0.2), lineWidth: 1)
-        )
-    }
-}
-
-struct SummaryMetric: View {
-    let label: String
-    let value: String
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label)
-                .font(.system(size: 10, weight: .black))
-                .foregroundColor(.secondary)
-            Text(value)
-                .font(.system(size: 18, weight: .bold, design: .monospaced))
-        }
+        .foregroundColor(.blue)
     }
 }
 
@@ -811,7 +811,6 @@ struct WorkoutTargetHeader: View {
     }()
     
     var body: some View {
-        @Bindable var wmBindable = workoutManager
         VStack(spacing: 16) {
             HStack(alignment: .center) {
                 // Time in Interval
@@ -918,80 +917,6 @@ struct WorkoutTargetHeader: View {
                 }
             }
             
-            // Legend & Controls
-            HStack(spacing: 16) {
-                // Mode Selection Dropdown
-                Menu {
-                    Button(action: { workoutManager.ergModeEnabled = true }) {
-                        HStack {
-                            Text("ERG Mode")
-                            if workoutManager.ergModeEnabled { Image(systemName: "checkmark") }
-                        }
-                    }
-                    .disabled(!workoutManager.canEnableErgMode)
-                    
-                    Button(action: { workoutManager.ergModeEnabled = false }) {
-                        HStack {
-                            Text("Resistance Mode")
-                            if !workoutManager.ergModeEnabled { Image(systemName: "checkmark") }
-                        }
-                    }
-                    .disabled(!workoutManager.canEnableErgMode)
-                } label: {
-                    Text(workoutManager.ergModeEnabled ? "ERG" : "RES")
-                        .font(.system(size: 12, weight: .black))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 6)
-                        .background(workoutManager.ergModeEnabled ? Color.green.opacity(0.8) : Color.orange.opacity(0.8))
-                        .foregroundColor(.white)
-                        .cornerRadius(6)
-                }
-                
-                // Difficulty Controls
-                HStack(spacing: 12) {
-                    Button(action: { workoutManager.decreaseDifficulty() }) {
-                        Image(systemName: "minus.circle.fill")
-                            .font(.system(size: 28))
-                    }
-                    .buttonStyle(.plain)
-                    
-                    Text("\(Int(round(workoutManager.workoutDifficultyScale * 100)))%")
-                        .font(.system(size: 16, weight: .bold, design: .monospaced))
-                        .frame(width: 60)
-                    
-                    Button(action: { workoutManager.increaseDifficulty() }) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 28))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .foregroundColor(.blue)
-                
-                if !workoutManager.ergModeEnabled {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plusminus.circle.fill")
-                            .foregroundColor(.blue)
-                        Slider(value: $wmBindable.resistanceLevel, in: 0...100, step: 1)
-                            .frame(maxWidth: 150)
-                            .disabled(!workoutManager.canEnableErgMode)
-                        Text("\(Int(workoutManager.resistanceLevel))%")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .frame(width: 30)
-                    }
-                }
-                
-                Spacer()
-                
-                HStack(spacing: 12) {
-                    Label("Power", systemImage: "bolt.fill").foregroundColor(.yellow)
-                    Label("Cadence", systemImage: "bicycle").foregroundColor(.blue)
-                    Label("HR", systemImage: "heart.fill").foregroundColor(.red)
-                }
-                .font(.system(size: 10, weight: .bold))
-            }
-            .font(.system(size: 10, weight: .bold))
-            .foregroundColor(.secondary)
-            
             if workoutManager.currentStepIndex < workout.steps.count - 1 {
                 let nextStep = workout.steps[workoutManager.currentStepIndex + 1]
                 let scale = workoutManager.workoutDifficultyScale
@@ -1010,6 +935,75 @@ struct WorkoutTargetHeader: View {
         let mins = Int(interval) / 60
         let secs = Int(interval) % 60
         return String(format: "%02d:%02d", mins, secs)
+    }
+}
+
+// MARK: - Subviews
+
+struct SessionSummaryCard: View {
+    let files: [URL]
+    let engine: DataFieldEngine
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("SESSION SUMMARY")
+                    .font(.caption)
+                    .fontWeight(.black)
+                    .foregroundColor(.green)
+                Spacer()
+                Image(systemName: "checkmark.seal.fill")
+                    .foregroundColor(.green)
+            }
+            
+            let m = engine.calculatedMetrics
+            
+            Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 12) {
+                GridRow {
+                    SummaryMetric(label: "AVG POWER", value: "\(Int(round(m.standard.avgPower ?? 0)))W")
+                    SummaryMetric(label: "NP", value: "\(Int(round(m.standard.normalizedPower ?? 0)))W")
+                }
+                GridRow {
+                    SummaryMetric(label: "IF", value: String(format: "%.2f", m.standard.intensityFactor ?? 0))
+                    SummaryMetric(label: "TSS", value: "\(Int(round(m.standard.tss ?? 0)))")
+                }
+                GridRow {
+                    SummaryMetric(label: "AVG HR", value: "\(Int(round(m.hr.avg ?? 0))) BPM")
+                    SummaryMetric(label: "MAX HR", value: "\(Int(round(Double(m.hr.max ?? 0)))) BPM")
+                }
+            }
+            
+            ShareLink(items: files) {
+                Label("Export Session (.TCX & .FIT)", systemImage: "square.and.arrow.up")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+        }
+        .padding()
+        .background(Color.green.opacity(0.05))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.green.opacity(0.2), lineWidth: 1)
+        )
+    }
+}
+
+struct SummaryMetric: View {
+    let label: String
+    let value: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.system(size: 10, weight: .black))
+                .foregroundColor(.secondary)
+            Text(value)
+                .font(.system(size: 18, weight: .bold, design: .monospaced))
+        }
     }
 }
 
@@ -1173,7 +1167,7 @@ struct SensorSetCard: View {
             Divider()
             
             VStack(spacing: 12) {
-                // HR Picker - Direct Adaptor Selection
+                // HR Picker
                 HStack {
                     Label {
                         Text("Heart Rate").font(.subheadline)
@@ -1212,7 +1206,7 @@ struct SensorSetCard: View {
                 // Cadence Picker
                 HStack {
                     Label {
-                        Text("Cadence").font(.subheadline)
+                        Text("Cadence Sensor").font(.subheadline)
                     } icon: {
                         Image(systemName: "bicycle").foregroundColor(.blue)
                     }

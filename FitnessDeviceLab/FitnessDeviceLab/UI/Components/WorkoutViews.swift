@@ -123,6 +123,19 @@ struct WorkoutGraphView: View {
                             .shadow(radius: 2)
                             .offset(x: playheadX)
                     }
+                    
+                    // Legend Overlay
+                    VStack {
+                        Spacer()
+                        HStack(spacing: 8) {
+                            Spacer()
+                            Label("Power", systemImage: "bolt.fill").foregroundColor(.yellow)
+                            Label("HR", systemImage: "heart.fill").foregroundColor(.red)
+                        }
+                        .font(.system(size: 8, weight: .black))
+                        .padding(.trailing, 10)
+                        .padding(.bottom, 22)
+                    }
                 }
             }
         }
@@ -213,7 +226,20 @@ struct SessionGraphView: View {
                         maxPower: maxPercent * ftp
                     )
                     .frame(width: width, height: height)
-                    .padding(.bottom, 20) // Ensure labels are visible below chart
+                    .padding(.bottom, 20)
+                    
+                    // Legend Overlay
+                    VStack {
+                        Spacer()
+                        HStack(spacing: 8) {
+                            Spacer()
+                            Label("Power", systemImage: "bolt.fill").foregroundColor(.yellow)
+                            Label("HR", systemImage: "heart.fill").foregroundColor(.red)
+                        }
+                        .font(.system(size: 8, weight: .black))
+                        .padding(.trailing, 10)
+                        .padding(.bottom, 22)
+                    }
                 }
             }
         }
