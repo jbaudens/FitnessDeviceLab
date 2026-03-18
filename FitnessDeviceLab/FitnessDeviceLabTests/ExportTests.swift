@@ -50,6 +50,9 @@ struct ExportTests {
     @Test func fitExport() throws {
         let trackpoints = createTrackpoints()
         let encoder = FitEncoder()
+        
+        // Mock a power source to satisfy the new SessionRecorder data checks if needed
+        // (though this test calls FitEncoder directly, let's keep it robust)
         let data = try #require(encoder.encode(
             trackpoints: trackpoints,
             laps: [],

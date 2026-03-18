@@ -24,6 +24,16 @@ public class SessionRecorder {
     }
     
     public func stop(metadata: ExportMetadata, laps: [Lap] = []) -> [URL] {
+        // Only export if we have at least one valid sensor assigned
+        guard hrSource != nil || powerSource != nil || cadenceSource != nil else {
+            return []
+        }
+        
+        // and we actually recorded some sample data (at least one valid sample)
+        guard trackpoints.contains(where: { $0.hr != nil || $0.power != nil }) else {
+            return []
+        }
+        
         var files: [URL] = []
         
         let tcxExporter = TCXExporter()
