@@ -681,68 +681,74 @@ struct InteractionCockpit: View {
     @ViewBuilder
     private func adjustmentRow(value: String, label: String, coarseAmount: Int) -> some View {
         HStack(spacing: 0) {
-            // Coarse Decrease
+            // Coarse Decrease (Subdued & Shielded)
             Button(action: { workoutManager.adjustManualTarget(amount: -coarseAmount) }) {
                 VStack(spacing: 2) {
-                    Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 24))
+                    Image(systemName: "minus.square.fill")
+                        .font(.system(size: 20))
                     Text("-\(coarseAmount)")
                         .font(.system(size: 8, weight: .black))
                 }
+                .foregroundColor(.secondary.opacity(0.6))
+                .frame(width: 44, height: 44)
+                .background(Color.secondary.opacity(0.1))
+                .cornerRadius(8)
             }
             .buttonStyle(.plain)
-            .frame(width: 44)
             
-            // Fine Decrease
+            Spacer().frame(width: 20) // Safety Gutter
+            
+            // Fine Decrease (Prominent & Central)
             Button(action: { workoutManager.adjustManualTarget(amount: -1) }) {
-                VStack(spacing: 2) {
-                    Image(systemName: "minus.circle")
-                        .font(.system(size: 20))
-                    Text("-1")
-                        .font(.system(size: 8, weight: .black))
-                }
+                Image(systemName: "minus.circle.fill")
+                    .font(.system(size: 36))
+                    .foregroundColor(.blue)
+                    .frame(width: 50, height: 50)
             }
             .buttonStyle(.plain)
-            .frame(width: 44)
-            .padding(.leading, 8)
             
             Spacer()
             
-            // Center Value
-            VStack {
+            // Center Value Hero
+            VStack(spacing: 0) {
                 Text(value)
-                    .font(.system(size: 28, weight: .bold, design: .monospaced))
-                Text(label).font(.caption2).foregroundColor(.secondary)
+                    .font(.system(size: 32, weight: .bold, design: .monospaced))
+                    .foregroundColor(.primary)
+                Text(label)
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(.secondary)
             }
+            .frame(minWidth: 80)
             
             Spacer()
             
-            // Fine Increase
+            // Fine Increase (Prominent & Central)
             Button(action: { workoutManager.adjustManualTarget(amount: 1) }) {
-                VStack(spacing: 2) {
-                    Image(systemName: "plus.circle")
-                        .font(.system(size: 20))
-                    Text("+1")
-                        .font(.system(size: 8, weight: .black))
-                }
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 36))
+                    .foregroundColor(.blue)
+                    .frame(width: 50, height: 50)
             }
             .buttonStyle(.plain)
-            .frame(width: 44)
-            .padding(.trailing, 8)
             
-            // Coarse Increase
+            Spacer().frame(width: 20) // Safety Gutter
+            
+            // Coarse Increase (Subdued & Shielded)
             Button(action: { workoutManager.adjustManualTarget(amount: coarseAmount) }) {
                 VStack(spacing: 2) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 24))
+                    Image(systemName: "plus.square.fill")
+                        .font(.system(size: 20))
                     Text("+\(coarseAmount)")
                         .font(.system(size: 8, weight: .black))
                 }
+                .foregroundColor(.secondary.opacity(0.6))
+                .frame(width: 44, height: 44)
+                .background(Color.secondary.opacity(0.1))
+                .cornerRadius(8)
             }
             .buttonStyle(.plain)
-            .frame(width: 44)
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 4)
     }
     
     private var currentValueString: String {
