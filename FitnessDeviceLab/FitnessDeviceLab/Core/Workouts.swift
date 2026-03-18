@@ -3,6 +3,7 @@ import Foundation
 public struct DefaultWorkouts {
     public static let all: [StructuredWorkout] = [
         // Test Workouts
+        testIntervalDetection,
         test5min,
         test15min,
         test30min,
@@ -50,6 +51,20 @@ public struct DefaultWorkouts {
     ]
     
     // MARK: - Test Workouts
+    
+    private static let testIntervalDetection = StructuredWorkout(
+        name: "Test: Interval Detection",
+        description: "Short workout with sharp power changes to test the interval detection algorithm.",
+        steps: [
+            WorkoutStep(duration: 120, targetPowerPercent: 0.50, type: .warmup),
+            WorkoutStep(duration: 30, targetPowerPercent: 1.20, type: .work),
+            WorkoutStep(duration: 30, targetPowerPercent: 0.50, type: .recovery),
+            WorkoutStep(duration: 30, targetPowerPercent: 1.50, type: .work),
+            WorkoutStep(duration: 30, targetPowerPercent: 0.50, type: .recovery),
+            WorkoutStep(duration: 30, targetPowerPercent: 1.80, type: .work),
+            WorkoutStep(duration: 120, targetPowerPercent: 0.40, type: .cooldown)
+        ]
+    )
     
     private static let test5min = StructuredWorkout(
         name: "Test: 5 Min Rapid",
