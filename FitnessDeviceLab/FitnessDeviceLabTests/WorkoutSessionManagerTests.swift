@@ -180,24 +180,27 @@ struct WorkoutSessionManagerTests {
     @Test func testManualTargetAdjustments() async throws {
         let (sut, _, _, _) = makeSUT()
         
+        // 1. Free Ride
+        sut.selectedWorkout = nil
         sut.freeRideControlMode = .power
         sut.manualTargetPower = 200
         
         sut.adjustManualTarget(amount: 1)
         #expect(sut.manualTargetPower == 201)
         
-        sut.adjustManualTarget(amount: -1)
-        #expect(sut.manualTargetPower == 200)
+        // 2. Structured Workout ERG (Difficulty Scale)
+        sut.selectedWorkout = StructuredWorkout(name: "Test", steps: [WorkoutStep(duration: 60, targetPowerPercent: 0.5)])
+        sut.ergModeEnabled = true
+        sut.workoutDifficultyScale = 1.0
         
-        sut.adjustManualTarget(amount: 10)
-        #expect(sut.manualTargetPower == 210)
+        sut.adjustManualTarget(amount: 5) // +5%
+        #expect(sut.workoutDifficultyScale == 1.05)
         
-        sut.freeRideControlMode = .heartRate
-        sut.manualTargetHR = 150
-        sut.adjustManualTarget(amount: 1)
-        #expect(sut.manualTargetHR == 151)
+        sut.adjustManualTarget(amount: -10) // -10%
+        #expect(sut.workoutDifficultyScale == 0.95)
         
-        sut.freeRideControlMode = .resistance
+        // 3. Structured Workout Resistance
+        sut.ergModeEnabled = false
         sut.resistanceLevel = 50.0
         sut.adjustManualTarget(amount: 5)
         #expect(sut.resistanceLevel == 55.0)

@@ -170,13 +170,24 @@ public class WorkoutSessionManager {
     }
     
     public func adjustManualTarget(amount: Int) {
-        switch freeRideControlMode {
-        case .resistance:
-            resistanceLevel = min(100.0, max(0.0, resistanceLevel + Double(amount)))
-        case .power:
-            manualTargetPower = max(0, manualTargetPower + amount)
-        case .heartRate:
-            manualTargetHR = max(40, manualTargetHR + amount)
+        if selectedWorkout != nil {
+            if ergModeEnabled {
+                // Adjust difficulty scale (amount is in percent points)
+                let delta = Double(amount) / 100.0
+                workoutDifficultyScale = min(2.0, max(0.5, workoutDifficultyScale + delta))
+            } else {
+                // Adjust resistance level
+                resistanceLevel = min(100.0, max(0.0, resistanceLevel + Double(amount)))
+            }
+        } else {
+            switch freeRideControlMode {
+            case .resistance:
+                resistanceLevel = min(100.0, max(0.0, resistanceLevel + Double(amount)))
+            case .power:
+                manualTargetPower = max(0, manualTargetPower + amount)
+            case .heartRate:
+                manualTargetHR = max(40, manualTargetHR + amount)
+            }
         }
     }
     
