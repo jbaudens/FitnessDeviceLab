@@ -11,6 +11,7 @@ public struct DefaultWorkouts {
         
         // Zone 1: Active Recovery
         activeRecovery30,
+        activeRecoveryVaried30,
         activeRecovery60,
         activeRecovery90,
         
@@ -115,7 +116,7 @@ public struct DefaultWorkouts {
         description: "30 min aerobic validation test.",
         steps: [
             WorkoutStep(duration: 300, targetPowerPercent: 0.50, type: .warmup),
-            WorkoutStep(duration: 1200, targetPowerPercent: 0.70, type: .work),
+            WorkoutStep(duration: 120, targetPowerPercent: 0.70, type: .work),
             WorkoutStep(duration: 300, targetPowerPercent: 0.40, type: .cooldown)
         ]
     )
@@ -130,6 +131,26 @@ public struct DefaultWorkouts {
             WorkoutStep(duration: 1200, targetPowerPercent: 0.50, type: .work),
             WorkoutStep(duration: 300, targetPowerPercent: 0.40, type: .cooldown)
         ]
+    )
+    
+    private static let activeRecoveryVaried30 = StructuredWorkout(
+        name: "Recovery: 30m Varied Spin",
+        description: "30 min recovery spin alternating 2m intervals between 50% and 60% FTP.",
+        steps: {
+            var s: [WorkoutStep] = []
+            // 2 min warmup at 45%
+            s.append(WorkoutStep(duration: 120, targetPowerPercent: 0.45, type: .warmup))
+            
+            // 26 mins of intervals (13 x 2m)
+            for i in 0..<13 {
+                let intensity = (i % 2 == 0) ? 0.50 : 0.60
+                s.append(WorkoutStep(duration: 120, targetPowerPercent: intensity, type: .work))
+            }
+            
+            // 2 min cooldown at 45%
+            s.append(WorkoutStep(duration: 120, targetPowerPercent: 0.45, type: .cooldown))
+            return s
+        }()
     )
     
     private static let activeRecovery60 = StructuredWorkout(
