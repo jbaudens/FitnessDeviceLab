@@ -213,7 +213,7 @@ struct SessionGraphView: View {
                         maxPower: maxPercent * ftp
                     )
                     .frame(width: width, height: height)
-                    .padding(.bottom, 15) // Make room for labels
+                    .padding(.bottom, 20) // Ensure labels are visible below chart
                 }
             }
         }
