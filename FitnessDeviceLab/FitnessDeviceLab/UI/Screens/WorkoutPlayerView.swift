@@ -19,13 +19,19 @@ struct WorkoutPlayerView: View {
     
     let viewModel = WorkoutPlayerViewModel(workoutManager: manager, bluetoothManager: bluetooth, settings: settings)
     
+    // Setup some mock data for Free Ride
     let _ = {
         manager.isLoaded = true
         manager.isRecording = true
-        manager.workoutElapsedTime = 1200
+        manager.workoutElapsedTime = 1200 // 20 mins
+        
         let now = Date()
         for i in 0..<1200 {
-            let pt = Trackpoint(time: now.addingTimeInterval(Double(i)), hr: 130, power: 220)
+            let pt = Trackpoint(
+                time: now.addingTimeInterval(Double(i)),
+                hr: 130 + Int(sin(Double(i)/30.0) * 10),
+                power: 220 + Int(cos(Double(i)/30.0) * 40)
+            )
             manager.recorderA.trackpoints.append(pt)
         }
         manager.freeRideControlMode = .power
@@ -38,25 +44,51 @@ struct WorkoutPlayerView: View {
     }
 }
 
-#Preview("iPad 13-inch", traits: .landscapeLeft) {
+#Preview("Structured Workout") {
     let settings = SettingsManager()
     let locationManager = LocationManager()
     let timer = WorkoutTimer()
     let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, workoutTimer: timer)
     let bluetooth = BluetoothManager(settings: settings)
+    
+    let workout = StructuredWorkout(
+        name: "Power Pyramids",
+        description: "Classic intervals",
+        steps: [
+            WorkoutStep(duration: 300, targetPowerPercent: 0.5),
+            WorkoutStep(duration: 300, targetPowerPercent: 0.7),
+            WorkoutStep(duration: 300, targetPowerPercent: 0.9),
+            WorkoutStep(duration: 300, targetPowerPercent: 0.7),
+            WorkoutStep(duration: 300, targetPowerPercent: 0.5)
+        ]
+    )
+    
     let viewModel = WorkoutPlayerViewModel(workoutManager: manager, bluetoothManager: bluetooth, settings: settings)
     
+    // Setup some mock data for Workout
     let _ = {
+        manager.selectedWorkout = workout
         manager.isLoaded = true
         manager.isRecording = true
-        manager.workoutElapsedTime = 600
+        manager.workoutElapsedTime = 750 // 12.5 mins
+        manager.currentStepIndex = 2
+        manager.timeInStep = 150
+        
+        let now = Date()
+        for i in 0..<750 {
+            let pt = Trackpoint(
+                time: now.addingTimeInterval(Double(i)),
+                hr: 120 + Int(Double(i)/10.0),
+                power: 200 + Int(sin(Double(i)/20.0) * 20)
+            )
+            manager.recorderA.trackpoints.append(pt)
+        }
         return true
     }()
     
     NavigationStack {
         WorkoutPlayerView(viewModel: viewModel)
     }
-    .previewDevice("iPad Pro (13-inch) (M4)")
 }
 
 struct WorkoutPlayerContentView: View {
