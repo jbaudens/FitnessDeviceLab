@@ -42,7 +42,7 @@ public enum WorkoutZone: Int, Codable, CaseIterable, Identifiable {
         if intensity < 0.75 { return .z2 }
         if intensity < 0.90 { return .z3 }
         if intensity < 1.05 { return .z4 }
-        if intensity < 1.20 { return .z5 }
+        if intensity <= 1.20 { return .z5 }
         if intensity < 1.50 { return .z6 }
         return .z7
     }
