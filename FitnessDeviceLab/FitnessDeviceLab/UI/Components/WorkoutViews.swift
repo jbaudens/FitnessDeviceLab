@@ -194,6 +194,16 @@ struct SessionGraphView: View {
                                     .position(x: 20, y: y - 6)
                             }
                         }
+                        
+                        // Time X-axis increments
+                        let timeStep: TimeInterval = totalDuration > 3600 ? 900 : (totalDuration > 1800 ? 600 : 300)
+                        ForEach(Array(Swift.stride(from: timeStep, to: totalDuration, by: timeStep)), id: \.self) { t in
+                            let x = (CGFloat(t) / CGFloat(totalDuration)) * width
+                            Text("\(Int(t/60))m")
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                .foregroundColor(.secondary.opacity(0.5))
+                                .position(x: x, y: height - 6)
+                        }
                     }
                     
                     GrowingPerformanceChart(
