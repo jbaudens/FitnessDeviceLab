@@ -103,7 +103,9 @@ public class SimulatedPeripheral: NSObject, SensorPeripheral, HeartRateProviding
         internalHR += (targetHR - internalHR) * hrChangeRate
         
         let hrJitter = Double.random(in: -1...1)
-        heartRate = Int(round(internalHR + hrJitter))
+        let rawHR = internalHR + hrJitter
+        let cappedHR = min(maxHR + 5, max(restHR, rawHR))
+        heartRate = Int(round(cappedHR))
         
         // 5. Secondary Metrics
         powerBalance = 50.0 + Double.random(in: -0.5...0.5)

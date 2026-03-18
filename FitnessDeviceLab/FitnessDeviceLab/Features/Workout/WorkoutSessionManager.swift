@@ -14,6 +14,17 @@ public class WorkoutSessionManager {
     private let workoutTimer: WorkoutTimer
     
     // MARK: - Workout State
+    public enum FreeRideControlMode: String, Codable, CaseIterable, Identifiable {
+        case resistance = "Resistance"
+        case power = "Power (ERG)"
+        case heartRate = "Heart Rate (ERG)"
+        public var id: String { rawValue }
+    }
+    
+    public var freeRideControlMode: FreeRideControlMode = .resistance
+    public var manualTargetPower: Int = 100
+    public var manualTargetHR: Int = 130
+    
     public var isRecording = false
     public var isLoaded = false
     public var isPaused = false
@@ -55,6 +66,10 @@ public class WorkoutSessionManager {
         self.engineA = DataFieldEngine(recorder: recA, settings: settings)
         self.engineB = DataFieldEngine(recorder: recB, settings: settings)
         
+        // Default manual targets to user-specific values
+        self.manualTargetPower = Int(settings.userFTP * 0.6)
+        self.manualTargetHR = settings.userLTHR - 20
+        
         setupTimerCallback()
     }
     
@@ -84,6 +99,12 @@ public class WorkoutSessionManager {
         isPaused = false
         isRecording = false
         exportedFiles = []
+        
+        // Set default manual targets if no workout is selected
+        if selectedWorkout == nil {
+            manualTargetPower = Int(settings.userFTP * 0.6)
+            manualTargetHR = settings.userLTHR - 20
+        }
         
         recorderA.prepare()
         recorderB.prepare()
@@ -131,11 +152,43 @@ public class WorkoutSessionManager {
     }
     
     public func increaseDifficulty() {
-        workoutDifficultyScale = min(2.0, workoutDifficultyScale + 0.01)
+        if selectedWorkout != nil {
+            workoutDifficultyScale = min(2.0, workoutDifficultyScale + 0.01)
+        } else {
+            // Manual adjustment for Free Ride
+            adjustManualTarget(amount: 5)
+        }
     }
     
     public func decreaseDifficulty() {
-        workoutDifficultyScale = max(0.5, workoutDifficultyScale - 0.01)
+        if selectedWorkout != nil {
+            workoutDifficultyScale = max(0.5, workoutDifficultyScale - 0.01)
+        } else {
+            // Manual adjustment for Free Ride (backward compatibility with existing buttons)
+            adjustManualTarget(amount: -5)
+        }
+    }
+    
+    public func adjustManualTarget(amount: Int) {
+        if selectedWorkout != nil {
+            if ergModeEnabled {
+                // Adjust difficulty scale (amount is in percent points)
+                let delta = Double(amount) / 100.0
+                workoutDifficultyScale = min(2.0, max(0.5, workoutDifficultyScale + delta))
+            } else {
+                // Adjust resistance level
+                resistanceLevel = min(100.0, max(0.0, resistanceLevel + Double(amount)))
+            }
+        } else {
+            switch freeRideControlMode {
+            case .resistance:
+                resistanceLevel = min(100.0, max(0.0, resistanceLevel + Double(amount)))
+            case .power:
+                manualTargetPower = max(0, manualTargetPower + amount)
+            case .heartRate:
+                manualTargetHR = max(40, manualTargetHR + amount)
+            }
+        }
     }
     
     public var canEnableErgMode: Bool {
@@ -245,8 +298,29 @@ public class WorkoutSessionManager {
                 currentTargetHR = nil
             }
         } else {
-            // No workout loaded: Just send manual resistance
-            trainerController.setResistanceLevel(resistanceLevel)
+            // No workout loaded: Manual Control
+            let ftp = settings.userFTP
+            
+            switch freeRideControlMode {
+            case .resistance:
+                trainerController.setResistanceLevel(resistanceLevel)
+                currentTargetPower = nil
+                currentTargetHR = nil
+            case .power:
+                trainerController.setTargetPower(manualTargetPower)
+                currentTargetPower = manualTargetPower
+                currentTargetHR = nil
+            case .heartRate:
+                if let targetWatts = setpointCalculator.calculateManualHR(
+                    targetHR: Double(manualTargetHR),
+                    currentHR: recorderA.hrSource?.heartRate,
+                    ftp: ftp
+                ) {
+                    trainerController.setTargetPower(targetWatts)
+                }
+                currentTargetHR = manualTargetHR
+                currentTargetPower = nil
+            }
         }
     }
     

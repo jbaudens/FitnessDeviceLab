@@ -135,4 +135,74 @@ struct WorkoutSessionManagerTests {
         #expect(sut.laps.count == 2)
         #expect(sut.laps[0].endTime != nil)
     }
+    
+    @Test func testFreeRideManualControl() async throws {
+        let (sut, timer, settings, _) = makeSUT()
+        
+        let mockTrainer = MockTrainer()
+        let controllable = ControllableTrainer(peripheral: mockTrainer)!
+        
+        // Setup Free Ride (no workout selected)
+        sut.selectedWorkout = nil
+        sut.startWorkout(recA: sut.recorderA, recB: sut.recorderB, control: controllable)
+        sut.startRecording()
+        
+        // 1. Test Resistance Mode (Default)
+        sut.freeRideControlMode = .resistance
+        sut.resistanceLevel = 50.0
+        timer.advanceOneSecond()
+        
+        // We need to wait for the next tick to process the trainer commands
+        // In this mock setup, advanceOneSecond calls the tick immediately.
+        #expect(mockTrainer.lastSetResistanceLevel == 50.0)
+        
+        // 2. Test Power ERG Mode
+        sut.freeRideControlMode = .power
+        sut.manualTargetPower = 200
+        timer.advanceOneSecond()
+        #expect(mockTrainer.lastSetTargetPower == 200)
+        #expect(sut.currentTargetPower == 200)
+        
+        // 3. Test Heart Rate ERG Mode
+        sut.freeRideControlMode = .heartRate
+        sut.manualTargetHR = 140
+        // Set current HR to 130 to trigger an adjustment
+        mockTrainer.heartRate = 130
+        
+        // Link trainer to recorderA so tick() sees the HR
+        sut.recorderA.hrSource = HeartRateSensor(peripheral: mockTrainer)
+        
+        timer.advanceOneSecond()
+        #expect(mockTrainer.lastSetTargetPower != nil)
+        #expect(sut.currentTargetHR == 140)
+    }
+    
+    @Test func testManualTargetAdjustments() async throws {
+        let (sut, _, _, _) = makeSUT()
+        
+        // 1. Free Ride
+        sut.selectedWorkout = nil
+        sut.freeRideControlMode = .power
+        sut.manualTargetPower = 200
+        
+        sut.adjustManualTarget(amount: 1)
+        #expect(sut.manualTargetPower == 201)
+        
+        // 2. Structured Workout ERG (Difficulty Scale)
+        sut.selectedWorkout = StructuredWorkout(name: "Test", steps: [WorkoutStep(duration: 60, targetPowerPercent: 0.5)])
+        sut.ergModeEnabled = true
+        sut.workoutDifficultyScale = 1.0
+        
+        sut.adjustManualTarget(amount: 5) // +5%
+        #expect(sut.workoutDifficultyScale == 1.05)
+        
+        sut.adjustManualTarget(amount: -10) // -10%
+        #expect(sut.workoutDifficultyScale == 0.95)
+        
+        // 3. Structured Workout Resistance
+        sut.ergModeEnabled = false
+        sut.resistanceLevel = 50.0
+        sut.adjustManualTarget(amount: 5)
+        #expect(sut.resistanceLevel == 55.0)
+    }
 }

@@ -93,9 +93,9 @@ class FitEncoder {
             let record = RecordMesg()
             try? record.setTimestamp(DateTime(date: pt.time))
             
-            if let hr = pt.hr { try? record.setHeartRate(UInt8(hr)) }
-            if let pwr = pt.power { try? record.setPower(UInt16(pwr)) }
-            if let cad = pt.cadence { try? record.setCadence(UInt8(cad)) }
+            if let hr = pt.hr { try? record.setHeartRate(UInt8(max(0, min(255, hr)))) }
+            if let pwr = pt.power { try? record.setPower(UInt16(max(0, min(65535, pwr)))) }
+            if let cad = pt.cadence { try? record.setCadence(UInt8(max(0, min(255, cad)))) }
             if let alt = pt.altitude { try? record.setAltitude(Float64(alt)) }
             
             // Power Balance (L/R)
@@ -158,8 +158,10 @@ class FitEncoder {
                 
                 let hrSamples = lapPoints.compactMap { $0.hr }
                 if !hrSamples.isEmpty {
-                    try? lapMesg.setAvgHeartRate(UInt8(hrSamples.reduce(0, +) / hrSamples.count))
-                    try? lapMesg.setMaxHeartRate(UInt8(hrSamples.max() ?? 0))
+                    let avgHR = hrSamples.reduce(0, +) / hrSamples.count
+                    let maxHR = hrSamples.max() ?? 0
+                    try? lapMesg.setAvgHeartRate(UInt8(max(0, min(255, avgHR))))
+                    try? lapMesg.setMaxHeartRate(UInt8(max(0, min(255, maxHR))))
                 }
                 
                 let lapSpeeds = lapPoints.map { PhysicsUtilities.estimateSpeed(power: Double($0.power ?? 0), totalWeight: totalWeight) }
@@ -191,8 +193,16 @@ class FitEncoder {
         
         let pwrSamples = trackpoints.compactMap { $0.power }
         if !pwrSamples.isEmpty {
-            try? session.setAvgPower(UInt16(pwrSamples.reduce(0, +) / pwrSamples.count))
-            try? session.setMaxPower(UInt16(pwrSamples.max() ?? 0))
+            try? session.setAvgPower(UInt16(max(0, min(65535, pwrSamples.reduce(0, +) / pwrSamples.count))))
+            try? session.setMaxPower(UInt16(max(0, min(65535, pwrSamples.max() ?? 0))))
+        }
+        
+        let hrSamples = trackpoints.compactMap { $0.hr }
+        if !hrSamples.isEmpty {
+            let avgHR = hrSamples.reduce(0, +) / hrSamples.count
+            let maxHR = hrSamples.max() ?? 0
+            try? session.setAvgHeartRate(UInt8(max(0, min(255, avgHR))))
+            try? session.setMaxHeartRate(UInt8(max(0, min(255, maxHR))))
         }
         
         let lrSamples = trackpoints.compactMap { $0.powerBalance }
