@@ -337,8 +337,23 @@ public class WorkoutSessionManager {
         
         Task { @MainActor in
             var files: [URL] = []
-            files.append(contentsOf: recorderA.stop(label: "ProfileA", laps: laps))
-            files.append(contentsOf: recorderB.stop(label: "ProfileB", laps: laps))
+            
+            let workoutName = selectedWorkout?.name ?? "FreeRide"
+            
+            let metaA = ExportMetadata(
+                workoutName: workoutName,
+                powerMeterName: recorderA.powerSource?.name,
+                hrmName: recorderA.hrSource?.name
+            )
+            
+            let metaB = ExportMetadata(
+                workoutName: workoutName,
+                powerMeterName: recorderB.powerSource?.name,
+                hrmName: recorderB.hrSource?.name
+            )
+            
+            files.append(contentsOf: recorderA.stop(metadata: metaA, laps: laps))
+            files.append(contentsOf: recorderB.stop(metadata: metaB, laps: laps))
             
             if !files.isEmpty {
                 exportedFiles = files

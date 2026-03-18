@@ -8,12 +8,12 @@ public class TCXExporter {
     
     /// Encodes activity data to a TCX file and returns the URL to the temporary file.
     /// - Parameters:
-    ///   - label: A label for the activity (used in filename).
+    ///   - metadata: Metadata for naming and identification.
     ///   - trackpoints: The recorded trackpoints.
     ///   - userWeight: User weight for speed estimation.
     /// - Returns: URL of the generated TCX file.
-    public func encode(label: String, trackpoints: [Trackpoint], userWeight: Double) -> URL? {
-        print("TCXExporter: Encoding \(trackpoints.count) points for \(label)")
+    public func encode(metadata: ExportMetadata, trackpoints: [Trackpoint], userWeight: Double) -> URL? {
+        print("TCXExporter: Encoding \(trackpoints.count) points for \(metadata.workoutName)")
         guard !trackpoints.isEmpty else { return nil }
         
         let formatter = ISO8601DateFormatter()
@@ -86,8 +86,7 @@ public class TCXExporter {
         xml += "  </Activities>\n"
         xml += "</TrainingCenterDatabase>"
         
-        let safeDate = formatter.string(from: trackpoints.first!.time).replacingOccurrences(of: ":", with: "-")
-        let filename = "Workout_\(label.replacingOccurrences(of: " ", with: "_"))_\(safeDate).tcx"
+        let filename = FileNameGenerator.generate(metadata: metadata, startTime: trackpoints.first!.time, extension: "tcx")
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
         
         do {

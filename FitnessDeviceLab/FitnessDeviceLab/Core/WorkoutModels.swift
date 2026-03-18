@@ -39,3 +39,15 @@ public struct Lap: Identifiable, Sendable {
         self.type = type
     }
 }
+
+public struct ExportMetadata: Sendable {
+    public let workoutName: String
+    public let powerMeterName: String?
+    public let hrmName: String?
+    
+    public init(workoutName: String, powerMeterName: String? = nil, hrmName: String? = nil) {
+        self.workoutName = workoutName
+        self.powerMeterName = powerMeterName
+        self.hrmName = hrmName
+    }
+}

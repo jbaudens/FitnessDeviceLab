@@ -23,11 +23,21 @@ public class SessionRecorder {
         trackpoints.removeAll()
     }
     
-    public func stop(label: String, laps: [Lap] = []) -> [URL] {
+    public func stop(metadata: ExportMetadata, laps: [Lap] = []) -> [URL] {
+        // Only export if we have at least one valid sensor assigned
+        guard hrSource != nil || powerSource != nil || cadenceSource != nil else {
+            return []
+        }
+        
+        // and we actually recorded some sample data (at least one valid sample)
+        guard trackpoints.contains(where: { $0.hr != nil || $0.power != nil }) else {
+            return []
+        }
+        
         var files: [URL] = []
         
         let tcxExporter = TCXExporter()
-        if let tcx = tcxExporter.encode(label: label, trackpoints: trackpoints, userWeight: settings.userWeight) {
+        if let tcx = tcxExporter.encode(metadata: metadata, trackpoints: trackpoints, userWeight: settings.userWeight) {
             files.append(tcx)
         }
         
@@ -40,9 +50,8 @@ public class SessionRecorder {
             userFTP: settings.userFTP,
             userWeight: settings.userWeight
         ) {
-            let formatter = ISO8601DateFormatter()
-            let safeDate = formatter.string(from: trackpoints.first?.time ?? Date()).replacingOccurrences(of: ":", with: "-")
-            let filename = "Workout_\(label.replacingOccurrences(of: " ", with: "_"))_\(safeDate).fit"
+            let startTime = trackpoints.first?.time ?? Date()
+            let filename = FileNameGenerator.generate(metadata: metadata, startTime: startTime, extension: "fit")
             let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
             try? fitData.write(to: tempURL)
             files.append(tempURL)
