@@ -46,6 +46,12 @@ struct WorkoutLibraryView: View {
                         FilterBadge(name: "HR Only", color: .red, isSelected: vm.selectedMetricFilter == .heartRate) {
                             vm.selectedMetricFilter = .heartRate
                         }
+                        
+                        Divider().frame(height: 20).padding(.horizontal, 4)
+                        
+                        FilterBadge(name: "App Testing", color: .gray, isSelected: vm.showTestingWorkoutsOnly) {
+                            vm.showTestingWorkoutsOnly.toggle()
+                        }
                     }
                     .padding(.horizontal)
                 }

@@ -11,6 +11,7 @@ public class LibraryViewModel {
     public var searchText = ""
     public var selectedZoneFilter: WorkoutZone? = nil
     public var selectedMetricFilter: StructuredWorkout.WorkoutMetric? = nil
+    public var showTestingWorkoutsOnly: Bool = false
     public var sortOrder: SortOrder = .name
     
     public enum SortOrder: String, CaseIterable, Identifiable {
@@ -45,6 +46,13 @@ public class LibraryViewModel {
         // Metric Filter
         if let metric = selectedMetricFilter {
             workouts = workouts.filter { $0.primaryMetric == metric }
+        }
+        
+        // Testing Filter
+        if showTestingWorkoutsOnly {
+            workouts = workouts.filter { $0.name.hasPrefix("Test:") }
+        } else {
+            workouts = workouts.filter { !$0.name.hasPrefix("Test:") }
         }
         
         // Sort
