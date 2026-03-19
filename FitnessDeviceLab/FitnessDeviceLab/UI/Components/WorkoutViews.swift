@@ -21,7 +21,15 @@ struct WorkoutGraphView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 4) {
+            if showAxis {
+                HStack {
+                    Spacer()
+                    GraphLegend()
+                }
+                .padding(.horizontal, 10)
+            }
+            
             GeometryReader { geometry in
                 let width = geometry.size.width
                 let height = geometry.size.height
@@ -111,7 +119,6 @@ struct WorkoutGraphView: View {
                             startTime: sessionStartTime
                         )
                         .frame(width: width, height: height)
-                        .padding(.bottom, 15) // Match SessionGraphView for consistency
                     }
                     
                     // Playhead
@@ -122,22 +129,6 @@ struct WorkoutGraphView: View {
                             .frame(width: 2)
                             .shadow(radius: 2)
                             .offset(x: playheadX)
-                    }
-                    
-                    // Legend Overlay (Only show if axis/detail is requested)
-                    if showAxis {
-                        VStack {
-                            Spacer()
-                            HStack(spacing: 8) {
-                                Spacer()
-                                Label("Power", systemImage: "bolt.fill").foregroundColor(.yellow)
-                                Label("Cadence", systemImage: "bicycle").foregroundColor(.blue)
-                                Label("HR", systemImage: "heart.fill").foregroundColor(.red)
-                            }
-                            .font(.system(size: 8, weight: .black))
-                            .padding(.trailing, 10)
-                            .padding(.bottom, 22)
-                        }
                     }
                 }
             }
@@ -179,7 +170,15 @@ struct SessionGraphView: View {
     var showAxis: Bool = true
     
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 4) {
+            if showAxis {
+                HStack {
+                    Spacer()
+                    GraphLegend()
+                }
+                .padding(.horizontal, 10)
+            }
+            
             GeometryReader { geometry in
                 let width = geometry.size.width
                 let height = geometry.size.height
@@ -229,23 +228,6 @@ struct SessionGraphView: View {
                         maxPower: maxPercent * ftp
                     )
                     .frame(width: width, height: height)
-                    .padding(.bottom, 20)
-                    
-                    // Legend Overlay (Only show if axis/detail is requested)
-                    if showAxis {
-                        VStack {
-                            Spacer()
-                            HStack(spacing: 8) {
-                                Spacer()
-                                Label("Power", systemImage: "bolt.fill").foregroundColor(.yellow)
-                                Label("Cadence", systemImage: "bicycle").foregroundColor(.blue)
-                                Label("HR", systemImage: "heart.fill").foregroundColor(.red)
-                            }
-                            .font(.system(size: 8, weight: .black))
-                            .padding(.trailing, 10)
-                            .padding(.bottom, 22)
-                        }
-                    }
                 }
             }
         }
@@ -467,3 +449,32 @@ struct WorkoutRowView: View {
         .padding(.vertical, 8)
     }
 }
+
+// MARK: - Legend Components
+
+struct GraphLegend: View {
+    var body: some View {
+        HStack(spacing: 12) {
+            LegendItem(label: "Power", icon: "bolt.fill", color: .yellow)
+            LegendItem(label: "Cadence", icon: "bicycle", color: .blue)
+            LegendItem(label: "HR", icon: "heart.fill", color: .red)
+        }
+        .font(.system(size: 8, weight: .black))
+    }
+}
+
+struct LegendItem: View {
+    let label: String
+    let icon: String
+    let color: Color
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .foregroundColor(color)
+            Text(label.uppercased())
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
