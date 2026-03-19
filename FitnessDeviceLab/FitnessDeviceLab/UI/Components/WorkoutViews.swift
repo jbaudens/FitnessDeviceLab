@@ -24,11 +24,14 @@ struct WorkoutGraphView: View {
         VStack(spacing: 0) {
             GeometryReader { geometry in
                 let width = geometry.size.width
-                let height = geometry.size.height
+                let totalHeight = geometry.size.height
+                let labelAreaHeight: CGFloat = showAxis ? 20 : 0
+                let chartHeight = totalHeight - labelAreaHeight
+                
                 let totalDuration = workout.totalDuration
                 let ftp = userFTP
-                // Max height is based on the highest interval or highest data point
-                let scale = scale
+                
+                // Max height is based on the highest interval or highest data point (all in relative units)
                 let maxTarget = workout.steps.map { ($0.targetPowerPercent ?? $0.targetHeartRatePercent ?? 0.0) * scale }.max() ?? 1.0
                 let maxActual = recorder?.trackpoints.compactMap { $0.power }.map { Double($0) / ftp }.max() ?? 0.0
 
@@ -40,7 +43,7 @@ struct WorkoutGraphView: View {
                         let increments: [Double] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5]
                         ForEach(increments, id: \.self) { pct in
                             if pct < maxPercent {
-                                let y = height * (1.0 - (pct / maxPercent))
+                                let y = chartHeight * (1.0 - (pct / maxPercent))
                                 
                                 // Grid line
                                 Path { path in
@@ -69,8 +72,8 @@ struct WorkoutGraphView: View {
                             let x = (CGFloat(t) / CGFloat(totalDuration)) * width
                             Text("\(Int(t/60))m")
                                 .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                .foregroundColor(.secondary.opacity(0.5))
-                                .position(x: x, y: height - 6)
+                                .foregroundColor(.secondary.opacity(0.8))
+                                .position(x: x, y: totalHeight - 6) // Absolute bottom
                         }
                     }
                     
@@ -82,25 +85,26 @@ struct WorkoutGraphView: View {
                             let startPct = step.targetPowerPercent ?? step.targetHeartRatePercent ?? 0.0
                             let endPct = step.endTargetPowerPercent ?? step.targetHeartRatePercent ?? 0.0
                             
-                            let startHeight = (CGFloat(startPct * scale) / CGFloat(maxPercent)) * height
-                            let endHeight = (CGFloat(endPct * scale) / CGFloat(maxPercent)) * height
+                            let startH = (startPct * scale / maxPercent)
+                            let endH = (endPct * scale / maxPercent)
                             
                             ZStack(alignment: .top) {
-                                RampShape(startRelativeHeight: startPct * scale / maxPercent,
-                                          endRelativeHeight: endPct * scale / maxPercent)
+                                RampShape(startRelativeHeight: startH,
+                                          endRelativeHeight: endH)
                                     .fill(color(for: step, scale: scale).opacity(0.3))
-                                    .frame(width: max(2, stepWidth), height: height)
+                                    .frame(width: max(2, stepWidth), height: chartHeight)
                                 
                                 if stepWidth > 30 {
                                     let avgPercent = (startPct + endPct) / 2.0 * scale
                                     Text("\(Int(round(avgPercent * 100)))%")
                                         .font(.system(size: 8, weight: .black, design: .monospaced))
                                         .foregroundColor(color(for: step, scale: scale).opacity(0.8))
-                                        .padding(.top, height - max(startHeight, endHeight) + 4)
+                                        .padding(.top, chartHeight * (1.0 - max(startH, endH)) + 4)
                                 }
                             }
                         }
                     }
+                    .padding(.bottom, labelAreaHeight)
                     
                     // The live data (foreground)
                     if let recorder = recorder {
@@ -111,18 +115,8 @@ struct WorkoutGraphView: View {
                             userFTP: ftp,
                             startTime: sessionStartTime
                         )
-                        .frame(width: width, height: height)
-                        .padding(.bottom, 15) // Match SessionGraphView for consistency
-                    }
-                    
-                    // Playhead
-                    if let elapsed = elapsedTime {
-                        let playheadX = (CGFloat(elapsed) / CGFloat(totalDuration)) * width
-                        Rectangle()
-                            .fill(Color.white)
-                            .frame(width: 2)
-                            .shadow(radius: 2)
-                            .offset(x: playheadX)
+                        .frame(width: width, height: chartHeight)
+                        .padding(.bottom, labelAreaHeight)
                     }
                     
                     // Legend Overlay (Only show if axis/detail is requested)
@@ -137,8 +131,19 @@ struct WorkoutGraphView: View {
                             }
                             .font(.system(size: 8, weight: .black))
                             .padding(.trailing, 10)
-                            .padding(.bottom, 22)
+                            .padding(.bottom, labelAreaHeight + 2)
                         }
+                    }
+                    
+                    // Playhead
+                    if let elapsed = elapsedTime {
+                        let playheadX = (CGFloat(elapsed) / CGFloat(totalDuration)) * width
+                        Rectangle()
+                            .fill(Color.white)
+                            .frame(width: 2, height: chartHeight)
+                            .shadow(radius: 2)
+                            .offset(x: playheadX)
+                            .padding(.bottom, labelAreaHeight)
                     }
                 }
             }
@@ -152,6 +157,89 @@ struct WorkoutGraphView: View {
         let start = step.targetPowerPercent ?? 0
         let end = step.endTargetPowerPercent ?? start
         return WorkoutZone.forIntensity((start + end) / 2.0 * scale).color
+    }
+}
+
+struct SessionGraphView: View {
+    @Bindable var recorder: SessionRecorder
+    let userFTP: Double
+    var showAxis: Bool = true
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            GeometryReader { geometry in
+                let width = geometry.size.width
+                let totalHeight = geometry.size.height
+                let labelAreaHeight: CGFloat = showAxis ? 20 : 0
+                let chartHeight = totalHeight - labelAreaHeight
+                
+                // Dynamically determine duration based on points, with a minimum of 5 minutes
+                let recordedPoints = Double(recorder.trackpoints.count)
+                let totalDuration = max(300, recordedPoints * 1.1) // 10% buffer
+                let ftp = userFTP
+                
+                let maxActual = recorder.trackpoints.compactMap { $0.power }.map { Double($0) / ftp }.max() ?? 0.0
+                let maxPercent = max(1.0, maxActual) * 1.1
+                
+                ZStack(alignment: .bottomLeading) {
+                    if showAxis {
+                        let increments: [Double] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5]
+                        ForEach(increments, id: \.self) { pct in
+                            if pct < maxPercent {
+                                let y = chartHeight * (1.0 - (pct / maxPercent))
+                                
+                                Path { path in
+                                    path.move(to: CGPoint(x: 0, y: y))
+                                    path.addLine(to: CGPoint(x: width, y: y))
+                                }
+                                .stroke(Color.secondary.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [2]))
+                                
+                                Text("\(Int(pct * ftp))")
+                                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                                    .position(x: 20, y: y - 6)
+                            }
+                        }
+                        
+                        // Time X-axis increments
+                        let timeStep: TimeInterval = totalDuration > 3600 ? 900 : (totalDuration > 1800 ? 600 : 300)
+                        ForEach(Array(Swift.stride(from: timeStep, to: totalDuration, by: timeStep)), id: \.self) { t in
+                            let x = (CGFloat(t) / CGFloat(totalDuration)) * width
+                            Text("\(Int(t/60))m")
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                .foregroundColor(.secondary.opacity(0.8))
+                                .position(x: x, y: totalHeight - 6)
+                        }
+                    }
+                    
+                    PerformanceChart(
+                        recorder: recorder,
+                        totalDuration: totalDuration,
+                        maxPercent: maxPercent,
+                        userFTP: ftp,
+                        startTime: nil
+                    )
+                    .frame(width: width, height: chartHeight)
+                    .padding(.bottom, labelAreaHeight)
+                    
+                    // Legend Overlay (Only show if axis/detail is requested)
+                    if showAxis {
+                        VStack {
+                            Spacer()
+                            HStack(spacing: 8) {
+                                Spacer()
+                                Label("Power", systemImage: "bolt.fill").foregroundColor(.yellow)
+                                Label("Cadence", systemImage: "bicycle").foregroundColor(.blue)
+                                Label("HR", systemImage: "heart.fill").foregroundColor(.red)
+                            }
+                            .font(.system(size: 8, weight: .black))
+                            .padding(.trailing, 10)
+                            .padding(.bottom, labelAreaHeight + 2)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -174,87 +262,6 @@ struct RampShape: Shape {
     }
 }
 
-struct SessionGraphView: View {
-    @Bindable var recorder: SessionRecorder
-    let userFTP: Double
-    var showAxis: Bool = true
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            GeometryReader { geometry in
-                let width = geometry.size.width
-                let height = geometry.size.height
-                
-                // Dynamically determine duration based on points, with a minimum of 5 minutes
-                let recordedPoints = Double(recorder.trackpoints.count)
-                let totalDuration = max(300, recordedPoints * 1.1) // 10% buffer
-                let ftp = userFTP
-                
-                let maxActual = recorder.trackpoints.compactMap { $0.power }.map { Double($0) / ftp }.max() ?? 0.0
-                let maxPercent = max(1.0, maxActual) * 1.1
-                
-                ZStack(alignment: .bottomLeading) {
-                    if showAxis {
-                        let increments: [Double] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5]
-                        ForEach(increments, id: \.self) { pct in
-                            if pct < maxPercent {
-                                let y = height * (1.0 - (pct / maxPercent))
-                                
-                                Path { path in
-                                    path.move(to: CGPoint(x: 0, y: y))
-                                    path.addLine(to: CGPoint(x: width, y: y))
-                                }
-                                .stroke(Color.secondary.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [2]))
-                                
-                                Text("\(Int(pct * ftp))")
-                                    .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.secondary)
-                                    .position(x: 20, y: y - 6)
-                            }
-                        }
-                        
-                        // Time X-axis increments
-                        let timeStep: TimeInterval = totalDuration > 3600 ? 900 : (totalDuration > 1800 ? 600 : 300)
-                        ForEach(Array(Swift.stride(from: timeStep, to: totalDuration, by: timeStep)), id: \.self) { t in
-                            let x = (CGFloat(t) / CGFloat(totalDuration)) * width
-                            Text("\(Int(t/60))m")
-                                .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                .foregroundColor(.secondary.opacity(0.8))
-                                .position(x: x, y: height - 6)
-                        }
-                    }
-                    
-                    PerformanceChart(
-                        recorder: recorder,
-                        totalDuration: totalDuration,
-                        maxPercent: maxPercent,
-                        userFTP: ftp,
-                        startTime: nil
-                    )
-                    .frame(width: width, height: height)
-                    .padding(.bottom, 20)
-                    
-                    // Legend Overlay (Only show if axis/detail is requested)
-                    if showAxis {
-                        VStack {
-                            Spacer()
-                            HStack(spacing: 8) {
-                                Spacer()
-                                Label("Power", systemImage: "bolt.fill").foregroundColor(.yellow)
-                                Label("Cadence", systemImage: "bicycle").foregroundColor(.blue)
-                                Label("HR", systemImage: "heart.fill").foregroundColor(.red)
-                            }
-                            .font(.system(size: 8, weight: .black))
-                            .padding(.trailing, 10)
-                            .padding(.bottom, 22)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 struct PerformanceChart: View {
     @Bindable var recorder: SessionRecorder
     let totalDuration: TimeInterval
@@ -273,7 +280,6 @@ struct PerformanceChart: View {
         for i in Swift.stride(from: 0, to: totalPoints, by: strideValue) {
             result.append(recorder.trackpoints[i])
         }
-        // Always include the latest point
         if let last = recorder.trackpoints.last, result.last?.id != last.id {
             result.append(last)
         }
@@ -299,7 +305,7 @@ struct PerformanceChart: View {
                 if let cad = pt.cadence {
                     LineMark(
                         x: .value("Time", timeOffset),
-                        y: .value("Cadence", Double(cad) / 100.0), // Scale relative to 100rpm = 1.0 (100% FTP)
+                        y: .value("Cadence", Double(cad) / 100.0), 
                         series: .value("Metric", "Cadence")
                     )
                     .foregroundStyle(Color.blue)
@@ -308,7 +314,7 @@ struct PerformanceChart: View {
                 if let hr = pt.hr {
                     LineMark(
                         x: .value("Time", timeOffset),
-                        y: .value("HR", Double(hr) / 180.0), // Scale relative to 180bpm = 1.0 (100% FTP)
+                        y: .value("HR", Double(hr) / 180.0), 
                         series: .value("Metric", "HR")
                     )
                     .foregroundStyle(Color.red)
@@ -319,7 +325,52 @@ struct PerformanceChart: View {
         .chartYScale(domain: 0...maxPercent)
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
-        .animation(.none, value: recorder.trackpoints.count) // Disable chart animation for performance
+        .animation(.none, value: recorder.trackpoints.count)
+    }
+}
+
+struct WorkoutRowView: View {
+    let workout: StructuredWorkout
+    let userFTP: Double
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(workout.name)
+                            .font(.headline)
+                        
+                        Text("Z\(workout.primaryZone.rawValue)")
+                            .font(.system(size: 10, weight: .black))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(workout.primaryZone.color)
+                            .foregroundColor(.white)
+                            .cornerRadius(4)
+                    }
+                    
+                    HStack(spacing: 6) {
+                        Text("\(Int(workout.totalDuration / 60)) min")
+                        Text("•")
+                        Text("IF \(String(format: "%.2f", workout.intensityFactor))")
+                        Text("•")
+                        Label(workout.primaryMetric.rawValue, systemImage: workout.primaryMetric == .power ? "bolt.fill" : "heart.fill")
+                            .imageScale(.small)
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            WorkoutGraphView(workout: workout, userFTP: userFTP, showAxis: false)
+                .frame(height: 40)
+        }
+        .padding(.vertical, 8)
     }
 }
 
@@ -392,49 +443,4 @@ struct PerformanceChart: View {
             .cornerRadius(12)
     }
     .padding()
-}
-
-struct WorkoutRowView: View {
-    let workout: StructuredWorkout
-    let userFTP: Double
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(workout.name)
-                            .font(.headline)
-                        
-                        Text("Z\(workout.primaryZone.rawValue)")
-                            .font(.system(size: 10, weight: .black))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(workout.primaryZone.color)
-                            .foregroundColor(.white)
-                            .cornerRadius(4)
-                    }
-                    
-                    HStack(spacing: 6) {
-                        Text("\(Int(workout.totalDuration / 60)) min")
-                        Text("•")
-                        Text("IF \(String(format: "%.2f", workout.intensityFactor))")
-                        Text("•")
-                        Label(workout.primaryMetric.rawValue, systemImage: workout.primaryMetric == .power ? "bolt.fill" : "heart.fill")
-                            .imageScale(.small)
-                    }
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            WorkoutGraphView(workout: workout, userFTP: userFTP, showAxis: false)
-                .frame(height: 40)
-        }
-        .padding(.vertical, 8)
-    }
 }
