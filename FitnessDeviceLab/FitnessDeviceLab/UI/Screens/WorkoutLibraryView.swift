@@ -46,6 +46,12 @@ struct WorkoutLibraryView: View {
                         FilterBadge(name: "HR Only", color: .red, isSelected: vm.selectedMetricFilter == .heartRate) {
                             vm.selectedMetricFilter = .heartRate
                         }
+                        
+                        Divider().frame(height: 20).padding(.horizontal, 4)
+                        
+                        FilterBadge(name: "App Testing", color: .gray, isSelected: vm.showTestingWorkoutsOnly) {
+                            vm.showTestingWorkoutsOnly.toggle()
+                        }
                     }
                     .padding(.horizontal)
                 }
@@ -58,15 +64,22 @@ struct WorkoutLibraryView: View {
                             ContentUnavailableView("No Workouts Found", systemImage: "magnifyingglass", description: Text("Try adjusting your filters or search terms."))
                         }
                     } else {
-                        ForEach(vm.filteredWorkouts) { workout in
-                            NavigationLink(destination: WorkoutDetailView(
-                                workout: workout,
-                                userFTP: vm.settings.userFTP,
-                                onSelect: { selected in
-                                    vm.selectWorkout(selected)
+                        let grouped = Dictionary(grouping: vm.filteredWorkouts) { $0.primaryZone }
+                        let sortedZones = WorkoutZone.allCases.filter { grouped[$0] != nil }
+                        
+                        ForEach(sortedZones) { zone in
+                            Section(header: Text("Zone \(zone.rawValue) - \(zone.name)")) {
+                                ForEach(grouped[zone] ?? []) { workout in
+                                    NavigationLink(destination: WorkoutDetailView(
+                                        workout: workout,
+                                        userFTP: vm.settings.userFTP,
+                                        onSelect: { selected in
+                                            vm.selectWorkout(selected)
+                                        }
+                                    )) {
+                                        WorkoutRowView(workout: workout, userFTP: vm.settings.userFTP)
+                                    }
                                 }
-                            )) {
-                                WorkoutRowView(workout: workout, userFTP: vm.settings.userFTP)
                             }
                         }
                     }

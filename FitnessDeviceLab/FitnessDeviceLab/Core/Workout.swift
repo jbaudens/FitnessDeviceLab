@@ -38,23 +38,23 @@ public enum WorkoutZone: Int, Codable, CaseIterable, Identifiable {
     
     // Determine zone based on intensity (% FTP)
     public static func forIntensity(_ intensity: Double) -> WorkoutZone {
-        if intensity < 0.55 { return .z1 }
-        if intensity < 0.75 { return .z2 }
-        if intensity < 0.90 { return .z3 }
-        if intensity < 1.05 { return .z4 }
-        if intensity < 1.20 { return .z5 }
-        if intensity < 1.50 { return .z6 }
+        if intensity <= 0.55 { return .z1 }
+        if intensity <= 0.75 { return .z2 }
+        if intensity <= 0.90 { return .z3 }
+        if intensity <= 1.05 { return .z4 }
+        if intensity <= 1.20 { return .z5 }
+        if intensity <= 1.50 { return .z6 }
         return .z7
     }
     
     // Joe Friel HR Zones (% of LTHR)
     public static func forHRIntensity(_ hrPercent: Double) -> WorkoutZone {
-        if hrPercent < 0.82 { return .z1 } // Recovery
-        if hrPercent < 0.89 { return .z2 } // Aerobic
-        if hrPercent < 0.94 { return .z3 } // Tempo
-        if hrPercent < 1.00 { return .z4 } // Sub-Threshold
-        if hrPercent < 1.03 { return .z5 } // Super-Threshold
-        if hrPercent < 1.06 { return .z6 } // Aerobic Capacity
+        if hrPercent <= 0.82 { return .z1 } // Recovery
+        if hrPercent <= 0.89 { return .z2 } // Aerobic
+        if hrPercent <= 0.94 { return .z3 } // Tempo
+        if hrPercent <= 1.00 { return .z4 } // Sub-Threshold
+        if hrPercent <= 1.03 { return .z5 } // Super-Threshold
+        if hrPercent <= 1.06 { return .z6 } // Aerobic Capacity
         return .z7 // Anaerobic
     }
 }
