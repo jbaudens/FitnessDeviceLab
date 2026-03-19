@@ -47,3 +47,21 @@ struct ContentView: View {
         }
     }
 }
+
+#Preview {
+    let settings = SettingsManager()
+    let locationManager = LocationManager()
+    let timer = WorkoutTimer()
+    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, workoutTimer: timer)
+    let bluetooth = BluetoothManager(settings: settings)
+    
+    let devicesVM = DevicesViewModel(bluetoothManager: bluetooth)
+    let workoutVM = WorkoutPlayerViewModel(workoutManager: manager, bluetoothManager: bluetooth, settings: settings)
+    
+    ContentView(
+        devicesViewModel: devicesVM,
+        workoutPlayerViewModel: workoutVM,
+        workoutManager: manager,
+        settingsManager: settings
+    )
+}

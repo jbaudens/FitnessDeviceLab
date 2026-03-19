@@ -23,3 +23,12 @@ struct FilterBadge: View {
         .buttonStyle(PlainButtonStyle())
     }
 }
+
+#Preview {
+    HStack {
+        FilterBadge(name: "All Zones", color: .secondary, isSelected: true) {}
+        FilterBadge(name: "Z2", color: .blue, isSelected: false) {}
+        FilterBadge(name: "Power Only", color: .yellow, isSelected: false) {}
+    }
+    .padding()
+}

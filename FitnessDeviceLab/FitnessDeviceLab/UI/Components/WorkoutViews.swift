@@ -364,56 +364,6 @@ struct PerformanceChart: View {
     }
 }
 
-#Preview("Session Graph") {
-    let recorder = SessionRecorder(settings: SettingsManager())
-    
-    // Add 1000 points to ensure we have enough duration for labels
-    let _ = {
-        let now = Date()
-        for i in 0..<1000 {
-            let pt = Trackpoint(
-                time: now.addingTimeInterval(Double(i)),
-                hr: 120 + Int(sin(Double(i)/20.0) * 10),
-                power: 200 + Int(cos(Double(i)/20.0) * 50)
-            )
-            recorder.trackpoints.append(pt)
-        }
-        return true
-    }()
-    
-    VStack(alignment: .leading) {
-        Text("Free Ride Graph").font(.headline)
-        SessionGraphView(recorder: recorder, userFTP: 200)
-            .frame(height: 140)
-            .padding(8)
-            .background(Color.secondary.opacity(0.05))
-            .cornerRadius(12)
-    }
-    .padding()
-}
-
-#Preview("Workout Graph") {
-    let workout = StructuredWorkout(
-        name: "Threshold Intervals",
-        description: "Hard work",
-        steps: [
-            WorkoutStep(duration: 300, targetPowerPercent: 0.5),
-            WorkoutStep(duration: 600, targetPowerPercent: 0.9, endTargetPowerPercent: 1.0),
-            WorkoutStep(duration: 300, targetPowerPercent: 0.5)
-        ]
-    )
-    
-    VStack(alignment: .leading) {
-        Text("Structured Workout Graph").font(.headline)
-        WorkoutGraphView(workout: workout, userFTP: 250)
-            .frame(height: 140)
-            .padding(8)
-            .background(Color.secondary.opacity(0.05))
-            .cornerRadius(12)
-    }
-    .padding()
-}
-
 struct WorkoutRowView: View {
     let workout: StructuredWorkout
     let userFTP: Double
@@ -487,3 +437,78 @@ struct LegendItem: View {
     }
 }
 
+#Preview("Session Graph") {
+    let recorder = SessionRecorder(settings: SettingsManager())
+    
+    // Add 1000 points to ensure we have enough duration for labels
+    let _ = {
+        let now = Date()
+        for i in 0..<1000 {
+            let pt = Trackpoint(
+                time: now.addingTimeInterval(Double(i)),
+                hr: 120 + Int(sin(Double(i)/20.0) * 10),
+                power: 200 + Int(cos(Double(i)/20.0) * 50)
+            )
+            recorder.trackpoints.append(pt)
+        }
+        return true
+    }()
+    
+    VStack(alignment: .leading) {
+        Text("Free Ride Graph").font(.headline)
+        SessionGraphView(recorder: recorder, userFTP: 200)
+            .frame(height: 140)
+            .padding(8)
+            .background(Color.secondary.opacity(0.05))
+            .cornerRadius(12)
+    }
+    .padding()
+}
+
+#Preview("Workout Graph") {
+    let workout = StructuredWorkout(
+        name: "Threshold Intervals",
+        description: "Hard work",
+        steps: [
+            WorkoutStep(duration: 300, targetPowerPercent: 0.5),
+            WorkoutStep(duration: 600, targetPowerPercent: 0.9, endTargetPowerPercent: 1.0),
+            WorkoutStep(duration: 300, targetPowerPercent: 0.5)
+        ]
+    )
+    
+    VStack(alignment: .leading) {
+        Text("Structured Workout Graph").font(.headline)
+        WorkoutGraphView(workout: workout, userFTP: 250)
+            .frame(height: 140)
+            .padding(8)
+            .background(Color.secondary.opacity(0.05))
+            .cornerRadius(12)
+    }
+    .padding()
+}
+
+#Preview("Workout Row") {
+    let workout = StructuredWorkout(
+        name: "Tabata Sprints",
+        description: "20s on, 10s off for building top-end power.",
+        steps: [
+            WorkoutStep(duration: 300, targetPowerPercent: 0.5),
+            WorkoutStep(duration: 20, targetPowerPercent: 1.5),
+            WorkoutStep(duration: 10, targetPowerPercent: 0.4),
+            WorkoutStep(duration: 20, targetPowerPercent: 1.5)
+        ]
+    )
+    
+    List {
+        WorkoutRowView(workout: workout, userFTP: 250)
+    }
+}
+
+#Preview("Graph Components") {
+    VStack(spacing: 20) {
+        GraphLegend()
+        LegendItem(label: "Power", icon: "bolt.fill", color: .yellow)
+        LegendItem(label: "Cadence", icon: "bicycle", color: .blue)
+        LegendItem(label: "HR", icon: "heart.fill", color: .red)
+    }
+}

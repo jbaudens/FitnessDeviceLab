@@ -236,3 +236,36 @@ struct PeripheralCardView: View {
         }
     }
 }
+
+#Preview("Devices Tab") {
+    let settings = SettingsManager()
+    let bluetooth = BluetoothManager(settings: settings)
+    let viewModel = DevicesViewModel(bluetoothManager: bluetooth)
+    
+    NavigationStack {
+        DevicesTabView(viewModel: viewModel)
+    }
+}
+
+#Preview("Peripheral Card") {
+    let settings = SettingsManager()
+    let bluetooth = BluetoothManager(settings: settings)
+    let viewModel = DevicesViewModel(bluetoothManager: bluetooth)
+    let peripheral = SimulatedPeripheral(name: "Wahoo KICKR", settings: settings)
+    
+    VStack {
+        PeripheralCardView(peripheral: peripheral, viewModel: viewModel)
+            .padding()
+        
+        let connectedPeripheral = SimulatedPeripheral(name: "Garmin HRM", settings: settings)
+        let _ = {
+            connectedPeripheral.isConnected = true
+            connectedPeripheral.heartRate = 145
+            return true
+        }()
+        
+        PeripheralCardView(peripheral: connectedPeripheral, viewModel: viewModel)
+            .padding()
+    }
+    .background(Color.systemGroupedBackground)
+}
