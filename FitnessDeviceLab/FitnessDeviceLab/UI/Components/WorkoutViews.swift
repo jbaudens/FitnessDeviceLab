@@ -107,7 +107,8 @@ struct WorkoutGraphView: View {
                         PerformanceChart(
                             recorder: recorder,
                             totalDuration: totalDuration,
-                            maxPower: maxPercent * ftp,
+                            maxPercent: maxPercent,
+                            userFTP: ftp,
                             startTime: sessionStartTime
                         )
                         .frame(width: width, height: height)
@@ -223,10 +224,12 @@ struct SessionGraphView: View {
                         }
                     }
                     
-                    GrowingPerformanceChart(
+                    PerformanceChart(
                         recorder: recorder,
                         totalDuration: totalDuration,
-                        maxPower: maxPercent * ftp
+                        maxPercent: maxPercent,
+                        userFTP: ftp,
+                        startTime: nil
                     )
                     .frame(width: width, height: height)
                     .padding(.bottom, 20)
@@ -252,64 +255,11 @@ struct SessionGraphView: View {
     }
 }
 
-struct GrowingPerformanceChart: View {
-    @Bindable var recorder: SessionRecorder
-    let totalDuration: TimeInterval
-    let maxPower: Double
-    
-    private var downsampledTrackpoints: [Trackpoint] {
-        let maxPoints = 500
-        let totalPoints = recorder.trackpoints.count
-        guard totalPoints > maxPoints else { return recorder.trackpoints }
-        
-        let strideValue = totalPoints / maxPoints
-        var result: [Trackpoint] = []
-        for i in Swift.stride(from: 0, to: totalPoints, by: strideValue) {
-            result.append(recorder.trackpoints[i])
-        }
-        if let last = recorder.trackpoints.last, result.last?.id != last.id {
-            result.append(last)
-        }
-        return result
-    }
-    
-    var body: some View {
-        Chart {
-            ForEach(Array(downsampledTrackpoints.enumerated()), id: \.element.id) { index, pt in
-                let originalIndex = recorder.trackpoints.firstIndex(where: { $0.id == pt.id }) ?? index
-                let timeOffset = Double(originalIndex)
-                
-                if let pwr = pt.power {
-                    LineMark(
-                        x: .value("Time", timeOffset),
-                        y: .value("Power", min(Double(pwr), 1600)),
-                        series: .value("Metric", "Power")
-                    )
-                    .foregroundStyle(Color.yellow)
-                }
-                
-                if let hr = pt.hr {
-                    LineMark(
-                        x: .value("Time", timeOffset),
-                        y: .value("HR", Double(hr)),
-                        series: .value("Metric", "HR")
-                    )
-                    .foregroundStyle(Color.red)
-                }
-            }
-        }
-        .chartXScale(domain: 0...totalDuration)
-        .chartYScale(domain: 0...maxPower)
-        .chartXAxis(.hidden)
-        .chartYAxis(.hidden)
-        .animation(.none, value: recorder.trackpoints.count)
-    }
-}
-
 struct PerformanceChart: View {
     @Bindable var recorder: SessionRecorder
     let totalDuration: TimeInterval
-    let maxPower: Double
+    let maxPercent: Double
+    let userFTP: Double
     let startTime: Date?
     
     // Downsampling logic to maintain performance during long sessions
@@ -340,7 +290,7 @@ struct PerformanceChart: View {
                 if let pwr = pt.power {
                     LineMark(
                         x: .value("Time", timeOffset),
-                        y: .value("Power", min(Double(pwr), 1600)), // Don't clip at 600, allow spikes
+                        y: .value("Power", Double(pwr) / userFTP), 
                         series: .value("Metric", "Power")
                     )
                     .foregroundStyle(Color.yellow)
@@ -349,7 +299,7 @@ struct PerformanceChart: View {
                 if let cad = pt.cadence {
                     LineMark(
                         x: .value("Time", timeOffset),
-                        y: .value("Cadence", Double(cad)),
+                        y: .value("Cadence", Double(cad) / 100.0), // Scale relative to 100rpm = 1.0 (100% FTP)
                         series: .value("Metric", "Cadence")
                     )
                     .foregroundStyle(Color.blue)
@@ -358,7 +308,7 @@ struct PerformanceChart: View {
                 if let hr = pt.hr {
                     LineMark(
                         x: .value("Time", timeOffset),
-                        y: .value("HR", Double(hr)),
+                        y: .value("HR", Double(hr) / 180.0), // Scale relative to 180bpm = 1.0 (100% FTP)
                         series: .value("Metric", "HR")
                     )
                     .foregroundStyle(Color.red)
@@ -366,7 +316,7 @@ struct PerformanceChart: View {
             }
         }
         .chartXScale(domain: 0...totalDuration)
-        .chartYScale(domain: 0...maxPower)
+        .chartYScale(domain: 0...maxPercent)
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
         .animation(.none, value: recorder.trackpoints.count) // Disable chart animation for performance
@@ -402,8 +352,10 @@ struct PerformanceChart: View {
 }
 
 #Preview("Workout Graph") {
+    let settings = SettingsManager()
+    let recorder = SessionRecorder(settings: settings)
     let workout = StructuredWorkout(
-        name: "Threshold Intervals",
+        name: "Test intervals",
         description: "Hard work",
         steps: [
             WorkoutStep(duration: 300, targetPowerPercent: 0.5),
@@ -412,9 +364,28 @@ struct PerformanceChart: View {
         ]
     )
     
+    // Add some mock points that follow the workout perfectly
+    let _ = {
+        let now = Date()
+        var elapsed: TimeInterval = 0
+        for step in workout.steps {
+            for i in 0..<Int(step.duration) {
+                let intensity = step.powerAt(time: Double(i)) ?? 0.0
+                let pt = Trackpoint(
+                    time: now.addingTimeInterval(elapsed),
+                    hr: 120 + Int(intensity * 40),
+                    power: Int(intensity * 250) // Assuming FTP is 250
+                )
+                recorder.trackpoints.append(pt)
+                elapsed += 1
+            }
+        }
+        return true
+    }()
+    
     VStack(alignment: .leading) {
         Text("Structured Workout Graph").font(.headline)
-        WorkoutGraphView(workout: workout, userFTP: 250)
+        WorkoutGraphView(workout: workout, userFTP: 250, elapsedTime: 600, recorder: recorder)
             .frame(height: 140)
             .padding(8)
             .background(Color.secondary.opacity(0.05))
