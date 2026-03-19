@@ -189,7 +189,7 @@ struct WorkoutSessionManagerTests {
         #expect(sut.manualTargetPower == 201)
         
         // 2. Structured Workout ERG (Difficulty Scale)
-        sut.selectedWorkout = StructuredWorkout(name: "Test", steps: [WorkoutStep(duration: 60, targetPowerPercent: 0.5)])
+        sut.selectedWorkout = StructuredWorkout(name: "Test", description: "Test Description", steps: [WorkoutStep(duration: 60, targetPowerPercent: 0.5)])
         sut.ergModeEnabled = true
         sut.workoutDifficultyScale = 1.0
         
