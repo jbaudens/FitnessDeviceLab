@@ -104,3 +104,16 @@ struct WorkoutLibraryView: View {
         }
     }
 }
+
+#Preview {
+    let settings = SettingsManager()
+    let locationManager = LocationManager()
+    let timer = WorkoutTimer()
+    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, workoutTimer: timer)
+    
+    WorkoutLibraryView(
+        repository: WorkoutRepository.shared,
+        workoutManager: manager,
+        settings: settings
+    )
+}

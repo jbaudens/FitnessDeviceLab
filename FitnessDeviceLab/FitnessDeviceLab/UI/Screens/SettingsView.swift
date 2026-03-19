@@ -122,3 +122,9 @@ struct SettingsView: View {
         .hideNavigationBarOnMobile()
     }
 }
+
+#Preview {
+    NavigationStack {
+        SettingsView(settings: SettingsManager())
+    }
+}

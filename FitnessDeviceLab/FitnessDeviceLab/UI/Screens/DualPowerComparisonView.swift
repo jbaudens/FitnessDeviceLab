@@ -340,3 +340,59 @@ private struct DeltaChart: View {
     
     return DualPowerComparisonView(recorderA: recA, recorderB: recB)
 }
+
+#Preview("Comparison Summary Dashboard") {
+    let interval = DetectedInterval(
+        startSeconds: 300,
+        endSeconds: 900,
+        duration: 600,
+        avgPowerA: 300,
+        avgPowerB: 295
+    )
+    
+    let summary = ComparisonSummary(
+        avgPowerA: 250,
+        avgPowerB: 245,
+        maxPowerA: 800,
+        maxPowerB: 795,
+        avgDelta: 5.0,
+        maxDelta: 20,
+        totalPoints: 1000,
+        divergencePoints: 45,
+        detectedIntervals: [interval]
+    )
+    
+    VStack {
+        SummaryDashboard(summary: summary)
+            .padding()
+        
+        IntervalRow(interval: summary.detectedIntervals[0])
+            .padding()
+        
+        MetricCard(title: "AVG DELTA", value: "5.0", unit: "w", color: .orange)
+            .padding()
+    }
+    .background(Color.systemGroupedBackground)
+}
+
+#Preview("Comparison Charts") {
+    let now = Date()
+    let points: [ComparisonPoint] = (0..<100).map { i in
+        ComparisonPoint(
+            timestamp: now.addingTimeInterval(Double(i)),
+            elapsedSeconds: Double(i),
+            powerA: 200 + Int.random(in: -5...5),
+            powerB: 198 + Int.random(in: -5...5)
+        )
+    }
+    
+    VStack {
+        PowerOverlayChart(points: points)
+            .frame(height: 200)
+            .padding()
+        
+        DeltaChart(points: points)
+            .frame(height: 200)
+            .padding()
+    }
+}

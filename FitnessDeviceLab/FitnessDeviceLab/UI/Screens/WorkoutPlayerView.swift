@@ -91,6 +91,94 @@ struct WorkoutPlayerView: View {
     }
 }
 
+#Preview("Session Summary Card") {
+    let settings = SettingsManager()
+    let recorder = SessionRecorder(settings: settings)
+    let engine = DataFieldEngine(recorder: recorder, settings: settings)
+    let _ = {
+        engine.liveStandard.instant = 250
+        engine.currentHR = 145
+        return true
+    }()
+    
+    SessionSummaryCard(files: [], engine: engine)
+        .padding()
+}
+
+#Preview("Interaction Cockpit - Free Ride") {
+    let settings = SettingsManager()
+    let locationManager = LocationManager()
+    let timer = WorkoutTimer()
+    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, workoutTimer: timer)
+    
+    InteractionCockpit(workoutManager: manager)
+        .padding()
+}
+
+#Preview("Workout Target Header") {
+    let settings = SettingsManager()
+    let locationManager = LocationManager()
+    let timer = WorkoutTimer()
+    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, workoutTimer: timer)
+    
+    let workout = StructuredWorkout(
+        name: "Threshold Intervals",
+        description: "Hard work",
+        steps: [
+            WorkoutStep(duration: 600, targetPowerPercent: 0.95)
+        ]
+    )
+    
+    let _ = {
+        manager.selectedWorkout = workout
+        manager.workoutElapsedTime = 120
+        manager.timeInStep = 120
+        return true
+    }()
+    
+    WorkoutTargetHeader(workoutManager: manager, workout: workout)
+        .padding()
+}
+
+#Preview("Laps History") {
+    let settings = SettingsManager()
+    let locationManager = LocationManager()
+    let timer = WorkoutTimer()
+    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, workoutTimer: timer)
+    
+    let _ = {
+        let now = Date()
+        for i in 0..<3 {
+            let lap = Lap(
+                index: i,
+                startTime: now.addingTimeInterval(Double(i * 300)),
+                type: .work
+            )
+            manager.laps.append(lap)
+        }
+        return true
+    }()
+    
+    LapsHistoryView(workoutManager: manager, settings: settings)
+}
+
+#Preview("Sensor Set Card") {
+    let settings = SettingsManager()
+    let recorder = SessionRecorder(settings: settings)
+    let peripheral = SimulatedPeripheral(name: "Generic Sensor", settings: settings)
+    
+    SensorSetCard(
+        title: "PRIMARY RECORDER (A)",
+        subtitle: "Used for primary display & stats",
+        color: .blue,
+        recorder: recorder,
+        hrSensors: [HeartRateSensor(peripheral: peripheral)!],
+        pwrSensors: [PowerSensor(peripheral: peripheral)!],
+        cadSensors: []
+    )
+    .padding()
+}
+
 struct WorkoutPlayerContentView: View {
     @Bindable var viewModel: WorkoutPlayerViewModel
     

@@ -332,3 +332,32 @@ struct DataFieldTile: View {
         return type.format(val)
     }
 }
+
+#Preview("Data Field Tiles") {
+    let settings = SettingsManager()
+    let recorder = SessionRecorder(settings: settings)
+    let engine = DataFieldEngine(recorder: recorder, settings: settings)
+    let _ = {
+        engine.currentHR = 150
+        engine.currentCadence = 90
+        engine.liveStandard.instant = 250
+        return true
+    }()
+    
+    ScrollView {
+        VStack(spacing: 20) {
+            DataFieldTile(type: .currentPower, engine: engine, settings: settings)
+            DataFieldTile(type: .currentHR, engine: engine, settings: settings)
+            DataFieldTile(type: .cadence, engine: engine, settings: settings)
+            DataFieldTile(type: .normalizedPower, engine: engine, settings: settings)
+            
+            DataFieldGrid(
+                engine: engine,
+                fields: [.currentPower, .avgPower, .currentHR, .avgHR, .cadence, .avgCadence],
+                settings: settings
+            )
+            .padding()
+        }
+        .padding()
+    }
+}

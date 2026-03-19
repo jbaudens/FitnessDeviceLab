@@ -99,3 +99,19 @@ struct WorkoutDetailView: View {
         .navigationTitle(workout.name)
     }
 }
+
+#Preview {
+    let workout = StructuredWorkout(
+        name: "Endurance Base",
+        description: "A steady ride in Zone 2 to build aerobic capacity and fat metabolism.",
+        steps: [
+            WorkoutStep(duration: 600, targetPowerPercent: 0.5),
+            WorkoutStep(duration: 1800, targetPowerPercent: 0.7),
+            WorkoutStep(duration: 600, targetPowerPercent: 0.5)
+        ]
+    )
+    
+    NavigationStack {
+        WorkoutDetailView(workout: workout, userFTP: 250, onSelect: { _ in })
+    }
+}
