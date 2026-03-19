@@ -89,18 +89,19 @@ public class CadenceSensor: CadenceProviding, Hashable {
 @Observable
 public class ControllableTrainer: ResistanceControllable, PowerProviding, CadenceProviding, Hashable {
     private let peripheral: any SensorPeripheral
-    
+
     public var cyclingPower: Int? { peripheral.cyclingPower }
     public var cadence: Int? { peripheral.cadence }
     public var powerBalance: Double? { peripheral.powerBalance }
-    
+
     public var id: UUID { peripheral.id }
     public var name: String { peripheral.name }
     public var manufacturerName: String? { peripheral.manufacturerName }
     public var modelNumber: String? { peripheral.modelNumber }
-    
-    public init?(peripheral: any SensorPeripheral) {
-        guard peripheral.capabilities.contains(.fitnessMachine) else { return nil }
+
+    public var supportsPowerControl: Bool { peripheral.supportsPowerControl }
+
+    public init?(peripheral: any SensorPeripheral) {        guard peripheral.capabilities.contains(.fitnessMachine) else { return nil }
         self.peripheral = peripheral
     }
     

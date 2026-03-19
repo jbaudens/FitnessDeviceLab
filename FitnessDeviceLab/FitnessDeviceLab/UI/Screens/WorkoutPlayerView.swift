@@ -141,6 +141,20 @@ struct WorkoutPlayerContentView: View {
                         recorderB: viewModel.workoutManager.recorderB
                     )
                 }
+            } else if viewModel.workoutManager.isSaving {
+                VStack(spacing: 20) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                    Text("Saving Session Data...")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    Text("Please wait while we generate your TCX and FIT files.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .navigationTitle("Saving...")
+                .hideNavigationBarOnMobile()
             } else if viewModel.isActiveState {
                 activeView
             } else {

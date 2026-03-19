@@ -44,6 +44,8 @@ public protocol SensorPeripheral: AnyObject, Observation.Observable {
     
     var capabilities: Set<DeviceCapability> { get }
     
+    var supportsPowerControl: Bool { get }
+    
     var heartRate: Int? { get }
     var cyclingPower: Int? { get }
     var cadence: Int? { get }
