@@ -28,6 +28,7 @@ public class WorkoutSessionManager {
     public var isRecording = false
     public var isLoaded = false
     public var isPaused = false
+    public var isSaving = false
     
     public var sessionStartTime: Date?
     public var workoutElapsedTime: TimeInterval = 0
@@ -98,6 +99,7 @@ public class WorkoutSessionManager {
         laps = []
         isPaused = false
         isRecording = false
+        isSaving = false
         exportedFiles = []
         
         // Set default manual targets if no workout is selected
@@ -192,10 +194,7 @@ public class WorkoutSessionManager {
     }
     
     public var canEnableErgMode: Bool {
-        guard let trainer = trainerController.trainer as? DiscoveredPeripheral else {
-            return trainerController.trainer != nil // If it's a simulated trainer, assume yes
-        }
-        return trainer.supportsPowerControl
+        return trainerController.trainer?.supportsPowerControl ?? false
     }
     
     private func startNewLap(type: WorkoutStepType) {
@@ -328,6 +327,7 @@ public class WorkoutSessionManager {
         isRecording = false
         isLoaded = false
         isPaused = false
+        isSaving = true
         
         recorderA.isRecording = false
         recorderB.isRecording = false
@@ -336,6 +336,7 @@ public class WorkoutSessionManager {
         workoutTimer.stop()
         
         Task { @MainActor in
+            defer { isSaving = false }
             var files: [URL] = []
             
             let workoutName = selectedWorkout?.name ?? "FreeRide"
