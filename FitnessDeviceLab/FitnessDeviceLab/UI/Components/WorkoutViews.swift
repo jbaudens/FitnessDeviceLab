@@ -270,6 +270,15 @@ struct GrowingPerformanceChart: View {
                     .foregroundStyle(Color.yellow)
                 }
                 
+                if let cad = pt.cadence {
+                    LineMark(
+                        x: .value("Time", timeOffset),
+                        y: .value("Cadence", Double(cad)),
+                        series: .value("Metric", "Cadence")
+                    )
+                    .foregroundStyle(Color.blue)
+                }
+                
                 if let hr = pt.hr {
                     LineMark(
                         x: .value("Time", timeOffset),
