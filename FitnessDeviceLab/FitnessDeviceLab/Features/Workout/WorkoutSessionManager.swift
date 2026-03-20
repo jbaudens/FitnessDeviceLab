@@ -176,7 +176,9 @@ public class WorkoutSessionManager {
             if ergModeEnabled {
                 // Adjust difficulty scale (amount is in percent points)
                 let delta = Double(amount) / 100.0
-                workoutDifficultyScale = min(2.0, max(0.5, workoutDifficultyScale + delta))
+                let newScale = min(2.0, max(0.5, workoutDifficultyScale + delta))
+                // Round to 2 decimal places to avoid floating point drift
+                workoutDifficultyScale = round(newScale * 100.0) / 100.0
             } else {
                 // Adjust resistance level
                 resistanceLevel = min(100.0, max(0.0, resistanceLevel + Double(amount)))

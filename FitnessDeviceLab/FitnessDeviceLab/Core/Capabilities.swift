@@ -99,9 +99,12 @@ public class ControllableTrainer: ResistanceControllable, PowerProviding, Cadenc
     public var manufacturerName: String? { peripheral.manufacturerName }
     public var modelNumber: String? { peripheral.modelNumber }
 
+    
     public var supportsPowerControl: Bool { peripheral.supportsPowerControl }
-
-    public init?(peripheral: any SensorPeripheral) {        guard peripheral.capabilities.contains(.fitnessMachine) else { return nil }
+    public var supportsResistanceControl: Bool { peripheral.supportsResistanceControl }
+    
+    public init?(peripheral: any SensorPeripheral) {
+        guard peripheral.capabilities.contains(.fitnessMachine) else { return nil }
         self.peripheral = peripheral
     }
     

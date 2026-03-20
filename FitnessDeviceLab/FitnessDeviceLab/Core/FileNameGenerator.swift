@@ -3,7 +3,7 @@ import Foundation
 public struct FileNameGenerator {
     public static func generate(metadata: ExportMetadata, startTime: Date, extension ext: String) -> String {
         let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withFullDate, .withTime, .withDashSeparatorInDate]
+        formatter.formatOptions = [.withFullDate, .withTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
         let dateString = formatter.string(from: startTime)
             .replacingOccurrences(of: ":", with: "-")
             .replacingOccurrences(of: "Z", with: "")
