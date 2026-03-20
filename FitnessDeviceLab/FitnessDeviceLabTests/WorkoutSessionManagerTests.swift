@@ -28,6 +28,9 @@ class MockTrainer: NSObject, SensorPeripheral, ResistanceControllable {
     var modelNumber: String? = "Mock-1"
     var capabilities: Set<DeviceCapability> = [.cyclingPower, .fitnessMachine]
     
+    var supportsPowerControl: Bool { true }
+    var supportsResistanceControl: Bool { true }
+    
     var heartRate: Int? = nil
     var cyclingPower: Int? = 0
     var cadence: Int? = 0

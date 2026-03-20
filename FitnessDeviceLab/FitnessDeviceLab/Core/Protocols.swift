@@ -28,6 +28,10 @@ public protocol CadenceProviding: AnyObject, Observation.Observable {
 public protocol ResistanceControllable: AnyObject, Observation.Observable {
     var id: UUID { get }
     var name: String { get }
+    
+    var supportsPowerControl: Bool { get }
+    var supportsResistanceControl: Bool { get }
+    
     func setTargetPower(_ watts: Int)
     func setResistanceLevel(_ level: Double)
 }
@@ -44,13 +48,14 @@ public protocol SensorPeripheral: AnyObject, Observation.Observable {
     
     var capabilities: Set<DeviceCapability> { get }
     
-    var supportsPowerControl: Bool { get }
-    
     var heartRate: Int? { get }
     var cyclingPower: Int? { get }
     var cadence: Int? { get }
     var powerBalance: Double? { get }
     var latestRRIntervals: [Double] { get set }
+    
+    var supportsPowerControl: Bool { get }
+    var supportsResistanceControl: Bool { get }
     
     func setTargetPower(_ watts: Int)
     func setResistanceLevel(_ level: Double)

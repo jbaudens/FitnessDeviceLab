@@ -17,9 +17,10 @@ public class SimulatedPeripheral: NSObject, SensorPeripheral, HeartRateProviding
     public var powerBalance: Double? = 50.0
     public var latestRRIntervals: [Double] = []
     
-    public var capabilities: Set<DeviceCapability> = [.heartRate, .cyclingPower, .cadence, .fitnessMachine]
-    
     public var supportsPowerControl: Bool { true }
+    public var supportsResistanceControl: Bool { true }
+    
+    public var capabilities: Set<DeviceCapability> = [.heartRate, .cyclingPower, .cadence, .fitnessMachine]
     
     // MARK: - Simulation Internal State
     private var simulationTask: Task<Void, Never>?
