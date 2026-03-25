@@ -14,7 +14,15 @@ struct FitnessDeviceLabApp: App {
 
     init() {
         let settings = SettingsManager()
-        let workout = WorkoutSessionManager(settings: settings, locationProvider: locationManager, sessionTimer: sessionTimer)
+        let recorderA = SessionRecorder(settings: settings)
+        let recorderB = SessionRecorder(settings: settings)
+        let workout = WorkoutSessionManager(
+            settings: settings, 
+            locationProvider: locationManager, 
+            sessionTimer: sessionTimer,
+            recorderA: recorderA,
+            recorderB: recorderB
+        )
         let bluetooth = BluetoothManager(settings: settings)
         
         self._settingsManager = State(initialValue: settings)

@@ -14,7 +14,15 @@ struct WorkoutPlayerView: View {
     let settings = SettingsManager()
     let locationManager = LocationManager()
     let timer = SessionTimer()
-    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, sessionTimer: timer)
+    let recorderA = SessionRecorder(settings: settings)
+    let recorderB = SessionRecorder(settings: settings)
+    let manager = WorkoutSessionManager(
+        settings: settings, 
+        locationProvider: locationManager, 
+        sessionTimer: timer,
+        recorderA: recorderA,
+        recorderB: recorderB
+    )
     let bluetooth = BluetoothManager(settings: settings)
     
     let viewModel = WorkoutPlayerViewModel(workoutManager: manager, bluetoothManager: bluetooth, settings: settings)
@@ -48,7 +56,15 @@ struct WorkoutPlayerView: View {
     let settings = SettingsManager()
     let locationManager = LocationManager()
     let timer = SessionTimer()
-    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, sessionTimer: timer)
+    let recorderA = SessionRecorder(settings: settings)
+    let recorderB = SessionRecorder(settings: settings)
+    let manager = WorkoutSessionManager(
+        settings: settings, 
+        locationProvider: locationManager, 
+        sessionTimer: timer,
+        recorderA: recorderA,
+        recorderB: recorderB
+    )
     let bluetooth = BluetoothManager(settings: settings)
     
     let workout = StructuredWorkout(
@@ -109,7 +125,15 @@ struct WorkoutPlayerView: View {
     let settings = SettingsManager()
     let locationManager = LocationManager()
     let timer = SessionTimer()
-    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, sessionTimer: timer)
+    let recorderA = SessionRecorder(settings: settings)
+    let recorderB = SessionRecorder(settings: settings)
+    let manager = WorkoutSessionManager(
+        settings: settings, 
+        locationProvider: locationManager, 
+        sessionTimer: timer,
+        recorderA: recorderA,
+        recorderB: recorderB
+    )
     
     InteractionCockpit(workoutManager: manager)
         .padding()
@@ -119,7 +143,15 @@ struct WorkoutPlayerView: View {
     let settings = SettingsManager()
     let locationManager = LocationManager()
     let timer = SessionTimer()
-    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, sessionTimer: timer)
+    let recorderA = SessionRecorder(settings: settings)
+    let recorderB = SessionRecorder(settings: settings)
+    let manager = WorkoutSessionManager(
+        settings: settings, 
+        locationProvider: locationManager, 
+        sessionTimer: timer,
+        recorderA: recorderA,
+        recorderB: recorderB
+    )
     
     let workout = StructuredWorkout(
         name: "Threshold Intervals",
@@ -145,7 +177,15 @@ struct WorkoutPlayerView: View {
     let settings = SettingsManager()
     let locationManager = LocationManager()
     let timer = SessionTimer()
-    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, sessionTimer: timer)
+    let recorderA = SessionRecorder(settings: settings)
+    let recorderB = SessionRecorder(settings: settings)
+    let manager = WorkoutSessionManager(
+        settings: settings, 
+        locationProvider: locationManager, 
+        sessionTimer: timer,
+        recorderA: recorderA,
+        recorderB: recorderB
+    )
     
     let _ = {
         for i in 0..<3 {

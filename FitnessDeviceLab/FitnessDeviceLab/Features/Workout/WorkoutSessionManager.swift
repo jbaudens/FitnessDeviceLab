@@ -56,17 +56,18 @@ public class WorkoutSessionManager {
     public let settings: SettingsProvider
     private let locationProvider: LocationProvider
     
-    public init(settings: SettingsProvider, locationProvider: LocationProvider, sessionTimer: SessionTimer) {
+    public init(settings: SettingsProvider, 
+                locationProvider: LocationProvider, 
+                sessionTimer: SessionTimer,
+                recorderA: SessionRecorder,
+                recorderB: SessionRecorder) {
         self.settings = settings
         self.locationProvider = locationProvider
         self.sessionTimer = sessionTimer
-        
-        let recA = SessionRecorder(settings: settings)
-        let recB = SessionRecorder(settings: settings)
-        self.recorderA = recA
-        self.recorderB = recB
-        self.engineA = DataFieldEngine(recorder: recA, settings: settings)
-        self.engineB = DataFieldEngine(recorder: recB, settings: settings)
+        self.recorderA = recorderA
+        self.recorderB = recorderB
+        self.engineA = DataFieldEngine(recorder: recorderA, settings: settings)
+        self.engineB = DataFieldEngine(recorder: recorderB, settings: settings)
         
         // Default manual targets to user-specific values
         self.manualTargetPower = Int(settings.userFTP * 0.6)

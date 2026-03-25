@@ -52,7 +52,15 @@ struct ContentView: View {
     let settings = SettingsManager()
     let locationManager = LocationManager()
     let timer = SessionTimer()
-    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, sessionTimer: timer)
+    let recorderA = SessionRecorder(settings: settings)
+    let recorderB = SessionRecorder(settings: settings)
+    let manager = WorkoutSessionManager(
+        settings: settings, 
+        locationProvider: locationManager, 
+        sessionTimer: timer,
+        recorderA: recorderA,
+        recorderB: recorderB
+    )
     let bluetooth = BluetoothManager(settings: settings)
     
     let devicesVM = DevicesViewModel(bluetoothManager: bluetooth)
