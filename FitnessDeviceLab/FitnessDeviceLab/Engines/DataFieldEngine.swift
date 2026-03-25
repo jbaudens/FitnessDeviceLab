@@ -142,6 +142,25 @@ public class DataFieldEngine {
     public var currentLapMetrics = AggregatedMetrics()
     public var lapStartTime: Date? = nil
     
+    // Incremental Calculation State (Session)
+    private var totalPowerSum: Double = 0
+    private var powerPointCount: Int = 0
+    private var totalHRSum: Double = 0
+    private var hrPointCount: Int = 0
+    private var totalCadenceSum: Double = 0
+    private var cadencePointCount: Int = 0
+    private var totalDistance: Double = 0
+    private var lastPoint: Trackpoint?
+    
+    // Incremental Calculation State (Lap)
+    private var lapPowerSum: Double = 0
+    private var lapPowerCount: Int = 0
+    private var lapHRSum: Double = 0
+    private var lapHRCount: Int = 0
+    private var lapCadenceSum: Double = 0
+    private var lapCadenceCount: Int = 0
+    private var lapDistance: Double = 0
+    
     // State Tracking for throttling
     private var complexMetricsLastUpdate: Date = .distantPast
     private let complexMetricsThrottle: TimeInterval = 2.0
@@ -156,56 +175,150 @@ public class DataFieldEngine {
     }
     
     /// Main entry point called every second.
-    public func updateMetrics(from trackpoints: [Trackpoint], lapStartTime: Date?) {
-        self.lapStartTime = lapStartTime
-        
-        // 1. Update Category 1 (Instant) & Altitude Ratios
-        if let lastPoint = trackpoints.last {
-            self.currentHR = lastPoint.hr
-            self.currentCadence = lastPoint.cadence
-            self.powerBalance = lastPoint.powerBalance
-            self.currentAltitude = lastPoint.altitude
-            
-            let currentAlt = lastPoint.altitude ?? 0.0
-            let homeRatio = Self.getAltitudeRatio(meters: settings.ftpAltitude)
-            let currentRatio = Self.getAltitudeRatio(meters: currentAlt)
-            
-            self.slFTP = settings.userFTP / homeRatio
-            self.localFTP = (self.slFTP ?? 0) * currentRatio
-            
-            let totalWeight = settings.userWeight + 6.8
-            self.currentSpeed = PhysicsUtilities.estimateSpeed(power: Double(lastPoint.power ?? 0), totalWeight: totalWeight)
-            
-            // Populate Live Power (Category 1)
-            let instantPower = lastPoint.power ?? 0
-            let slP = Double(instantPower) / currentRatio
-            let homeP = slP * homeRatio
-            
-            self.liveStandard.instant = instantPower
-            self.liveStandard.wattsPerKg = Double(instantPower) / settings.userWeight
-            self.liveSeaLevel.instant = Int(round(slP))
-            self.liveSeaLevel.wattsPerKg = slP / settings.userWeight
-            self.liveHome.instant = Int(round(homeP))
-            self.liveHome.wattsPerKg = homeP / settings.userWeight
+    public func updateMetrics(from trackpoints: [Trackpoint], latestPoint: Trackpoint?, lapStartTime: Date?) {
+        // If we have a new point (recording or just live), process it incrementally
+        if let point = latestPoint {
+            processNewPoint(point, lapStartTime: lapStartTime)
         }
         
-        // 2. Fast/Sync update for Basic Averages (Session & Lap)
-        let metricsSettings = settings.metricsSettings
-        let (sessionBasic, _) = Self.calculate(from: trackpoints, settings: metricsSettings, includeComplex: false)
-        self.calculatedMetrics.updateBasic(from: sessionBasic)
-        
-        if let start = lapStartTime {
-            let lapPoints = trackpoints.filter { $0.time >= start }
-            let (lapBasic, _) = Self.calculate(from: lapPoints, settings: metricsSettings, includeComplex: false)
-            self.currentLapMetrics.updateBasic(from: lapBasic)
-        } else {
-            self.currentLapMetrics = AggregatedMetrics()
-        }
-        
-        // 3. Background task for complex/rolling metrics (Throttled)
+        // Complex metrics still need the full array but are throttled and backgrounded
         if Date().timeIntervalSince(complexMetricsLastUpdate) >= complexMetricsThrottle {
             complexMetricsLastUpdate = Date()
             launchComplexMetricsTask(trackpoints: trackpoints, lapStartTime: lapStartTime)
+        }
+    }
+    
+    private func processNewPoint(_ point: Trackpoint, lapStartTime: Date?) {
+        // 1. Update Category 1 (Instant) & Altitude Ratios
+        self.currentHR = point.hr
+        self.currentCadence = point.cadence
+        self.powerBalance = point.powerBalance
+        self.currentAltitude = point.altitude
+        
+        let currentAlt = point.altitude ?? 0.0
+        let homeRatio = Self.getAltitudeRatio(meters: settings.ftpAltitude)
+        let currentRatio = Self.getAltitudeRatio(meters: currentAlt)
+        
+        self.slFTP = settings.userFTP / homeRatio
+        self.localFTP = (self.slFTP ?? 0) * currentRatio
+        
+        let totalWeight = settings.userWeight + 6.8
+        let speed = PhysicsUtilities.estimateSpeed(power: Double(point.power ?? 0), totalWeight: totalWeight)
+        self.currentSpeed = speed
+        
+        // Populate Live Power (Category 1)
+        let instantPower = point.power ?? 0
+        let slP = Double(instantPower) / currentRatio
+        let homeP = slP * homeRatio
+        
+        self.liveStandard.instant = instantPower
+        self.liveStandard.wattsPerKg = Double(instantPower) / settings.userWeight
+        self.liveSeaLevel.instant = Int(round(slP))
+        self.liveSeaLevel.wattsPerKg = slP / settings.userWeight
+        self.liveHome.instant = Int(round(homeP))
+        self.liveHome.wattsPerKg = homeP / settings.userWeight
+        
+        // 2. Incremental Aggregates (O(1))
+        
+        // Distance
+        if let lp = lastPoint {
+            let dt = point.time.timeIntervalSince(lp.time)
+            if dt > 0 && dt < 10 {
+                let dist = speed * dt
+                totalDistance += dist
+                if let lapStart = lapStartTime, point.time >= lapStart {
+                    // Check if lap just started
+                    if lp.time < lapStart {
+                        lapDistance = dist // Reset for new lap
+                    } else {
+                        lapDistance += dist
+                    }
+                }
+            }
+        }
+        lastPoint = point
+        
+        // Session Power
+        if let p = point.power {
+            totalPowerSum += Double(p)
+            powerPointCount += 1
+            calculatedMetrics.standard.maxPower = max(calculatedMetrics.standard.maxPower ?? 0, p)
+            calculatedMetrics.standard.minPower = min(calculatedMetrics.standard.minPower ?? Int.max, p)
+        }
+        
+        // Session HR
+        if let hr = point.hr {
+            totalHRSum += Double(hr)
+            hrPointCount += 1
+            calculatedMetrics.hr.max = max(calculatedMetrics.hr.max ?? 0, hr)
+            calculatedMetrics.hr.min = min(calculatedMetrics.hr.min ?? Int.max, hr)
+        }
+        
+        // Session Cadence
+        if let cad = point.cadence {
+            totalCadenceSum += Double(cad)
+            cadencePointCount += 1
+            calculatedMetrics.cadence.max = max(calculatedMetrics.cadence.max ?? 0, cad)
+            calculatedMetrics.cadence.min = min(calculatedMetrics.cadence.min ?? Int.max, cad)
+        }
+        
+        // Update Session Averages
+        if powerPointCount > 0 {
+            let avg = totalPowerSum / Double(powerPointCount)
+            calculatedMetrics.standard.avgPower = avg
+            calculatedMetrics.standard.ftp = localFTP
+            calculatedMetrics.seaLevel.avgPower = avg / currentRatio
+            calculatedMetrics.seaLevel.ftp = slFTP ?? settings.userFTP
+            calculatedMetrics.home.avgPower = (calculatedMetrics.seaLevel.avgPower ?? 0) * homeRatio
+            calculatedMetrics.home.ftp = settings.userFTP
+        }
+        
+        if hrPointCount > 0 {
+            calculatedMetrics.hr.avg = totalHRSum / Double(hrPointCount)
+        }
+        
+        if cadencePointCount > 0 {
+            calculatedMetrics.cadence.avg = totalCadenceSum / Double(cadencePointCount)
+        }
+        calculatedMetrics.speed.distance = totalDistance
+        
+        // 3. Lap Aggregates
+        if let lapStart = lapStartTime {
+            // Reset lap accumulators if this is the first point of a new lap
+            if self.lapStartTime != lapStart {
+                self.lapStartTime = lapStart
+                lapPowerSum = 0; lapPowerCount = 0
+                lapHRSum = 0; lapHRCount = 0
+                lapCadenceSum = 0; lapCadenceCount = 0
+                lapDistance = 0
+                currentLapMetrics = AggregatedMetrics()
+            }
+            
+            if point.time >= lapStart {
+                if let p = point.power {
+                    lapPowerSum += Double(p)
+                    lapPowerCount += 1
+                    currentLapMetrics.standard.maxPower = max(currentLapMetrics.standard.maxPower ?? 0, p)
+                }
+                if let hr = point.hr {
+                    lapHRSum += Double(hr)
+                    lapHRCount += 1
+                    currentLapMetrics.hr.max = max(currentLapMetrics.hr.max ?? 0, hr)
+                }
+                if let cad = point.cadence {
+                    lapCadenceSum += Double(cad)
+                    lapCadenceCount += 1
+                    currentLapMetrics.cadence.max = max(currentLapMetrics.cadence.max ?? 0, cad)
+                }
+                
+                if lapPowerCount > 0 { currentLapMetrics.standard.avgPower = lapPowerSum / Double(lapPowerCount) }
+                if lapHRCount > 0 { currentLapMetrics.hr.avg = lapHRSum / Double(lapHRCount) }
+                if lapCadenceCount > 0 { currentLapMetrics.cadence.avg = lapCadenceSum / Double(lapCadenceCount) }
+                currentLapMetrics.speed.distance = lapDistance
+            }
+        } else {
+            self.lapStartTime = nil
+            currentLapMetrics = AggregatedMetrics()
         }
     }
     
@@ -224,6 +337,7 @@ public class DataFieldEngine {
             // Lap Complex
             let lapComplex: AggregatedMetrics = {
                 if let start = lapStartTime {
+                    // Filter in background
                     let lapPoints = trackpoints.filter { $0.time >= start }
                     let (m, _) = Self.calculate(from: lapPoints, settings: metricsSettings, includeComplex: true)
                     return m
@@ -382,9 +496,25 @@ public class DataFieldEngine {
         currentCadence = nil
         powerBalance = nil
         hrvMetrics = HRVMetrics()
-        localFTP = nil
-        slFTP = nil
-        currentAltitude = nil
+        
+        let homeRatio = Self.getAltitudeRatio(meters: settings.ftpAltitude)
+        self.slFTP = settings.userFTP / homeRatio
+        self.localFTP = settings.userFTP // Default to user FTP until altitude known
+        self.currentAltitude = settings.altitudeOverride
+        
+        // Reset incremental session state
+        totalPowerSum = 0; powerPointCount = 0
+        totalHRSum = 0; hrPointCount = 0
+        totalCadenceSum = 0; cadencePointCount = 0
+        totalDistance = 0
+        lastPoint = nil
+        
+        // Reset incremental lap state
+        lapPowerSum = 0; lapPowerCount = 0
+        lapHRSum = 0; lapHRCount = 0
+        lapCadenceSum = 0; lapCadenceCount = 0
+        lapDistance = 0
+        lapStartTime = nil
     }
     
     nonisolated public static func getAltitudeRatio(meters: Double) -> Double {

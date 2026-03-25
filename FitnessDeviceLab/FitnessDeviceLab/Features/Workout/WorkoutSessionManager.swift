@@ -92,6 +92,8 @@ public class WorkoutSessionManager {
         // Link recorders to engines
         self.engineA = DataFieldEngine(recorder: recA, settings: settings)
         self.engineB = DataFieldEngine(recorder: recB, settings: settings)
+        engineA.reset()
+        engineB.reset()
         setpointCalculator.reset()
         trainerController.reset()
         lapManager.reset()
@@ -216,8 +218,10 @@ public class WorkoutSessionManager {
         recorderB.recordPoint(time: now, altitude: altitude, rrIntervals: rrIntervals)
         
         let lapStart = lapManager.currentLap?.startTime
-        engineA.updateMetrics(from: recorderA.trackpoints, lapStartTime: lapStart)
-        engineB.updateMetrics(from: recorderB.trackpoints, lapStartTime: lapStart)
+        
+        // Pass both the full history (for throttled complex metrics) AND the latest point (for O(1) incremental basic metrics)
+        engineA.updateMetrics(from: recorderA.trackpoints, latestPoint: recorderA.latestPoint, lapStartTime: lapStart)
+        engineB.updateMetrics(from: recorderB.trackpoints, latestPoint: recorderB.latestPoint, lapStartTime: lapStart)
         
         guard isRecording else { return }
         guard !isPaused else { return }
