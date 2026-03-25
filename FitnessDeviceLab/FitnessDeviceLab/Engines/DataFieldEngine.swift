@@ -152,6 +152,10 @@ public class DataFieldEngine {
     private var totalDistance: Double = 0
     private var lastPoint: Trackpoint?
     
+    /// Fixed-size buffer for high-frequency rolling metrics (3s, 10s, 30s)
+    private var powerBuffer: [Int] = []
+    private let maxBufferSize = 30
+    
     // Incremental Calculation State (Lap)
     private var lapPowerSum: Double = 0
     private var lapPowerCount: Int = 0
@@ -217,6 +221,29 @@ public class DataFieldEngine {
         self.liveSeaLevel.wattsPerKg = slP / settings.userWeight
         self.liveHome.instant = Int(round(homeP))
         self.liveHome.wattsPerKg = homeP / settings.userWeight
+        
+        // Populate Rolling Averages (O(1) window lookup)
+        if let p = point.power {
+            powerBuffer.append(p)
+            if powerBuffer.count > maxBufferSize {
+                powerBuffer.removeFirst()
+            }
+            
+            // Standard
+            self.liveStandard.power3s = Self.getRollingAvg(powerBuffer, window: 3)
+            self.liveStandard.power10s = Self.getRollingAvg(powerBuffer, window: 10)
+            self.liveStandard.power30s = Self.getRollingAvg(powerBuffer, window: 30)
+            
+            // Sea Level
+            self.liveSeaLevel.power3s = self.liveStandard.power3s.map { Int(round(Double($0) / currentRatio)) }
+            self.liveSeaLevel.power10s = self.liveStandard.power10s.map { Int(round(Double($0) / currentRatio)) }
+            self.liveSeaLevel.power30s = self.liveStandard.power30s.map { Int(round(Double($0) / currentRatio)) }
+            
+            // Home
+            self.liveHome.power3s = self.liveSeaLevel.power3s.map { Int(round(Double($0) * homeRatio)) }
+            self.liveHome.power10s = self.liveSeaLevel.power10s.map { Int(round(Double($0) * homeRatio)) }
+            self.liveHome.power30s = self.liveSeaLevel.power30s.map { Int(round(Double($0) * homeRatio)) }
+        }
         
         // 2. Incremental Aggregates (O(1))
         
@@ -351,19 +378,6 @@ public class DataFieldEngine {
             if Task.isCancelled { return }
             
             await MainActor.run {
-                // Update Category 2 (Rolling)
-                self.liveStandard.power3s = live.standard.power3s
-                self.liveStandard.power10s = live.standard.power10s
-                self.liveStandard.power30s = live.standard.power30s
-                
-                self.liveSeaLevel.power3s = live.seaLevel.power3s
-                self.liveSeaLevel.power10s = live.seaLevel.power10s
-                self.liveSeaLevel.power30s = live.seaLevel.power30s
-                
-                self.liveHome.power3s = live.home.power3s
-                self.liveHome.power10s = live.home.power10s
-                self.liveHome.power30s = live.home.power30s
-                
                 // Update Complex (NP/TSS)
                 self.calculatedMetrics.updateComplex(from: sessionComplex)
                 self.currentLapMetrics.updateComplex(from: lapComplex)
@@ -508,6 +522,7 @@ public class DataFieldEngine {
         totalCadenceSum = 0; cadencePointCount = 0
         totalDistance = 0
         lastPoint = nil
+        powerBuffer = []
         
         // Reset incremental lap state
         lapPowerSum = 0; lapPowerCount = 0
