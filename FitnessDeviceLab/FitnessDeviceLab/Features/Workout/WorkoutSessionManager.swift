@@ -128,6 +128,7 @@ public class WorkoutSessionManager {
         sessionStartTime = Date()
         isRecording = true
         isPaused = false
+        sessionTimer.resume()
         
         recorderA.isRecording = true
         recorderB.isRecording = true

@@ -31,6 +31,7 @@ struct WorkoutPlayerView: View {
     let _ = {
         manager.isLoaded = true
         manager.isRecording = true
+        timer.resume()
         for _ in 0..<1200 { timer.advanceOneSecond() }
         
         let now = Date()
@@ -86,6 +87,7 @@ struct WorkoutPlayerView: View {
         manager.selectedWorkout = workout
         manager.isLoaded = true
         manager.isRecording = true
+        timer.resume()
         for _ in 0..<750 { timer.advanceOneSecond() }
         manager.currentStepIndex = 2
         manager.timeInStep = 150
@@ -164,6 +166,7 @@ struct WorkoutPlayerView: View {
     let _ = {
         manager.selectedWorkout = workout
         manager.isRecording = true
+        timer.resume()
         for _ in 0..<120 { timer.advanceOneSecond() }
         manager.timeInStep = 120
         return true
