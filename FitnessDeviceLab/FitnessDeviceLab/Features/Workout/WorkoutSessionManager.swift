@@ -11,7 +11,7 @@ public class WorkoutSessionManager {
     // MARK: - Controller Components
     public let trainerController = TrainerController()
     private let setpointCalculator = TrainerSetpointCalculator()
-    private let workoutTimer: WorkoutTimer
+    private let sessionTimer: SessionTimer
     
     // MARK: - Workout State
     public enum FreeRideControlMode: String, Codable, CaseIterable, Identifiable {
@@ -31,7 +31,7 @@ public class WorkoutSessionManager {
     public var isSaving = false
     
     public var sessionStartTime: Date?
-    public var workoutElapsedTime: TimeInterval = 0
+    public var workoutElapsedTime: TimeInterval { sessionTimer.elapsedTime }
     
     public var activeProfile: ActivityProfile = .defaultProfile
     public var selectedWorkout: StructuredWorkout?
@@ -55,10 +55,10 @@ public class WorkoutSessionManager {
     public let settings: SettingsProvider
     private let locationProvider: LocationProvider
     
-    public init(settings: SettingsProvider, locationProvider: LocationProvider, workoutTimer: WorkoutTimer) {
+    public init(settings: SettingsProvider, locationProvider: LocationProvider, sessionTimer: SessionTimer) {
         self.settings = settings
         self.locationProvider = locationProvider
-        self.workoutTimer = workoutTimer
+        self.sessionTimer = sessionTimer
         
         let recA = SessionRecorder(settings: settings)
         let recB = SessionRecorder(settings: settings)
@@ -75,7 +75,7 @@ public class WorkoutSessionManager {
     }
     
     private func setupTimerCallback() {
-        workoutTimer.onTick = { [weak self] in
+        sessionTimer.onTick = { [weak self] in
             self?.tick()
         }
     }
@@ -93,7 +93,7 @@ public class WorkoutSessionManager {
         setpointCalculator.reset()
         trainerController.reset()
         
-        workoutElapsedTime = 0
+        sessionTimer.reset()
         currentStepIndex = 0
         timeInStep = 0
         laps = []
@@ -114,7 +114,7 @@ public class WorkoutSessionManager {
         isLoaded = true
         
         // Start the timer
-        workoutTimer.start()
+        sessionTimer.start()
     }
     
     public func startRecording() {
@@ -136,7 +136,7 @@ public class WorkoutSessionManager {
         isPaused = true
         recorderA.isRecording = false
         recorderB.isRecording = false
-        workoutTimer.pause()
+        sessionTimer.pause()
     }
     
     public func resumeWorkout() {
@@ -144,7 +144,7 @@ public class WorkoutSessionManager {
         isPaused = false
         recorderA.isRecording = true
         recorderB.isRecording = true
-        workoutTimer.resume()
+        sessionTimer.resume()
     }
     
     public func manualLap() {
@@ -230,7 +230,6 @@ public class WorkoutSessionManager {
         guard isRecording else { return }
         guard !isPaused else { return }
         
-        workoutElapsedTime += 1.0
         let totalElapsed = workoutElapsedTime
         
         if !laps.isEmpty {
@@ -335,7 +334,7 @@ public class WorkoutSessionManager {
         recorderB.isRecording = false
         
         setpointCalculator.reset()
-        workoutTimer.stop()
+        sessionTimer.stop()
         
         Task { @MainActor in
             defer { isSaving = false }

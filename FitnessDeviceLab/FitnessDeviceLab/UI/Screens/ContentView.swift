@@ -51,8 +51,8 @@ struct ContentView: View {
 #Preview {
     let settings = SettingsManager()
     let locationManager = LocationManager()
-    let timer = WorkoutTimer()
-    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, workoutTimer: timer)
+    let timer = SessionTimer()
+    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, sessionTimer: timer)
     let bluetooth = BluetoothManager(settings: settings)
     
     let devicesVM = DevicesViewModel(bluetoothManager: bluetooth)
