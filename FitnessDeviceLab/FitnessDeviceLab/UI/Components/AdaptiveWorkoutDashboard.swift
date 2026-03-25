@@ -3,19 +3,27 @@ import SwiftUI
 struct AdaptiveWorkoutDashboard: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Bindable var viewModel: WorkoutPlayerViewModel
-    let settings: SettingsManager
+    let settings: any SettingsProvider
     
     var body: some View {
         GeometryReader { geo in
             if geo.size.width > 800 && horizontalSizeClass != .compact {
                 // Landscape Lab Mode
-                VStack(spacing: 0) {
-                    HStack(spacing: 0) {
-                        sensorSetColumn(title: "SET A", color: .blue, recorder: viewModel.workoutManager.recorderA)
-                        varianceColumn
-                        sensorSetColumn(title: "SET B", color: .purple, recorder: viewModel.workoutManager.recorderB)
+                ScrollView {
+                    VStack(spacing: 40) {
+                        ForEach(viewModel.workoutManager.activeProfile.pages) { page in
+                            HStack(spacing: 0) {
+                                sensorSetColumn(title: "SET A", color: .blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
+                                varianceColumn
+                                sensorSetColumn(title: "SET B", color: .purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
+                            }
+                            
+                            if page.id != viewModel.workoutManager.activeProfile.pages.last?.id {
+                                Divider().padding(.horizontal)
+                            }
+                        }
                     }
-                    .padding(.top)
+                    .padding(.vertical)
                 }
             } else {
                 // Portrait/Mobile Mode (Existing layout)
@@ -72,10 +80,10 @@ struct AdaptiveWorkoutDashboard: View {
         .padding(.top, 40)
     }
     
-    private func sensorSetColumn(title: String, color: Color, recorder: SessionRecorder) -> some View {
+    private func sensorSetColumn(title: String, color: Color, recorder: SessionRecorder, fields: [DataFieldType]) -> some View {
         VStack(spacing: 0) {
             // Re-use sensorSetSection logic but optimized for column
-            sensorSetSection(title: title, color: color, recorder: recorder, fields: viewModel.workoutManager.activeProfile.pages.first?.fields ?? [])
+            sensorSetSection(title: title, color: color, recorder: recorder, fields: fields)
         }
         .frame(maxWidth: .infinity)
     }
