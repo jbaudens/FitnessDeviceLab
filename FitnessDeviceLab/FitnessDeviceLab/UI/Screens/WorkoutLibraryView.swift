@@ -109,6 +109,7 @@ struct WorkoutLibraryView: View {
     let settings = SettingsManager()
     let locationManager = LocationManager()
     let timer = SessionTimer()
+    let errorManager = ErrorManager()
     let recorderA = SessionRecorder(settings: settings)
     let recorderB = SessionRecorder(settings: settings)
     let manager = WorkoutSessionManager(
@@ -116,7 +117,8 @@ struct WorkoutLibraryView: View {
         locationProvider: locationManager, 
         sessionTimer: timer,
         recorderA: recorderA,
-        recorderB: recorderB
+        recorderB: recorderB,
+        errorManager: errorManager
     )
     
     WorkoutLibraryView(

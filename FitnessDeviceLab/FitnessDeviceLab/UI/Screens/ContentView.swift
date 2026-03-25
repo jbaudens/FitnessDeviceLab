@@ -6,6 +6,8 @@ struct ContentView: View {
     
     let workoutManager: WorkoutSessionManager
     let settingsManager: SettingsManager
+    
+    @Environment(ErrorManager.self) private var errorManager
 
     var body: some View {
         TabView {
@@ -45,13 +47,31 @@ struct ContentView: View {
                 Label("Settings", systemImage: "gear")
             }
         }
+        .alert(
+            item: Binding(
+                get: { errorManager.currentError.map { IdentifiableError(error: $0) } },
+                set: { _ in errorManager.dismiss() }
+            )
+        ) { wrapper in
+            Alert(
+                title: Text("Error"),
+                message: Text(wrapper.error.localizedDescription),
+                dismissButton: .default(Text("OK"))
+            )
+        }
     }
 }
 
+/// A wrapper to make AppError Identifiable for .alert(item:)
+struct IdentifiableError: Identifiable {
+    let id = UUID()
+    let error: AppError
+}
 #Preview {
     let settings = SettingsManager()
     let locationManager = LocationManager()
     let timer = SessionTimer()
+    let errorManager = ErrorManager()
     let recorderA = SessionRecorder(settings: settings)
     let recorderB = SessionRecorder(settings: settings)
     let manager = WorkoutSessionManager(
@@ -59,9 +79,10 @@ struct ContentView: View {
         locationProvider: locationManager, 
         sessionTimer: timer,
         recorderA: recorderA,
-        recorderB: recorderB
+        recorderB: recorderB,
+        errorManager: errorManager
     )
-    let bluetooth = BluetoothManager(settings: settings)
+    let bluetooth = BluetoothManager(settings: settings, errorManager: errorManager)
     
     let devicesVM = DevicesViewModel(bluetoothManager: bluetooth)
     let workoutVM = WorkoutPlayerViewModel(workoutManager: manager, bluetoothManager: bluetooth, settings: settings)
@@ -72,4 +93,5 @@ struct ContentView: View {
         workoutManager: manager,
         settingsManager: settings
     )
+    .environment(ErrorManager())
 }

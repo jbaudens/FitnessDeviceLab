@@ -239,7 +239,8 @@ struct PeripheralCardView: View {
 
 #Preview("Devices Tab") {
     let settings = SettingsManager()
-    let bluetooth = BluetoothManager(settings: settings)
+    let errorManager = ErrorManager()
+    let bluetooth = BluetoothManager(settings: settings, errorManager: errorManager)
     let viewModel = DevicesViewModel(bluetoothManager: bluetooth)
     
     NavigationStack {
@@ -249,7 +250,8 @@ struct PeripheralCardView: View {
 
 #Preview("Peripheral Card") {
     let settings = SettingsManager()
-    let bluetooth = BluetoothManager(settings: settings)
+    let errorManager = ErrorManager()
+    let bluetooth = BluetoothManager(settings: settings, errorManager: errorManager)
     let viewModel = DevicesViewModel(bluetoothManager: bluetooth)
     let peripheral = SimulatedPeripheral(name: "Wahoo KICKR", settings: settings)
     

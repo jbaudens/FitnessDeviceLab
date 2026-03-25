@@ -26,8 +26,10 @@ class FitEncoder {
         return .development // Fallback
     }
     
-    func encode(trackpoints: [Trackpoint], laps: [Lap], hrSource: (any HeartRateProviding)?, powerSource: (any PowerProviding)?, userFTP: Double, userWeight: Double) -> Data? {
-        guard !trackpoints.isEmpty else { return nil }
+    func encode(trackpoints: [Trackpoint], laps: [Lap], hrSource: (any HeartRateProviding)?, powerSource: (any PowerProviding)?, userFTP: Double, userWeight: Double) throws -> Data {
+        guard !trackpoints.isEmpty else {
+            throw AppError.export(.noDataToExport)
+        }
         
         let encoder = Encoder()
         let startTime = trackpoints.first!.time

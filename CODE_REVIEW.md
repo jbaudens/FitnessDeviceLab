@@ -6,16 +6,16 @@
 
 1.  **Excellent Abstraction Layer**: The use of the `SensorPeripheral` protocol combined with role-based adapters is a textbook example of the **Interface Segregation Principle**.
 2.  **Modern Reactive Stack**: Leveraging the `Observation` framework ensures granular UI updates and high performance across all data fields.
-3.  **Smart Recorder Pattern**: The recent refactor where `SessionRecorder` owns and manages its own `DataFieldEngine` is a major architectural win. It decouples the manager from data interpretation and makes the system highly extensible.
-4.  **Incremental Engine Performance**: The transition to an **Incremental Accumulator** model ensures that basic metric updates (averages, distance, max/min) are O(1) constant time operations. This prevents the "scaling time-bomb" of long workouts.
-5.  **Modular Orchestration**: Successful extraction of `SessionTimer` and `LapManager` has reduced `WorkoutSessionManager` to its core responsibility: hardware and timeline orchestration.
-6.  **Clean Dependency Injection**: Recorders are injected into the session manager, allowing for superior mock support in Previews and Tests.
+3.  **Unified Error Handling**: The implementation of `AppError` and `ErrorManager` ensures that failures (Bluetooth, Export, Workout) are consistently surfaced to the user via a global alert system, eliminating silent failures.
+4.  **Smart Recorder Pattern**: The recent refactor where `SessionRecorder` owns and manages its own `DataFieldEngine` is a major architectural win. It decouples the manager from data interpretation and makes the system highly extensible.
+5.  **Incremental Engine Performance**: The transition to an **Incremental Accumulator** model ensures that basic metric updates (averages, distance, max/min) are O(1) constant time operations. This prevents the "scaling time-bomb" of long workouts.
+6.  **Modular Orchestration**: Successful extraction of `SessionTimer` and `LapManager` has reduced `WorkoutSessionManager` to its core responsibility: hardware and timeline orchestration.
+7.  **Clean Dependency Injection**: Recorders are injected into the session manager, allowing for superior mock support in Previews and Tests.
 
 ### Areas for Improvement
 
-1.  **Error Handling**: The BLE layer and Export layer still use "silent failures" or optional returns.
-    *   *Recommendation*: Introduce a custom `AppError` enum and a consistent way to surface hardware/export errors to the user (e.g., via a dedicated `ErrorService`).
-2.  **Haptic Integration**: While visual feedback has improved, adding physical haptic "thumps" for interval changes would allow athletes to focus entirely on their effort without staring at the screen.
+1.  **Haptic Integration**: While visual feedback has improved, adding physical haptic "thumps" for interval changes would allow athletes to focus entirely on their effort without staring at the screen.
+
 
 ---
 

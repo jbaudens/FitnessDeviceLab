@@ -56,6 +56,7 @@ struct WorkoutSessionManagerTests {
         let settings = MockSettingsProvider()
         let location = MockLocationProvider()
         let timer = SessionTimer()
+        let error = ErrorManager()
         let recorderA = SessionRecorder(settings: settings)
         let recorderB = SessionRecorder(settings: settings)
         let sut = WorkoutSessionManager(
@@ -63,7 +64,8 @@ struct WorkoutSessionManagerTests {
             locationProvider: location, 
             sessionTimer: timer,
             recorderA: recorderA,
-            recorderB: recorderB
+            recorderB: recorderB,
+            errorManager: error
         )
         return (sut, timer, settings, location)
     }
