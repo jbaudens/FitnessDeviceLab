@@ -10,11 +10,19 @@ struct FitnessDeviceLabApp: App {
     @State private var workoutPlayerViewModel: WorkoutPlayerViewModel
     
     private let locationManager = LocationManager()
-    private let workoutTimer = WorkoutTimer()
+    private let sessionTimer = SessionTimer()
 
     init() {
         let settings = SettingsManager()
-        let workout = WorkoutSessionManager(settings: settings, locationProvider: locationManager, workoutTimer: workoutTimer)
+        let recorderA = SessionRecorder(settings: settings)
+        let recorderB = SessionRecorder(settings: settings)
+        let workout = WorkoutSessionManager(
+            settings: settings, 
+            locationProvider: locationManager, 
+            sessionTimer: sessionTimer,
+            recorderA: recorderA,
+            recorderB: recorderB
+        )
         let bluetooth = BluetoothManager(settings: settings)
         
         self._settingsManager = State(initialValue: settings)

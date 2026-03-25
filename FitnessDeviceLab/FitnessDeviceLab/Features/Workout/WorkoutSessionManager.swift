@@ -11,7 +11,7 @@ public class WorkoutSessionManager {
     // MARK: - Controller Components
     public let trainerController = TrainerController()
     private let setpointCalculator = TrainerSetpointCalculator()
-    private let workoutTimer: WorkoutTimer
+    private let sessionTimer: SessionTimer
     
     // MARK: - Workout State
     public enum FreeRideControlMode: String, Codable, CaseIterable, Identifiable {
@@ -31,7 +31,7 @@ public class WorkoutSessionManager {
     public var isSaving = false
     
     public var sessionStartTime: Date?
-    public var workoutElapsedTime: TimeInterval = 0
+    public var workoutElapsedTime: TimeInterval { sessionTimer.elapsedTime }
     
     public var activeProfile: ActivityProfile = .defaultProfile
     public var selectedWorkout: StructuredWorkout?
@@ -44,7 +44,8 @@ public class WorkoutSessionManager {
     public var currentTargetPower: Int? = nil
     public var currentTargetHR: Int? = nil
     
-    public var laps: [Lap] = []
+    let lapManager = LapManager()
+    public var laps: [Lap] { lapManager.laps }
     
     // Engine components
     public var engineA: DataFieldEngine
@@ -55,17 +56,18 @@ public class WorkoutSessionManager {
     public let settings: SettingsProvider
     private let locationProvider: LocationProvider
     
-    public init(settings: SettingsProvider, locationProvider: LocationProvider, workoutTimer: WorkoutTimer) {
+    public init(settings: SettingsProvider, 
+                locationProvider: LocationProvider, 
+                sessionTimer: SessionTimer,
+                recorderA: SessionRecorder,
+                recorderB: SessionRecorder) {
         self.settings = settings
         self.locationProvider = locationProvider
-        self.workoutTimer = workoutTimer
-        
-        let recA = SessionRecorder(settings: settings)
-        let recB = SessionRecorder(settings: settings)
-        self.recorderA = recA
-        self.recorderB = recB
-        self.engineA = DataFieldEngine(recorder: recA, settings: settings)
-        self.engineB = DataFieldEngine(recorder: recB, settings: settings)
+        self.sessionTimer = sessionTimer
+        self.recorderA = recorderA
+        self.recorderB = recorderB
+        self.engineA = DataFieldEngine(recorder: recorderA, settings: settings)
+        self.engineB = DataFieldEngine(recorder: recorderB, settings: settings)
         
         // Default manual targets to user-specific values
         self.manualTargetPower = Int(settings.userFTP * 0.6)
@@ -75,7 +77,7 @@ public class WorkoutSessionManager {
     }
     
     private func setupTimerCallback() {
-        workoutTimer.onTick = { [weak self] in
+        sessionTimer.onTick = { [weak self] in
             self?.tick()
         }
     }
@@ -92,11 +94,11 @@ public class WorkoutSessionManager {
         self.engineB = DataFieldEngine(recorder: recB, settings: settings)
         setpointCalculator.reset()
         trainerController.reset()
+        lapManager.reset()
         
-        workoutElapsedTime = 0
+        sessionTimer.reset()
         currentStepIndex = 0
         timeInStep = 0
-        laps = []
         isPaused = false
         isRecording = false
         isSaving = false
@@ -114,14 +116,14 @@ public class WorkoutSessionManager {
         isLoaded = true
         
         // Start the timer
-        workoutTimer.start()
+        sessionTimer.start()
     }
     
     public func startRecording() {
         guard isLoaded, !isRecording else { return }
         
         let initialStepType = selectedWorkout?.steps.first?.type ?? .work
-        startNewLap(type: initialStepType)
+        lapManager.startNewLap(type: initialStepType)
         
         sessionStartTime = Date()
         isRecording = true
@@ -136,7 +138,7 @@ public class WorkoutSessionManager {
         isPaused = true
         recorderA.isRecording = false
         recorderB.isRecording = false
-        workoutTimer.pause()
+        sessionTimer.pause()
     }
     
     public func resumeWorkout() {
@@ -144,13 +146,13 @@ public class WorkoutSessionManager {
         isPaused = false
         recorderA.isRecording = true
         recorderB.isRecording = true
-        workoutTimer.resume()
+        sessionTimer.resume()
     }
     
     public func manualLap() {
         guard isRecording else { return }
         let currentStepType = currentWorkoutStep?.type ?? .work
-        startNewLap(type: currentStepType)
+        lapManager.startNewLap(type: currentStepType)
     }
     
     public func increaseDifficulty() {
@@ -199,17 +201,6 @@ public class WorkoutSessionManager {
         return trainerController.trainer?.supportsPowerControl ?? false
     }
     
-    private func startNewLap(type: WorkoutStepType) {
-        let now = Date()
-        if var lastLap = laps.last {
-            lastLap.endTime = now
-            laps[laps.count - 1] = lastLap
-        }
-        
-        let newLap = Lap(index: laps.count, startTime: now, type: type)
-        laps.append(newLap)
-    }
-    
     @MainActor
     private func tick() {
         let now = Date()
@@ -223,19 +214,15 @@ public class WorkoutSessionManager {
         recorderA.recordPoint(time: now, altitude: altitude, rrIntervals: rrIntervals)
         recorderB.recordPoint(time: now, altitude: altitude, rrIntervals: rrIntervals)
         
-        let lapStart = laps.last?.startTime
+        let lapStart = lapManager.currentLap?.startTime
         engineA.updateMetrics(from: recorderA.trackpoints, lapStartTime: lapStart)
         engineB.updateMetrics(from: recorderB.trackpoints, lapStartTime: lapStart)
         
         guard isRecording else { return }
         guard !isPaused else { return }
         
-        workoutElapsedTime += 1.0
         let totalElapsed = workoutElapsedTime
-        
-        if !laps.isEmpty {
-            laps[laps.count - 1].activeDuration += 1.0
-        }
+        lapManager.recordTick()
         
         if let workout = selectedWorkout {
             var accumulated: TimeInterval = 0
@@ -244,7 +231,7 @@ public class WorkoutSessionManager {
                 if totalElapsed < accumulated + step.duration {
                     if currentStepIndex != index {
                         currentStepIndex = index
-                        startNewLap(type: step.type)
+                        lapManager.startNewLap(type: step.type)
                     }
                     timeInStep = totalElapsed - accumulated
                     foundStep = true
@@ -335,7 +322,7 @@ public class WorkoutSessionManager {
         recorderB.isRecording = false
         
         setpointCalculator.reset()
-        workoutTimer.stop()
+        sessionTimer.stop()
         
         Task { @MainActor in
             defer { isSaving = false }

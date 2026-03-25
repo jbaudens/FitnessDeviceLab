@@ -30,6 +30,9 @@ fastlane/test_output
 # macOS system files
 .DS_Store
 
+# Gemini settings
+.gemini/
+
 # Crash logs and diagnostic reports
 *.crash
 

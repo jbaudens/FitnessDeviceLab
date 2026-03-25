@@ -52,11 +52,19 @@ class MockTrainer: NSObject, SensorPeripheral, ResistanceControllable {
 @MainActor
 struct WorkoutSessionManagerTests {
 
-    func makeSUT() -> (WorkoutSessionManager, WorkoutTimer, MockSettingsProvider, MockLocationProvider) {
+    func makeSUT() -> (WorkoutSessionManager, SessionTimer, MockSettingsProvider, MockLocationProvider) {
         let settings = MockSettingsProvider()
         let location = MockLocationProvider()
-        let timer = WorkoutTimer()
-        let sut = WorkoutSessionManager(settings: settings, locationProvider: location, workoutTimer: timer)
+        let timer = SessionTimer()
+        let recorderA = SessionRecorder(settings: settings)
+        let recorderB = SessionRecorder(settings: settings)
+        let sut = WorkoutSessionManager(
+            settings: settings, 
+            locationProvider: location, 
+            sessionTimer: timer,
+            recorderA: recorderA,
+            recorderB: recorderB
+        )
         return (sut, timer, settings, location)
     }
 

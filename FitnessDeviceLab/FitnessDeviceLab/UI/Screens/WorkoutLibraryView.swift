@@ -108,8 +108,16 @@ struct WorkoutLibraryView: View {
 #Preview {
     let settings = SettingsManager()
     let locationManager = LocationManager()
-    let timer = WorkoutTimer()
-    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, workoutTimer: timer)
+    let timer = SessionTimer()
+    let recorderA = SessionRecorder(settings: settings)
+    let recorderB = SessionRecorder(settings: settings)
+    let manager = WorkoutSessionManager(
+        settings: settings, 
+        locationProvider: locationManager, 
+        sessionTimer: timer,
+        recorderA: recorderA,
+        recorderB: recorderB
+    )
     
     WorkoutLibraryView(
         repository: WorkoutRepository.shared,

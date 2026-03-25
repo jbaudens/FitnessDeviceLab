@@ -2,10 +2,14 @@ import Foundation
 import Combine
 import Observation
 
+/// A timer dedicated to a workout session, managing 1Hz ticks and accumulated duration.
 @Observable
-public class WorkoutTimer {
+public class SessionTimer {
     public private(set) var isActive: Bool = false
     public private(set) var isPaused: Bool = false
+    
+    /// Total elapsed time in the session (excluding pauses).
+    public private(set) var elapsedTime: TimeInterval = 0
     
     /// Triggered every 1 second when the timer is active and not paused.
     public var onTick: (() -> Void)?
@@ -18,6 +22,7 @@ public class WorkoutTimer {
         guard !isActive else { return }
         isActive = true
         isPaused = false
+        elapsedTime = 0
         setupTimer()
     }
     
@@ -39,8 +44,15 @@ public class WorkoutTimer {
         stopTimer()
     }
     
+    public func reset() {
+        stop()
+        elapsedTime = 0
+    }
+    
     /// For testing purposes: manually triggers a tick
     public func advanceOneSecond() {
+        guard isActive && !isPaused else { return }
+        elapsedTime += 1.0
         onTick?()
     }
     
@@ -48,8 +60,13 @@ public class WorkoutTimer {
         timerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
-                self?.onTick?()
+                self?.tick()
             }
+    }
+    
+    private func tick() {
+        elapsedTime += 1.0
+        onTick?()
     }
     
     private func stopTimer() {

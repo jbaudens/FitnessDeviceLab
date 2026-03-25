@@ -13,8 +13,16 @@ struct WorkoutPlayerView: View {
 #Preview("Free Ride") {
     let settings = SettingsManager()
     let locationManager = LocationManager()
-    let timer = WorkoutTimer()
-    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, workoutTimer: timer)
+    let timer = SessionTimer()
+    let recorderA = SessionRecorder(settings: settings)
+    let recorderB = SessionRecorder(settings: settings)
+    let manager = WorkoutSessionManager(
+        settings: settings, 
+        locationProvider: locationManager, 
+        sessionTimer: timer,
+        recorderA: recorderA,
+        recorderB: recorderB
+    )
     let bluetooth = BluetoothManager(settings: settings)
     
     let viewModel = WorkoutPlayerViewModel(workoutManager: manager, bluetoothManager: bluetooth, settings: settings)
@@ -23,7 +31,7 @@ struct WorkoutPlayerView: View {
     let _ = {
         manager.isLoaded = true
         manager.isRecording = true
-        manager.workoutElapsedTime = 1200 // 20 mins
+        for _ in 0..<1200 { timer.advanceOneSecond() }
         
         let now = Date()
         for i in 0..<1200 {
@@ -47,8 +55,16 @@ struct WorkoutPlayerView: View {
 #Preview("Structured Workout") {
     let settings = SettingsManager()
     let locationManager = LocationManager()
-    let timer = WorkoutTimer()
-    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, workoutTimer: timer)
+    let timer = SessionTimer()
+    let recorderA = SessionRecorder(settings: settings)
+    let recorderB = SessionRecorder(settings: settings)
+    let manager = WorkoutSessionManager(
+        settings: settings, 
+        locationProvider: locationManager, 
+        sessionTimer: timer,
+        recorderA: recorderA,
+        recorderB: recorderB
+    )
     let bluetooth = BluetoothManager(settings: settings)
     
     let workout = StructuredWorkout(
@@ -70,7 +86,7 @@ struct WorkoutPlayerView: View {
         manager.selectedWorkout = workout
         manager.isLoaded = true
         manager.isRecording = true
-        manager.workoutElapsedTime = 750 // 12.5 mins
+        for _ in 0..<750 { timer.advanceOneSecond() }
         manager.currentStepIndex = 2
         manager.timeInStep = 150
         
@@ -108,8 +124,16 @@ struct WorkoutPlayerView: View {
 #Preview("Interaction Cockpit - Free Ride") {
     let settings = SettingsManager()
     let locationManager = LocationManager()
-    let timer = WorkoutTimer()
-    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, workoutTimer: timer)
+    let timer = SessionTimer()
+    let recorderA = SessionRecorder(settings: settings)
+    let recorderB = SessionRecorder(settings: settings)
+    let manager = WorkoutSessionManager(
+        settings: settings, 
+        locationProvider: locationManager, 
+        sessionTimer: timer,
+        recorderA: recorderA,
+        recorderB: recorderB
+    )
     
     InteractionCockpit(workoutManager: manager)
         .padding()
@@ -118,8 +142,16 @@ struct WorkoutPlayerView: View {
 #Preview("Workout Target Header") {
     let settings = SettingsManager()
     let locationManager = LocationManager()
-    let timer = WorkoutTimer()
-    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, workoutTimer: timer)
+    let timer = SessionTimer()
+    let recorderA = SessionRecorder(settings: settings)
+    let recorderB = SessionRecorder(settings: settings)
+    let manager = WorkoutSessionManager(
+        settings: settings, 
+        locationProvider: locationManager, 
+        sessionTimer: timer,
+        recorderA: recorderA,
+        recorderB: recorderB
+    )
     
     let workout = StructuredWorkout(
         name: "Threshold Intervals",
@@ -131,7 +163,8 @@ struct WorkoutPlayerView: View {
     
     let _ = {
         manager.selectedWorkout = workout
-        manager.workoutElapsedTime = 120
+        manager.isRecording = true
+        for _ in 0..<120 { timer.advanceOneSecond() }
         manager.timeInStep = 120
         return true
     }()
@@ -143,18 +176,20 @@ struct WorkoutPlayerView: View {
 #Preview("Laps History") {
     let settings = SettingsManager()
     let locationManager = LocationManager()
-    let timer = WorkoutTimer()
-    let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, workoutTimer: timer)
+    let timer = SessionTimer()
+    let recorderA = SessionRecorder(settings: settings)
+    let recorderB = SessionRecorder(settings: settings)
+    let manager = WorkoutSessionManager(
+        settings: settings, 
+        locationProvider: locationManager, 
+        sessionTimer: timer,
+        recorderA: recorderA,
+        recorderB: recorderB
+    )
     
     let _ = {
-        let now = Date()
         for i in 0..<3 {
-            let lap = Lap(
-                index: i,
-                startTime: now.addingTimeInterval(Double(i * 300)),
-                type: .work
-            )
-            manager.laps.append(lap)
+            manager.lapManager.startNewLap(type: .work)
         }
         return true
     }()
