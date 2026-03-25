@@ -16,6 +16,6 @@ struct NavigationManagerTests {
     @Test func testWorkoutActiveChangesSidebarVisibility() async throws {
         let manager = NavigationManager()
         manager.isWorkoutActive = true
-        #expect(manager.sidebarVisibility == .all)
+        #expect(manager.sidebarVisibility == .detailOnly)
     }
 }
