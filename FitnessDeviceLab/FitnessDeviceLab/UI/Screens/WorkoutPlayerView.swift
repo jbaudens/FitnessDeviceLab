@@ -148,14 +148,8 @@ struct WorkoutPlayerView: View {
     let manager = WorkoutSessionManager(settings: settings, locationProvider: locationManager, sessionTimer: timer)
     
     let _ = {
-        let now = Date()
         for i in 0..<3 {
-            let lap = Lap(
-                index: i,
-                startTime: now.addingTimeInterval(Double(i * 300)),
-                type: .work
-            )
-            manager.laps.append(lap)
+            manager.lapManager.startNewLap(type: .work)
         }
         return true
     }()
