@@ -67,11 +67,11 @@ struct IdentifiableError: Identifiable {
     let id = UUID()
     let error: AppError
 }
-
 #Preview {
     let settings = SettingsManager()
     let locationManager = LocationManager()
     let timer = SessionTimer()
+    let errorManager = ErrorManager()
     let recorderA = SessionRecorder(settings: settings)
     let recorderB = SessionRecorder(settings: settings)
     let manager = WorkoutSessionManager(
@@ -79,9 +79,10 @@ struct IdentifiableError: Identifiable {
         locationProvider: locationManager, 
         sessionTimer: timer,
         recorderA: recorderA,
-        recorderB: recorderB
+        recorderB: recorderB,
+        errorManager: errorManager
     )
-    let bluetooth = BluetoothManager(settings: settings)
+    let bluetooth = BluetoothManager(settings: settings, errorManager: errorManager)
     
     let devicesVM = DevicesViewModel(bluetoothManager: bluetooth)
     let workoutVM = WorkoutPlayerViewModel(workoutManager: manager, bluetoothManager: bluetooth, settings: settings)

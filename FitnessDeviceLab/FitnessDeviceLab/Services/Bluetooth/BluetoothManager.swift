@@ -16,10 +16,10 @@ public class BluetoothManager: NSObject {
     // MARK: - Internal State
     private let realDriver: RealBluetoothDriver
     private let settings: SettingsProvider
-    private let errorManager: ErrorManager?
+    private let errorManager: ErrorManager
     private var simulatedPeripherals: [SimulatedPeripheral] = []
     
-    public init(settings: SettingsProvider, errorManager: ErrorManager? = nil) {
+    public init(settings: SettingsProvider, errorManager: ErrorManager) {
         let rd = RealBluetoothDriver()
         self.realDriver = rd
         self.settings = settings
@@ -39,9 +39,9 @@ public class BluetoothManager: NSObject {
                 if oldState != self.state {
                     switch self.state {
                     case .poweredOff:
-                        self.errorManager?.report(.bluetooth(.poweredOff))
+                        self.errorManager.report(.bluetooth(.poweredOff))
                     case .unauthorized:
-                        self.errorManager?.report(.bluetooth(.unauthorized))
+                        self.errorManager.report(.bluetooth(.unauthorized))
                     default:
                         break
                     }
@@ -51,7 +51,7 @@ public class BluetoothManager: NSObject {
         
         realDriver.onError = { [weak self] bleError in
             Task { @MainActor in
-                self?.errorManager?.report(.bluetooth(bleError))
+                self?.errorManager.report(.bluetooth(bleError))
             }
         }
         

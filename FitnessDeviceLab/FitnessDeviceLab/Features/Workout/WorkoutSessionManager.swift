@@ -51,14 +51,14 @@ public class WorkoutSessionManager {
     
     public let settings: SettingsProvider
     private let locationProvider: LocationProvider
-    private let errorManager: ErrorManager?
+    private let errorManager: ErrorManager
     
     public init(settings: SettingsProvider, 
                 locationProvider: LocationProvider, 
                 sessionTimer: SessionTimer,
                 recorderA: SessionRecorder,
                 recorderB: SessionRecorder,
-                errorManager: ErrorManager? = nil) {
+                errorManager: ErrorManager) {
         self.settings = settings
         self.locationProvider = locationProvider
         self.sessionTimer = sessionTimer
@@ -339,14 +339,14 @@ public class WorkoutSessionManager {
                 files.append(contentsOf: try recorderB.stop(metadata: metaB, laps: laps))
                 self.exportedFiles = files
             } catch let error as AppError {
-                errorManager?.report(error)
+                errorManager.report(error)
             } catch {
-                errorManager?.report(.unknown(error.localizedDescription))
+                errorManager.report(.unknown(error.localizedDescription))
             }
             
             if files.isEmpty && workoutElapsedTime < 10 {
                 // This might already be caught by the recorder, but double checking
-                errorManager?.report(.workout(.sessionTooShort))
+                errorManager.report(.workout(.sessionTooShort))
             }
         }
     }
