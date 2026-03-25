@@ -336,7 +336,7 @@ struct DataFieldTile: View {
 #Preview("Data Field Tiles") {
     let settings = SettingsManager()
     let recorder = SessionRecorder(settings: settings)
-    let engine = DataFieldEngine(recorder: recorder, settings: settings)
+    let engine = DataFieldEngine(settings: settings)
     let _ = {
         engine.currentHR = 150
         engine.currentCadence = 90

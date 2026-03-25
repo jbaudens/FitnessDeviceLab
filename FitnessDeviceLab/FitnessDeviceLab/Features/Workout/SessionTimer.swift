@@ -21,7 +21,7 @@ public class SessionTimer {
     public func start() {
         guard !isActive else { return }
         isActive = true
-        isPaused = false
+        isPaused = true // Start in paused state (pulse only, no counting)
         elapsedTime = 0
         setupTimer()
     }
@@ -29,13 +29,11 @@ public class SessionTimer {
     public func pause() {
         guard isActive, !isPaused else { return }
         isPaused = true
-        stopTimer()
     }
     
     public func resume() {
         guard isActive, isPaused else { return }
         isPaused = false
-        setupTimer()
     }
     
     public func stop() {
@@ -45,18 +43,20 @@ public class SessionTimer {
     }
     
     public func reset() {
-        stop()
+        isActive = false
+        isPaused = false
         elapsedTime = 0
+        stopTimer()
     }
     
     /// For testing purposes: manually triggers a tick
     public func advanceOneSecond() {
-        guard isActive && !isPaused else { return }
-        elapsedTime += 1.0
-        onTick?()
+        guard isActive else { return }
+        tick()
     }
     
     private func setupTimer() {
+        stopTimer() // Ensure no double timers
         timerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
@@ -65,7 +65,9 @@ public class SessionTimer {
     }
     
     private func tick() {
-        elapsedTime += 1.0
+        if !isPaused {
+            elapsedTime += 1.0
+        }
         onTick?()
     }
     

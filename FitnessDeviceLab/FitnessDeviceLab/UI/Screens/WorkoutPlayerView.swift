@@ -31,6 +31,7 @@ struct WorkoutPlayerView: View {
     let _ = {
         manager.isLoaded = true
         manager.isRecording = true
+        timer.resume()
         for _ in 0..<1200 { timer.advanceOneSecond() }
         
         let now = Date()
@@ -86,6 +87,7 @@ struct WorkoutPlayerView: View {
         manager.selectedWorkout = workout
         manager.isLoaded = true
         manager.isRecording = true
+        timer.resume()
         for _ in 0..<750 { timer.advanceOneSecond() }
         manager.currentStepIndex = 2
         manager.timeInStep = 150
@@ -110,7 +112,7 @@ struct WorkoutPlayerView: View {
 #Preview("Session Summary Card") {
     let settings = SettingsManager()
     let recorder = SessionRecorder(settings: settings)
-    let engine = DataFieldEngine(recorder: recorder, settings: settings)
+    let engine = DataFieldEngine(settings: settings)
     let _ = {
         engine.liveStandard.instant = 250
         engine.currentHR = 145
@@ -164,6 +166,7 @@ struct WorkoutPlayerView: View {
     let _ = {
         manager.selectedWorkout = workout
         manager.isRecording = true
+        timer.resume()
         for _ in 0..<120 { timer.advanceOneSecond() }
         manager.timeInStep = 120
         return true
@@ -222,7 +225,7 @@ struct WorkoutPlayerContentView: View {
             if viewModel.isSummaryState {
                 VStack {
                     Spacer()
-                    SessionSummaryCard(files: viewModel.workoutManager.exportedFiles, engine: viewModel.workoutManager.engineA)
+                    SessionSummaryCard(files: viewModel.workoutManager.exportedFiles, engine: viewModel.workoutManager.recorderA.engine)
                         .padding()
                     
                     Button {
@@ -300,6 +303,12 @@ struct WorkoutPlayerContentView: View {
                     .background(Color.secondary.opacity(0.05))
             }
             
+            SensorConnectionStatusBar(
+                recorderA: viewModel.workoutManager.recorderA,
+                recorderB: viewModel.workoutManager.recorderB,
+                trainer: viewModel.workoutManager.trainerController.trainer
+            )
+            
             TabView {
                 // Data Pages
                 ForEach(viewModel.workoutManager.activeProfile.pages) { page in
@@ -374,7 +383,7 @@ struct WorkoutPlayerContentView: View {
             }
             
             DataFieldGrid(
-                engine: title == "SET A" ? viewModel.workoutManager.engineA : viewModel.workoutManager.engineB,
+                engine: recorder.engine,
                 fields: fields,
                 settings: viewModel.settings
             )
@@ -823,25 +832,25 @@ struct InteractionCockpit: View {
             Button(action: { workoutManager.adjustManualTarget(amount: -coarseAmount) }) {
                 VStack(spacing: 2) {
                     Image(systemName: "minus.square.fill")
-                        .font(.system(size: 20))
+                        .font(.system(size: 24))
                     Text("-\(coarseAmount)")
-                        .font(.system(size: 8, weight: .black))
+                        .font(.system(size: 10, weight: .black))
                 }
                 .foregroundColor(.secondary.opacity(0.6))
-                .frame(width: 44, height: 44)
+                .frame(width: 60, height: 60)
                 .background(Color.secondary.opacity(0.1))
-                .cornerRadius(8)
+                .cornerRadius(12)
             }
             .buttonStyle(.plain)
             
-            Spacer().frame(width: 20) // Safety Gutter
+            Spacer().frame(width: 12) // Safety Gutter
             
             // Fine Decrease (Prominent & Central)
             Button(action: { workoutManager.adjustManualTarget(amount: -1) }) {
                 Image(systemName: "minus.circle.fill")
-                    .font(.system(size: 36))
+                    .font(.system(size: 44))
                     .foregroundColor(.blue)
-                    .frame(width: 50, height: 50)
+                    .frame(width: 60, height: 60)
             }
             .buttonStyle(.plain)
             
@@ -863,26 +872,26 @@ struct InteractionCockpit: View {
             // Fine Increase (Prominent & Central)
             Button(action: { workoutManager.adjustManualTarget(amount: 1) }) {
                 Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 36))
+                    .font(.system(size: 44))
                     .foregroundColor(.blue)
-                    .frame(width: 50, height: 50)
+                    .frame(width: 60, height: 60)
             }
             .buttonStyle(.plain)
             
-            Spacer().frame(width: 20) // Safety Gutter
+            Spacer().frame(width: 12) // Safety Gutter
             
             // Coarse Increase (Subdued & Shielded)
             Button(action: { workoutManager.adjustManualTarget(amount: coarseAmount) }) {
                 VStack(spacing: 2) {
                     Image(systemName: "plus.square.fill")
-                        .font(.system(size: 20))
+                        .font(.system(size: 24))
                     Text("+\(coarseAmount)")
-                        .font(.system(size: 8, weight: .black))
+                        .font(.system(size: 10, weight: .black))
                 }
                 .foregroundColor(.secondary.opacity(0.6))
-                .frame(width: 44, height: 44)
+                .frame(width: 60, height: 60)
                 .background(Color.secondary.opacity(0.1))
-                .cornerRadius(8)
+                .cornerRadius(12)
             }
             .buttonStyle(.plain)
         }
@@ -925,9 +934,15 @@ struct WorkoutTargetHeader: View {
                     
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(alignment: .lastTextBaseline, spacing: 4) {
-                            Text(isFinished ? "0:00" : formatDuration(step.duration - workoutManager.timeInStep))
+                            let remainingTime = step.duration - workoutManager.timeInStep
+                            let isCountdown = remainingTime > 0 && remainingTime <= 5.0 && !isFinished
+                            
+                            Text(isFinished ? "0:00" : formatDuration(remainingTime))
                                 .font(.system(size: 40, weight: .bold, design: .rounded))
                                 .monospacedDigit()
+                                .foregroundColor(isCountdown ? .orange : .primary)
+                                .scaleEffect(isCountdown ? 1.1 : 1.0)
+                                .animation(.spring(), value: isCountdown)
                             
                             VStack(alignment: .leading, spacing: 0) {
                                 Text("LAP \(max(1, workoutManager.laps.count))")
@@ -1337,3 +1352,47 @@ struct SensorSetCard: View {
         )
     }
 }
+
+struct SensorConnectionStatusBar: View {
+    let recorderA: SessionRecorder
+    let recorderB: SessionRecorder
+    let trainer: ControllableTrainer?
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            if let hr = recorderA.hrSource ?? recorderB.hrSource {
+                statusIcon(systemName: "heart.fill", isConnected: hr.isConnected, color: .red)
+            }
+            if let pwr = recorderA.powerSource ?? recorderB.powerSource {
+                statusIcon(systemName: "bolt.fill", isConnected: pwr.isConnected, color: .orange)
+            }
+            if let cad = recorderA.cadenceSource ?? recorderB.cadenceSource {
+                statusIcon(systemName: "bicycle", isConnected: cad.isConnected, color: .blue)
+            }
+            if let trainer = trainer {
+                statusIcon(systemName: "dial.low.fill", isConnected: trainer.isConnected, color: .purple)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 4)
+        .background(Color.secondary.opacity(0.1))
+        .cornerRadius(8)
+    }
+    
+    @ViewBuilder
+    private func statusIcon(systemName: String, isConnected: Bool, color: Color) -> some View {
+        Image(systemName: systemName)
+            .foregroundColor(isConnected ? color : .gray.opacity(0.5))
+            .opacity(isConnected ? 1.0 : 0.5)
+            .overlay(
+                Group {
+                    if !isConnected {
+                        Image(systemName: "line.diagonal")
+                            .foregroundColor(.red)
+                    }
+                }
+            )
+            .font(.caption)
+    }
+}
+

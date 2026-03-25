@@ -4,19 +4,30 @@
 
 ### Strengths
 
-1.  **Excellent Abstraction Layer**: The use of the `SensorPeripheral` protocol combined with role-based adapters (`HeartRateSensor`, `PowerSensor`, `ControllableTrainer`) is a textbook example of the **Interface Segregation Principle**. It allows the UI and Engines to interact with specific capabilities without knowing the underlying BLE implementation details.
-2.  **Modern Reactive Stack**: Leveraging the `Observation` framework (`@Observable`) instead of the older `ObservableObject` ensures more granular UI updates and better performance, especially when handling high-frequency data like 1Hz (or higher) sensor updates.
-3.  **Engine Decoupling**: The `TrainerSetpointCalculator` is beautifully isolated. It is a "pure" logic component that doesn't know about Bluetooth or Timers; it simply takes an `Input` struct and returns a setpoint. This makes it trivial to unit test.
-4.  **Dual-Recorder Architecture**: The decision to support `recorderA` and `recorderB` simultaneously is a sophisticated design choice. It fundamentally enables "Power Match" and "Sensor Comparison" features which are rare in consumer apps but highly valued by "power nerds" and testers.
+1.  **Excellent Abstraction Layer**: The use of the `SensorPeripheral` protocol combined with role-based adapters is a textbook example of the **Interface Segregation Principle**.
+2.  **Modern Reactive Stack**: Leveraging the `Observation` framework ensures granular UI updates and high performance across all data fields.
+3.  **Smart Recorder Pattern**: The recent refactor where `SessionRecorder` owns and manages its own `DataFieldEngine` is a major architectural win. It decouples the manager from data interpretation and makes the system highly extensible.
+4.  **Incremental Engine Performance**: The transition to an **Incremental Accumulator** model ensures that basic metric updates (averages, distance, max/min) are O(1) constant time operations. This prevents the "scaling time-bomb" of long workouts.
+5.  **Modular Orchestration**: Successful extraction of `SessionTimer` and `LapManager` has reduced `WorkoutSessionManager` to its core responsibility: hardware and timeline orchestration.
+6.  **Clean Dependency Injection**: Recorders are injected into the session manager, allowing for superior mock support in Previews and Tests.
 
 ### Areas for Improvement
 
-1.  **Tight Coupling in `WorkoutSessionManager`**: While it acts as a great orchestrator, it's becoming a "God Object." It handles timer logic, lap management, engine updates, and hardware control.
-    *   *Recommendation*: Extract Lap Management into a `LapManager` and Timer logic into a dedicated `SessionTimer` to reduce the complexity of the main manager.
-2.  **Dependency Injection**: Currently, many components are initialized inside their parents (e.g., `recorderA/B` inside `WorkoutSessionManager`).
-    *   *Recommendation*: Move toward a more formal DI pattern or use a simple `Container` to allow for easier mocking in previews and tests.
-3.  **Error Handling**: The BLE layer and Export layer use a lot of "silent failures" or optional returns.
+1.  **Error Handling**: The BLE layer and Export layer still use "silent failures" or optional returns.
     *   *Recommendation*: Introduce a custom `AppError` enum and a consistent way to surface hardware/export errors to the user (e.g., via a dedicated `ErrorService`).
+2.  **Haptic Integration**: While visual feedback has improved, adding physical haptic "thumps" for interval changes would allow athletes to focus entirely on their effort without staring at the screen.
+
+---
+
+## 🔬 Architectural Deep Dive: The Incremental Engine
+
+The system has moved from a **Pull-based Re-calculation** model to a **Push-based Incremental** model to ensure long-term stability.
+
+### Key Refactors Completed:
+1.  **Metric Accumulators**: `DataFieldEngine` now maintains running sums and counts. New data points are processed instantly without re-scanning workout history.
+2.  **Backgrounded Complexity**: Heavily throttled metrics (NP, TSS) and RR-interval analysis are performed in detached background tasks.
+3.  **Off-Main-Actor Filtering**: Lap-specific point filtering is now performed inside the background task, keeping the Main Actor entirely free for UI rendering even with thousands of data points.
+4.  **Sliding Window Buffer**: Rolling metrics (3s, 10s power) use a fixed-size `powerBuffer`, providing immediate 1Hz feedback without O(N) overhead.
 
 ---
 
@@ -25,14 +36,13 @@
 ### Strengths
 
 1.  **Modular Data Fields**: The `DataFieldViews` system allows for a highly flexible dashboard. The "Sea Level" vs "Standard" toggle is a unique UX selling point for athletes training at altitude.
-2.  **Context-Aware Controls**: The app correctly differentiates between "ERG Mode" (Power) and "Resistance Mode," adjusting the UI controls accordingly.
-3.  **Clean Separation of States**: The `WorkoutPlayerViewModel` clearly distinguishes between `isSummaryState` and `isActiveState`, which is critical for a workout app where the user's attention is limited.
+2.  **Glanceable Transition Feedback**: The workout timer uses color-coding and animations (orange pulse) during the final 5 seconds of an interval, significantly improving athlete awareness.
+3.  **Persistent Hardware Status**: The addition of the `SensorConnectionStatusBar` provides immediate confidence in the data stream without leaving the workout player.
+4.  **Ride-Ready Interaction Targets**: Core mid-workout controls have been optimized to 60x60pt targets, making them reliable even in high-intensity situations.
+5.  **Context-Aware Controls**: The app correctly differentiates between "ERG Mode" (Power) and "Resistance Mode," adjusting the UI controls accordingly.
 
 ### Areas for Improvement
 
-1.  **Visual Feedback for Transitions**: In `WorkoutPlayerView`, the transition between intervals (e.g., from a 5-minute work block to a 2-minute recovery) could benefit from more "glanceable" UI.
-    *   *Recommendation*: Add a progress ring or a color-coded countdown for the last 5 seconds of a step to alert the athlete.
-2.  **Sensor Connection Status**: While `BluetoothSelectorView` handles discovery, the "in-workout" connection status is a bit buried.
-    *   *Recommendation*: Add a persistent, small status bar at the top or bottom showing icon-based connectivity for HR, Power, and Trainer.
-3.  **Interaction Targets**: Some buttons in the workout player (like difficulty +/-) might be hard to hit while sweating and riding hard.
-    *   *Recommendation*: Ensure all mid-workout touch targets are at least 60x60pt or support swipe gestures for common actions (like manual laps).
+1.  **Tactile Alerts (Haptics)**: While visual feedback has improved, adding physical haptic "thumps" for interval changes or target deviations would allow athletes to focus entirely on their effort without staring at the screen.
+2.  **Enhanced Chart Interactivity**: The current charts are great for real-time tracking but lack "Scrubbing" support. Allowing users to drag through the history to see specific deltas between sensors would enhance the "Lab" aspect of the app.
+3.  **Empty States**: The library and devices tabs could use more descriptive empty states or "getting started" guides for new users.

@@ -14,6 +14,7 @@ public class HeartRateSensor: HeartRateProviding, Hashable {
     
     public var id: UUID { peripheral.id }
     public var name: String { peripheral.name }
+    public var isConnected: Bool { peripheral.isConnected }
     public var manufacturerName: String? { peripheral.manufacturerName }
     public var modelNumber: String? { peripheral.modelNumber }
     
@@ -41,6 +42,7 @@ public class PowerSensor: PowerProviding, Hashable {
     
     public var id: UUID { peripheral.id }
     public var name: String { peripheral.name }
+    public var isConnected: Bool { peripheral.isConnected }
     public var manufacturerName: String? { peripheral.manufacturerName }
     public var modelNumber: String? { peripheral.modelNumber }
     
@@ -68,6 +70,7 @@ public class CadenceSensor: CadenceProviding, Hashable {
     
     public var id: UUID { peripheral.id }
     public var name: String { peripheral.name }
+    public var isConnected: Bool { peripheral.isConnected }
     
     public init?(peripheral: any SensorPeripheral) {
         guard peripheral.capabilities.contains(.cyclingPower) || 
@@ -96,6 +99,7 @@ public class ControllableTrainer: ResistanceControllable, PowerProviding, Cadenc
 
     public var id: UUID { peripheral.id }
     public var name: String { peripheral.name }
+    public var isConnected: Bool { peripheral.isConnected }
     public var manufacturerName: String? { peripheral.manufacturerName }
     public var modelNumber: String? { peripheral.modelNumber }
 
