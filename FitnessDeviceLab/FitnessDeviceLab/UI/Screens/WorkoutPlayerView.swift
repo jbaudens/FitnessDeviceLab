@@ -112,7 +112,7 @@ struct WorkoutPlayerView: View {
 #Preview("Session Summary Card") {
     let settings = SettingsManager()
     let recorder = SessionRecorder(settings: settings)
-    let engine = DataFieldEngine(recorder: recorder, settings: settings)
+    let engine = DataFieldEngine(settings: settings)
     let _ = {
         engine.liveStandard.instant = 250
         engine.currentHR = 145
@@ -225,7 +225,7 @@ struct WorkoutPlayerContentView: View {
             if viewModel.isSummaryState {
                 VStack {
                     Spacer()
-                    SessionSummaryCard(files: viewModel.workoutManager.exportedFiles, engine: viewModel.workoutManager.engineA)
+                    SessionSummaryCard(files: viewModel.workoutManager.exportedFiles, engine: viewModel.workoutManager.recorderA.engine)
                         .padding()
                     
                     Button {
@@ -383,7 +383,7 @@ struct WorkoutPlayerContentView: View {
             }
             
             DataFieldGrid(
-                engine: title == "SET A" ? viewModel.workoutManager.engineA : viewModel.workoutManager.engineB,
+                engine: recorder.engine,
                 fields: fields,
                 settings: viewModel.settings
             )

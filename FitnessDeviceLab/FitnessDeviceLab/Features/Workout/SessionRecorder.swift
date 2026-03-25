@@ -12,15 +12,39 @@ public class SessionRecorder {
     
     public var trackpoints: [Trackpoint] = []
     public var latestPoint: Trackpoint?
+    public let engine: DataFieldEngine
     
     private let settings: SettingsProvider
     
     public init(settings: SettingsProvider) {
         self.settings = settings
+        self.engine = DataFieldEngine(settings: settings)
     }
     
     public func prepare() {
         trackpoints.removeAll()
+        latestPoint = nil
+        engine.reset()
+    }
+    
+    public func pulse(time: Date, altitude: Double?, rrIntervals: [Double], lapStartTime: Date?) {
+        let pt = Trackpoint(
+            time: time,
+            hr: hrSource?.heartRate,
+            power: powerSource?.cyclingPower,
+            cadence: cadenceSource?.cadence,
+            altitude: altitude,
+            powerBalance: powerSource?.powerBalance,
+            rrIntervals: rrIntervals
+        )
+        
+        latestPoint = pt
+        if isRecording {
+            trackpoints.append(pt)
+        }
+        
+        // Auto-update the engine
+        engine.updateMetrics(from: trackpoints, latestPoint: pt, lapStartTime: lapStartTime)
     }
     
     public func stop(metadata: ExportMetadata, laps: [Lap] = []) -> [URL] {
@@ -58,29 +82,5 @@ public class SessionRecorder {
         }
         
         return files
-    }
-    
-    public func recordPoint(time: Date, altitude: Double?, rrIntervals: [Double]? = nil) {
-        let rrThisSecond = rrIntervals ?? hrSource?.latestRRIntervals ?? []
-        
-        let pt = Trackpoint(
-            time: time,
-            hr: hrSource?.heartRate,
-            power: powerSource?.cyclingPower,
-            cadence: cadenceSource?.cadence,
-            altitude: altitude,
-            powerBalance: powerSource?.powerBalance,
-            rrIntervals: rrThisSecond
-        )
-        
-        latestPoint = pt
-        if isRecording {
-            trackpoints.append(pt)
-        }
-        
-        // Only clear if we didn't receive them as a parameter (caller handles it)
-        if rrIntervals == nil {
-            hrSource?.latestRRIntervals.removeAll()
-        }
     }
 }

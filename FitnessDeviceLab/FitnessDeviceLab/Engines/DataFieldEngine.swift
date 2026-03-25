@@ -169,13 +169,11 @@ public class DataFieldEngine {
     private var complexMetricsLastUpdate: Date = .distantPast
     private let complexMetricsThrottle: TimeInterval = 2.0
     
-    public let recorder: SessionRecorder
     private let settings: SettingsProvider
     private var calculationTask: Task<Void, Never>?
     
-    public init(recorder: SessionRecorder, settings: SettingsProvider) {
+    public init(settings: SettingsProvider) {
         self.settings = settings
-        self.recorder = recorder
     }
     
     /// Main entry point called every second.
@@ -359,7 +357,7 @@ public class DataFieldEngine {
             if Task.isCancelled { return }
             
             // Session Complex
-            let (sessionComplex, live) = Self.calculate(from: trackpoints, settings: metricsSettings, includeComplex: true)
+            let (sessionComplex, _) = Self.calculate(from: trackpoints, settings: metricsSettings, includeComplex: true)
             
             // Lap Complex
             let lapComplex: AggregatedMetrics = {

@@ -47,10 +47,6 @@ public class WorkoutSessionManager {
     let lapManager = LapManager()
     public var laps: [Lap] { lapManager.laps }
     
-    // Engine components
-    public var engineA: DataFieldEngine
-    public var engineB: DataFieldEngine
-    
     public var exportedFiles: [URL] = []
     
     public let settings: SettingsProvider
@@ -66,8 +62,6 @@ public class WorkoutSessionManager {
         self.sessionTimer = sessionTimer
         self.recorderA = recorderA
         self.recorderB = recorderB
-        self.engineA = DataFieldEngine(recorder: recorderA, settings: settings)
-        self.engineB = DataFieldEngine(recorder: recorderB, settings: settings)
         
         // Default manual targets to user-specific values
         self.manualTargetPower = Int(settings.userFTP * 0.6)
@@ -89,11 +83,6 @@ public class WorkoutSessionManager {
         self.recorderB = recB
         self.trainerController.trainer = control
         
-        // Link recorders to engines
-        self.engineA = DataFieldEngine(recorder: recA, settings: settings)
-        self.engineB = DataFieldEngine(recorder: recB, settings: settings)
-        engineA.reset()
-        engineB.reset()
         setpointCalculator.reset()
         trainerController.reset()
         lapManager.reset()
@@ -209,19 +198,14 @@ public class WorkoutSessionManager {
         let now = Date()
         let altitude = locationProvider.currentAltitude ?? settings.altitudeOverride
         
-        // 1. Capture sensor data once to avoid clearing shared RR intervals between recorders
+        // 1. Capture shared sensor data (like RR intervals) once
         let rrIntervals = recorderA.hrSource?.latestRRIntervals ?? []
         recorderA.hrSource?.latestRRIntervals.removeAll()
         
-        // 2. Update both recorders
-        recorderA.recordPoint(time: now, altitude: altitude, rrIntervals: rrIntervals)
-        recorderB.recordPoint(time: now, altitude: altitude, rrIntervals: rrIntervals)
-        
+        // 2. Pulse both recorders (This captures data and auto-updates engines)
         let lapStart = lapManager.currentLap?.startTime
-        
-        // Pass both the full history (for throttled complex metrics) AND the latest point (for O(1) incremental basic metrics)
-        engineA.updateMetrics(from: recorderA.trackpoints, latestPoint: recorderA.latestPoint, lapStartTime: lapStart)
-        engineB.updateMetrics(from: recorderB.trackpoints, latestPoint: recorderB.latestPoint, lapStartTime: lapStart)
+        recorderA.pulse(time: now, altitude: altitude, rrIntervals: rrIntervals, lapStartTime: lapStart)
+        recorderB.pulse(time: now, altitude: altitude, rrIntervals: rrIntervals, lapStartTime: lapStart)
         
         guard isRecording else { return }
         guard !isPaused else { return }
