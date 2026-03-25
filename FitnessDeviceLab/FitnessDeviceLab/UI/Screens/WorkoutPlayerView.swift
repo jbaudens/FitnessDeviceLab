@@ -300,6 +300,12 @@ struct WorkoutPlayerContentView: View {
                     .background(Color.secondary.opacity(0.05))
             }
             
+            SensorConnectionStatusBar(
+                recorderA: viewModel.workoutManager.recorderA,
+                recorderB: viewModel.workoutManager.recorderB,
+                trainer: viewModel.workoutManager.trainerController.trainer
+            )
+            
             TabView {
                 // Data Pages
                 ForEach(viewModel.workoutManager.activeProfile.pages) { page in
@@ -823,25 +829,25 @@ struct InteractionCockpit: View {
             Button(action: { workoutManager.adjustManualTarget(amount: -coarseAmount) }) {
                 VStack(spacing: 2) {
                     Image(systemName: "minus.square.fill")
-                        .font(.system(size: 20))
+                        .font(.system(size: 24))
                     Text("-\(coarseAmount)")
-                        .font(.system(size: 8, weight: .black))
+                        .font(.system(size: 10, weight: .black))
                 }
                 .foregroundColor(.secondary.opacity(0.6))
-                .frame(width: 44, height: 44)
+                .frame(width: 60, height: 60)
                 .background(Color.secondary.opacity(0.1))
-                .cornerRadius(8)
+                .cornerRadius(12)
             }
             .buttonStyle(.plain)
             
-            Spacer().frame(width: 20) // Safety Gutter
+            Spacer().frame(width: 12) // Safety Gutter
             
             // Fine Decrease (Prominent & Central)
             Button(action: { workoutManager.adjustManualTarget(amount: -1) }) {
                 Image(systemName: "minus.circle.fill")
-                    .font(.system(size: 36))
+                    .font(.system(size: 44))
                     .foregroundColor(.blue)
-                    .frame(width: 50, height: 50)
+                    .frame(width: 60, height: 60)
             }
             .buttonStyle(.plain)
             
@@ -863,26 +869,26 @@ struct InteractionCockpit: View {
             // Fine Increase (Prominent & Central)
             Button(action: { workoutManager.adjustManualTarget(amount: 1) }) {
                 Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 36))
+                    .font(.system(size: 44))
                     .foregroundColor(.blue)
-                    .frame(width: 50, height: 50)
+                    .frame(width: 60, height: 60)
             }
             .buttonStyle(.plain)
             
-            Spacer().frame(width: 20) // Safety Gutter
+            Spacer().frame(width: 12) // Safety Gutter
             
             // Coarse Increase (Subdued & Shielded)
             Button(action: { workoutManager.adjustManualTarget(amount: coarseAmount) }) {
                 VStack(spacing: 2) {
                     Image(systemName: "plus.square.fill")
-                        .font(.system(size: 20))
+                        .font(.system(size: 24))
                     Text("+\(coarseAmount)")
-                        .font(.system(size: 8, weight: .black))
+                        .font(.system(size: 10, weight: .black))
                 }
                 .foregroundColor(.secondary.opacity(0.6))
-                .frame(width: 44, height: 44)
+                .frame(width: 60, height: 60)
                 .background(Color.secondary.opacity(0.1))
-                .cornerRadius(8)
+                .cornerRadius(12)
             }
             .buttonStyle(.plain)
         }
@@ -925,9 +931,15 @@ struct WorkoutTargetHeader: View {
                     
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(alignment: .lastTextBaseline, spacing: 4) {
-                            Text(isFinished ? "0:00" : formatDuration(step.duration - workoutManager.timeInStep))
+                            let remainingTime = step.duration - workoutManager.timeInStep
+                            let isCountdown = remainingTime > 0 && remainingTime <= 5.0 && !isFinished
+                            
+                            Text(isFinished ? "0:00" : formatDuration(remainingTime))
                                 .font(.system(size: 40, weight: .bold, design: .rounded))
                                 .monospacedDigit()
+                                .foregroundColor(isCountdown ? .orange : .primary)
+                                .scaleEffect(isCountdown ? 1.1 : 1.0)
+                                .animation(.spring(), value: isCountdown)
                             
                             VStack(alignment: .leading, spacing: 0) {
                                 Text("LAP \(max(1, workoutManager.laps.count))")
@@ -1337,3 +1349,47 @@ struct SensorSetCard: View {
         )
     }
 }
+
+struct SensorConnectionStatusBar: View {
+    let recorderA: SessionRecorder
+    let recorderB: SessionRecorder
+    let trainer: ControllableTrainer?
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            if let hr = recorderA.hrSource ?? recorderB.hrSource {
+                statusIcon(systemName: "heart.fill", isConnected: hr.isConnected, color: .red)
+            }
+            if let pwr = recorderA.powerSource ?? recorderB.powerSource {
+                statusIcon(systemName: "bolt.fill", isConnected: pwr.isConnected, color: .orange)
+            }
+            if let cad = recorderA.cadenceSource ?? recorderB.cadenceSource {
+                statusIcon(systemName: "bicycle", isConnected: cad.isConnected, color: .blue)
+            }
+            if let trainer = trainer {
+                statusIcon(systemName: "dial.low.fill", isConnected: trainer.isConnected, color: .purple)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 4)
+        .background(Color.secondary.opacity(0.1))
+        .cornerRadius(8)
+    }
+    
+    @ViewBuilder
+    private func statusIcon(systemName: String, isConnected: Bool, color: Color) -> some View {
+        Image(systemName: systemName)
+            .foregroundColor(isConnected ? color : .gray.opacity(0.5))
+            .opacity(isConnected ? 1.0 : 0.5)
+            .overlay(
+                Group {
+                    if !isConnected {
+                        Image(systemName: "line.diagonal")
+                            .foregroundColor(.red)
+                    }
+                }
+            )
+            .font(.caption)
+    }
+}
+

@@ -8,6 +8,7 @@ import CoreBluetooth
 public protocol HeartRateProviding: AnyObject, Observation.Observable {
     var id: UUID { get }
     var name: String { get }
+    var isConnected: Bool { get }
     var heartRate: Int? { get }
     var latestRRIntervals: [Double] { get set }
 }
@@ -15,6 +16,7 @@ public protocol HeartRateProviding: AnyObject, Observation.Observable {
 public protocol PowerProviding: AnyObject, Observation.Observable {
     var id: UUID { get }
     var name: String { get }
+    var isConnected: Bool { get }
     var cyclingPower: Int? { get }
     var powerBalance: Double? { get }
 }
@@ -22,12 +24,14 @@ public protocol PowerProviding: AnyObject, Observation.Observable {
 public protocol CadenceProviding: AnyObject, Observation.Observable {
     var id: UUID { get }
     var name: String { get }
+    var isConnected: Bool { get }
     var cadence: Int? { get }
 }
 
 public protocol ResistanceControllable: AnyObject, Observation.Observable {
     var id: UUID { get }
     var name: String { get }
+    var isConnected: Bool { get }
     
     var supportsPowerControl: Bool { get }
     var supportsResistanceControl: Bool { get }
