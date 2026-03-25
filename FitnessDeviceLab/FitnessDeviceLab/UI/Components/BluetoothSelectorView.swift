@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct BluetoothSelectorView: View {
+    @Bindable var navigationManager: NavigationManager
     @Bindable var devicesViewModel: DevicesViewModel
     @Bindable var workoutPlayerViewModel: WorkoutPlayerViewModel
     let workoutManager: WorkoutSessionManager
@@ -8,6 +9,7 @@ struct BluetoothSelectorView: View {
     
     var body: some View {
         ContentView(
+            navigationManager: navigationManager,
             devicesViewModel: devicesViewModel,
             workoutPlayerViewModel: workoutPlayerViewModel,
             workoutManager: workoutManager,
@@ -35,8 +37,10 @@ struct BluetoothSelectorView: View {
     
     let devicesVM = DevicesViewModel(bluetoothManager: bluetooth)
     let workoutVM = WorkoutPlayerViewModel(workoutManager: manager, bluetoothManager: bluetooth, settings: settings)
+    let navigationManager = NavigationManager()
     
     BluetoothSelectorView(
+        navigationManager: navigationManager,
         devicesViewModel: devicesVM,
         workoutPlayerViewModel: workoutVM,
         workoutManager: manager,
