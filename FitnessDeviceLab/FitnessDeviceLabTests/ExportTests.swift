@@ -28,7 +28,7 @@ struct ExportTests {
         let trackpoints = createTrackpoints()
         let exporter = TCXExporter()
         let metadata = ExportMetadata(workoutName: "Test Workout")
-        let url = try #require(exporter.encode(metadata: metadata, trackpoints: trackpoints, userWeight: userWeight))
+        let url = try exporter.encode(metadata: metadata, trackpoints: trackpoints, userWeight: userWeight)
         
         #expect(url.lastPathComponent.contains("Test_Workout"))
         #expect(FileManager.default.fileExists(atPath: url.path))
@@ -53,14 +53,14 @@ struct ExportTests {
         
         // Mock a power source to satisfy the new SessionRecorder data checks if needed
         // (though this test calls FitEncoder directly, let's keep it robust)
-        let data = try #require(encoder.encode(
+        let data = try encoder.encode(
             trackpoints: trackpoints,
             laps: [],
             hrSource: nil,
             powerSource: nil,
             userFTP: 250,
             userWeight: userWeight
-        ))
+        )
         
         #expect(data.count > 100)
         
