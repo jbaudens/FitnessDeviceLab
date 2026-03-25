@@ -115,7 +115,6 @@ struct WorkoutPlayerView: View {
 
 #Preview("Session Summary Card") {
     let settings = SettingsManager()
-    let recorder = SessionRecorder(settings: settings)
     let engine = DataFieldEngine(settings: settings)
     let _ = {
         engine.liveStandard.instant = 250
@@ -198,7 +197,7 @@ struct WorkoutPlayerView: View {
         errorManager: errorManager
     )
     let _ = {
-        for i in 0..<3 {
+        for _ in 0..<3 {
             manager.lapManager.startNewLap(type: .work)
         }
         return true
@@ -316,27 +315,7 @@ struct WorkoutPlayerContentView: View {
                 trainer: viewModel.workoutManager.trainerController.trainer
             )
             
-            TabView {
-                // Data Pages
-                ForEach(viewModel.workoutManager.activeProfile.pages) { page in
-                    ScrollView {
-                        VStack(spacing: 32) {
-                            sensorSetSection(title: "SET A", color: Color.blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
-                            
-                            Divider().padding(.horizontal)
-                            
-                            sensorSetSection(title: "SET B", color: Color.purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
-                        }
-                        .padding(.vertical)
-                    }
-                }
-                
-                // Laps View
-                LapsHistoryView(workoutManager: viewModel.workoutManager, settings: viewModel.settings)
-            }
-            #if os(iOS)
-            .tabViewStyle(.page(indexDisplayMode: .always))
-            #endif
+            AdaptiveWorkoutDashboard(viewModel: viewModel, settings: viewModel.settings)
             
             // Cockpit Zone (Bottom Interaction)
             InteractionCockpit(workoutManager: viewModel.workoutManager)
@@ -349,53 +328,6 @@ struct WorkoutPlayerContentView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
-    }
-    
-    private func sensorSetSection(title: String, color: Color, recorder: SessionRecorder, fields: [DataFieldType]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label(title, systemImage: title == "SET A" ? "1.circle.fill" : "2.circle.fill")
-                Spacer()
-                Text(viewModel.deviceNames(recorder: recorder))
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-            }
-            .font(.caption)
-            .fontWeight(.black)
-            .foregroundColor(color)
-            .padding(.horizontal)
-            
-            if let workout = viewModel.workoutManager.selectedWorkout {
-                WorkoutGraphView(
-                    workout: workout,
-                    userFTP: viewModel.settings.userFTP,
-                    elapsedTime: viewModel.workoutManager.workoutElapsedTime,
-                    recorder: recorder,
-                    scale: viewModel.workoutManager.workoutDifficultyScale
-                )
-                .frame(height: 140)
-                .padding(8)
-                .background(Color.secondary.opacity(0.05))
-                .cornerRadius(12)
-                .padding(.horizontal)
-            } else {
-                SessionGraphView(
-                    recorder: recorder,
-                    userFTP: viewModel.settings.userFTP
-                )
-                .frame(height: 140)
-                .padding(8)
-                .background(Color.secondary.opacity(0.05))
-                .cornerRadius(12)
-                .padding(.horizontal)
-            }
-            
-            DataFieldGrid(
-                engine: recorder.engine,
-                fields: fields,
-                settings: viewModel.settings
-            )
-            .padding(.horizontal)
-        }
     }
     
     private var activeControls: some View {
