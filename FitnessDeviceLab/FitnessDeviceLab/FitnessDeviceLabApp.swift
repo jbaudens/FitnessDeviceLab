@@ -5,6 +5,7 @@ struct FitnessDeviceLabApp: App {
     @State private var settingsManager: SettingsManager
     @State private var workoutManager: WorkoutSessionManager
     @State private var bluetoothManager: BluetoothManager
+    @State private var errorManager: ErrorManager
     
     @State private var devicesViewModel: DevicesViewModel
     @State private var workoutPlayerViewModel: WorkoutPlayerViewModel
@@ -13,6 +14,7 @@ struct FitnessDeviceLabApp: App {
     private let sessionTimer = SessionTimer()
 
     init() {
+        let error = ErrorManager()
         let settings = SettingsManager()
         let recorderA = SessionRecorder(settings: settings)
         let recorderB = SessionRecorder(settings: settings)
@@ -21,10 +23,12 @@ struct FitnessDeviceLabApp: App {
             locationProvider: locationManager, 
             sessionTimer: sessionTimer,
             recorderA: recorderA,
-            recorderB: recorderB
+            recorderB: recorderB,
+            errorManager: error
         )
-        let bluetooth = BluetoothManager(settings: settings)
+        let bluetooth = BluetoothManager(settings: settings, errorManager: error)
         
+        self._errorManager = State(initialValue: error)
         self._settingsManager = State(initialValue: settings)
         self._workoutManager = State(initialValue: workout)
         self._bluetoothManager = State(initialValue: bluetooth)
@@ -35,12 +39,13 @@ struct FitnessDeviceLabApp: App {
 
     var body: some Scene {
         WindowGroup {
-            BluetoothSelectorView(
+            ContentView(
                 devicesViewModel: devicesViewModel,
                 workoutPlayerViewModel: workoutPlayerViewModel,
                 workoutManager: workoutManager,
                 settingsManager: settingsManager
             )
+            .environment(errorManager)
         }
     }
 }

@@ -12,9 +12,11 @@ public class TCXExporter {
     ///   - trackpoints: The recorded trackpoints.
     ///   - userWeight: User weight for speed estimation.
     /// - Returns: URL of the generated TCX file.
-    public func encode(metadata: ExportMetadata, trackpoints: [Trackpoint], userWeight: Double) -> URL? {
+    public func encode(metadata: ExportMetadata, trackpoints: [Trackpoint], userWeight: Double) throws -> URL {
         print("TCXExporter: Encoding \(trackpoints.count) points for \(metadata.workoutName)")
-        guard !trackpoints.isEmpty else { return nil }
+        guard !trackpoints.isEmpty else {
+            throw AppError.export(.noDataToExport)
+        }
         
         let formatter = ISO8601DateFormatter()
         let startTimeStr = formatter.string(from: trackpoints.first!.time)
@@ -93,8 +95,7 @@ public class TCXExporter {
             try xml.write(to: tempURL, atomically: true, encoding: .utf8)
             return tempURL
         } catch {
-            print("Failed to write TCX file: \(error)")
-            return nil
+            throw AppError.export(.failedToGenerate(error.localizedDescription))
         }
     }
 }

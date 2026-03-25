@@ -16,21 +16,42 @@ public class BluetoothManager: NSObject {
     // MARK: - Internal State
     private let realDriver: RealBluetoothDriver
     private let settings: SettingsProvider
+    private let errorManager: ErrorManager?
     private var simulatedPeripherals: [SimulatedPeripheral] = []
     
-    public init(settings: SettingsProvider) {
+    public init(settings: SettingsProvider, errorManager: ErrorManager? = nil) {
         let rd = RealBluetoothDriver()
         self.realDriver = rd
         self.settings = settings
+        self.errorManager = errorManager
         super.init()
         
         // Link the real driver's state to our orchestrator
         realDriver.onUpdate = { [weak self] in
             guard let self = self else { return }
             Task { @MainActor in
+                let oldState = self.state
                 self.state = self.realDriver.state
                 self.isScanning = self.realDriver.isScanning
                 self.refreshCombinedPeripherals()
+                
+                // Report errors if state changed to a failure state
+                if oldState != self.state {
+                    switch self.state {
+                    case .poweredOff:
+                        self.errorManager?.report(.bluetooth(.poweredOff))
+                    case .unauthorized:
+                        self.errorManager?.report(.bluetooth(.unauthorized))
+                    default:
+                        break
+                    }
+                }
+            }
+        }
+        
+        realDriver.onError = { [weak self] bleError in
+            Task { @MainActor in
+                self?.errorManager?.report(.bluetooth(bleError))
             }
         }
         
@@ -96,6 +117,7 @@ internal class RealBluetoothDriver: NSObject, CBCentralManagerDelegate {
     var isScanning = false
     var peripherals: [any SensorPeripheral] = []
     var onUpdate: (() -> Void)?
+    var onError: ((AppError.BluetoothError) -> Void)?
     
     private var centralManager: CBCentralManager!
     private var pendingScan = false
@@ -189,12 +211,21 @@ internal class RealBluetoothDriver: NSObject, CBCentralManagerDelegate {
         onUpdate?()
     }
     
+    func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
+        let name = peripheral.name ?? "Unknown Device"
+        onError?(.connectionFailed(name))
+        onUpdate?()
+    }
+    
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         if let discovered = self.peripherals.first(where: { $0.id == peripheral.identifier }) as? DiscoveredPeripheral {
             let wasConnected = discovered.isConnected
             discovered.isConnected = false
             if wasConnected {
+                let name = peripheral.name ?? "Unknown Device"
+                onError?(.unexpectedDisconnect(name))
                 AudioServicesPlaySystemSound(1006)
+                // Attempt auto-reconnect
                 central.connect(peripheral, options: nil)
             }
         }

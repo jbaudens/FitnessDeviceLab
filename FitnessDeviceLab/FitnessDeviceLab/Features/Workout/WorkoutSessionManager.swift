@@ -51,17 +51,20 @@ public class WorkoutSessionManager {
     
     public let settings: SettingsProvider
     private let locationProvider: LocationProvider
+    private let errorManager: ErrorManager?
     
     public init(settings: SettingsProvider, 
                 locationProvider: LocationProvider, 
                 sessionTimer: SessionTimer,
                 recorderA: SessionRecorder,
-                recorderB: SessionRecorder) {
+                recorderB: SessionRecorder,
+                errorManager: ErrorManager? = nil) {
         self.settings = settings
         self.locationProvider = locationProvider
         self.sessionTimer = sessionTimer
         self.recorderA = recorderA
         self.recorderB = recorderB
+        self.errorManager = errorManager
         
         // Default manual targets to user-specific values
         self.manualTargetPower = Int(settings.userFTP * 0.6)
@@ -331,11 +334,19 @@ public class WorkoutSessionManager {
                 hrmName: recorderB.hrSource?.name
             )
             
-            files.append(contentsOf: recorderA.stop(metadata: metaA, laps: laps))
-            files.append(contentsOf: recorderB.stop(metadata: metaB, laps: laps))
+            do {
+                files.append(contentsOf: try recorderA.stop(metadata: metaA, laps: laps))
+                files.append(contentsOf: try recorderB.stop(metadata: metaB, laps: laps))
+                self.exportedFiles = files
+            } catch let error as AppError {
+                errorManager?.report(error)
+            } catch {
+                errorManager?.report(.unknown(error.localizedDescription))
+            }
             
-            if !files.isEmpty {
-                exportedFiles = files
+            if files.isEmpty && workoutElapsedTime < 10 {
+                // This might already be caught by the recorder, but double checking
+                errorManager?.report(.workout(.sessionTooShort))
             }
         }
     }
