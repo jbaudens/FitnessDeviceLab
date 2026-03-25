@@ -15,10 +15,7 @@
 
 1.  **Error Handling**: The BLE layer and Export layer still use "silent failures" or optional returns.
     *   *Recommendation*: Introduce a custom `AppError` enum and a consistent way to surface hardware/export errors to the user (e.g., via a dedicated `ErrorService`).
-2.  **Memory Management**: With two recorders holding identical trackpoint data, memory usage doubles during dual-recording sessions. 
-    *   *Recommendation*: Explore a shared data store where recorders only hold metadata or references to a central source of truth.
-3.  **Shared Physiology Service**: Currently, both engines calculate speed and distance simulation independently.
-    *   *Recommendation*: Extract physics-based simulation into a shared service to ensure SET A and SET B always agree on session distance.
+2.  **Haptic Integration**: While visual feedback has improved, adding physical haptic "thumps" for interval changes would allow athletes to focus entirely on their effort without staring at the screen.
 
 ---
 
