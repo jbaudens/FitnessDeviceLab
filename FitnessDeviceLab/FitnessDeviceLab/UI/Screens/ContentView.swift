@@ -19,6 +19,9 @@ struct ContentView: View {
                 splitRoot
             }
         }
+        .onChange(of: workoutPlayerViewModel.isActiveState) { _, isActive in
+            navigationManager.isWorkoutActive = isActive
+        }
         .alert(
             item: Binding(
                 get: { errorManager.currentError.map { IdentifiableError(error: $0) } },

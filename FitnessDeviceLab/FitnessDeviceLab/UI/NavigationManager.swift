@@ -28,7 +28,9 @@ class NavigationManager {
     var isWorkoutActive: Bool = false {
         didSet {
             if isWorkoutActive {
-                sidebarVisibility = .all
+                sidebarVisibility = .detailOnly
+            } else {
+                sidebarVisibility = .automatic
             }
         }
     }
