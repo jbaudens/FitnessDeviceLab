@@ -9,21 +9,30 @@ struct AdaptiveWorkoutDashboard: View {
         GeometryReader { geo in
             if geo.size.width > 800 && horizontalSizeClass != .compact {
                 // Landscape Lab Mode
-                ScrollView {
-                    VStack(spacing: 40) {
-                        ForEach(viewModel.workoutManager.activeProfile.pages) { page in
-                            HStack(spacing: 0) {
-                                sensorSetColumn(title: "SET A", color: .blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
-                                varianceColumn
-                                sensorSetColumn(title: "SET B", color: .purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
-                            }
-                            
-                            if page.id != viewModel.workoutManager.activeProfile.pages.last?.id {
-                                Divider().padding(.horizontal)
+                HStack(spacing: 0) {
+                    ScrollView {
+                        VStack(spacing: 40) {
+                            ForEach(viewModel.workoutManager.activeProfile.pages) { page in
+                                HStack(spacing: 0) {
+                                    sensorSetColumn(title: "SET A", color: .blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
+                                    varianceColumn
+                                    sensorSetColumn(title: "SET B", color: .purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
+                                }
+                                
+                                if page.id != viewModel.workoutManager.activeProfile.pages.last?.id {
+                                    Divider().padding(.horizontal)
+                                }
                             }
                         }
+                        .padding(.vertical)
                     }
-                    .padding(.vertical)
+                    
+                    Divider()
+                    
+                    // Laps History in a sidebar-like column for Lab Mode
+                    LapsHistoryView(workoutManager: viewModel.workoutManager, settings: viewModel.settings)
+                        .frame(width: 300)
+                        .background(Color.secondary.opacity(0.05))
                 }
             } else {
                 // Portrait/Mobile Mode (Existing layout)

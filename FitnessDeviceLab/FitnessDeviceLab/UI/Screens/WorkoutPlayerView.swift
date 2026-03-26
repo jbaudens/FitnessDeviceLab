@@ -316,13 +316,20 @@ struct WorkoutPlayerContentView: View {
             )
             
             AdaptiveWorkoutDashboard(viewModel: viewModel, settings: viewModel.settings)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             
-            // Cockpit Zone (Bottom Interaction)
-            InteractionCockpit(workoutManager: viewModel.workoutManager)
-                .padding(.horizontal)
-                .padding(.top, 8)
-            
-            activeControls
+            // Fixed Bottom Zone (Cockpit & Controls)
+            VStack(spacing: 0) {
+                Divider()
+                
+                // Cockpit Zone (Bottom Interaction)
+                InteractionCockpit(workoutManager: viewModel.workoutManager)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                
+                activeControls
+            }
+            .background(Color.systemBackground)
         }
         .navigationTitle(viewModel.workoutManager.selectedWorkout?.name ?? "Free Ride")
         #if os(iOS)
