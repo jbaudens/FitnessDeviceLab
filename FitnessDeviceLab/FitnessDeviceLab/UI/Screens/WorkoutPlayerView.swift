@@ -799,6 +799,7 @@ struct InteractionCockpit: View {
                 .cornerRadius(12)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("coarse_decrease")
             
             Spacer().frame(width: isRegular ? 24 : 12) // Safety Gutter
             
@@ -810,6 +811,7 @@ struct InteractionCockpit: View {
                     .frame(width: buttonSize, height: buttonSize)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("fine_decrease")
             
             Spacer()
             
@@ -834,6 +836,7 @@ struct InteractionCockpit: View {
                     .frame(width: buttonSize, height: buttonSize)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("fine_increase")
             
             Spacer().frame(width: isRegular ? 24 : 12) // Safety Gutter
             
@@ -851,6 +854,7 @@ struct InteractionCockpit: View {
                 .cornerRadius(12)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("coarse_increase")
         }
         .padding(.horizontal, 4)
     }
@@ -1261,6 +1265,7 @@ struct SensorSetCard: View {
                     }
                     .pickerStyle(.menu)
                     .labelsHidden()
+                    .accessibilityIdentifier(title.contains("(A)") ? "hr_picker_a" : "hr_picker_b")
                 }
                 
                 // Power Picker
@@ -1279,6 +1284,7 @@ struct SensorSetCard: View {
                     }
                     .pickerStyle(.menu)
                     .labelsHidden()
+                    .accessibilityIdentifier(title.contains("(A)") ? "pwr_picker_a" : "pwr_picker_b")
                 }
                 
                 // Cadence Picker
@@ -1297,6 +1303,7 @@ struct SensorSetCard: View {
                     }
                     .pickerStyle(.menu)
                     .labelsHidden()
+                    .accessibilityIdentifier(title.contains("(A)") ? "cad_picker_a" : "cad_picker_b")
                 }
             }
         }
