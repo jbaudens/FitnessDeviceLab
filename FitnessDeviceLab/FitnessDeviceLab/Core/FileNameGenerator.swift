@@ -10,8 +10,11 @@ public struct FileNameGenerator {
         
         var components: [String] = []
         
-        // 1. Workout Name
-        components.append(metadata.workoutName.replacingOccurrences(of: " ", with: "_"))
+        // 1. Workout Name (Sanitize for file system)
+        let sanitizedWorkoutName = metadata.workoutName
+            .replacingOccurrences(of: " ", with: "_")
+            .replacingOccurrences(of: "/", with: "-")
+        components.append(sanitizedWorkoutName)
         
         // 2. Power Meter Name
         if let pwr = metadata.powerMeterName, !pwr.isEmpty {

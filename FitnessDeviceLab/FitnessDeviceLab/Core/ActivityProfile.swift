@@ -22,6 +22,22 @@ public struct ActivityProfile: Identifiable, Codable, Hashable {
         ]
     )
     
+    public static let dfaAnalysisProfile = ActivityProfile(
+        name: "DFA Analysis",
+        pages: [
+            DataPage(fields: [
+                .dfaAlpha1, .currentHR, .currentPower, .power3s,
+                .avgHR, .avgPower, .rmssd, .sdnn,
+                .lapAvgHR, .lapAvgPower, .lapTime, .distance
+            ])
+        ]
+    )
+    
+    public static let availableProfiles: [ActivityProfile] = [
+        .defaultProfile,
+        .dfaAnalysisProfile
+    ]
+    
     /*public static let defaultProfile = ActivityProfile(
         name: "Cycling",
         pages: [

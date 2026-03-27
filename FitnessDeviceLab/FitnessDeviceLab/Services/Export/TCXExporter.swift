@@ -89,11 +89,12 @@ public class TCXExporter {
         xml += "</TrainingCenterDatabase>"
         
         let filename = FileNameGenerator.generate(metadata: metadata, startTime: trackpoints.first!.time, extension: "tcx")
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let fileURL = documentsURL.appendingPathComponent(filename)
         
         do {
-            try xml.write(to: tempURL, atomically: true, encoding: .utf8)
-            return tempURL
+            try xml.write(to: fileURL, atomically: true, encoding: .utf8)
+            return fileURL
         } catch {
             throw AppError.export(.failedToGenerate(error.localizedDescription))
         }

@@ -69,6 +69,34 @@ struct ExportTests {
             #expect(signature == ".FIT")
         }
     }
+    
+    @Test @MainActor func sessionRecorderStop() throws {
+        let settings = MockSettingsProvider()
+        let recorder = SessionRecorder(settings: settings)
+        let startTime = Date()
+        
+        let mockTrainer = MockTrainer()
+        mockTrainer.capabilities.insert(.heartRate)
+        mockTrainer.heartRate = 140
+        
+        // Mock a sensor to pass the guard
+        recorder.hrSource = HeartRateSensor(peripheral: mockTrainer)
+        recorder.isRecording = true
+        
+        // Add some data
+        for i in 0..<10 {
+            recorder.pulse(time: startTime.addingTimeInterval(Double(i)), altitude: 100, rrIntervals: [], lapStartTime: startTime)
+        }
+        
+        let metadata = ExportMetadata(workoutName: "Recorder Test")
+        let files = try recorder.stop(metadata: metadata)
+        
+        #expect(files.count >= 1)
+        for file in files {
+            #expect(FileManager.default.fileExists(atPath: file.path))
+            print("DEBUG: Verified file exists at \(file.path)")
+        }
+    }
 }
 
 struct FileNameGeneratorTests {
@@ -89,5 +117,10 @@ struct FileNameGeneratorTests {
         let meta3 = ExportMetadata(workoutName: "Long Ride", powerMeterName: "Stages Power", hrmName: nil)
         let name3 = FileNameGenerator.generate(metadata: meta3, startTime: startTime, extension: "fit")
         #expect(name3 == "Long_Ride_Stages_Power_2024-03-18T20-00-00.fit")
+        
+        // 4. Metadata with slashes
+        let meta4 = ExportMetadata(workoutName: "VT1/VT2 Ramp")
+        let name4 = FileNameGenerator.generate(metadata: meta4, startTime: startTime, extension: "fit")
+        #expect(name4 == "VT1-VT2_Ramp_2024-03-18T20-00-00.fit")
     }
 }

@@ -411,6 +411,73 @@ struct WorkoutRowView: View {
 
 // MARK: - Legend Components
 
+struct DFAAlpha1ChartView: View {
+    @Bindable var recorder: SessionRecorder
+    
+    private var downsampledPoints: [Trackpoint] {
+        let maxPoints = 300
+        let points = recorder.trackpoints
+        guard points.count > maxPoints else { return points }
+        let stride = points.count / maxPoints
+        return points.enumerated().compactMap { $0.offset % stride == 0 ? $0.element : nil }
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Chart {
+                // Threshold lines
+                RuleMark(y: .value("VT1", 0.75))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
+                    .foregroundStyle(.green.opacity(0.5))
+                    .annotation(position: .trailing, alignment: .leading) {
+                        Text("VT1 (0.75)")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(.green)
+                    }
+                
+                RuleMark(y: .value("VT2", 0.5))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
+                    .foregroundStyle(.red.opacity(0.5))
+                    .annotation(position: .trailing, alignment: .leading) {
+                        Text("VT2 (0.50)")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(.red)
+                    }
+                
+                ForEach(downsampledPoints) { pt in
+                    if let dfa = pt.dfaAlpha1 {
+                        LineMark(
+                            x: .value("Time", pt.time),
+                            y: .value("DFA a1", dfa)
+                        )
+                        .foregroundStyle(.purple)
+                        .interpolationMethod(.catmullRom)
+                        
+                        AreaMark(
+                            x: .value("Time", pt.time),
+                            y: .value("DFA a1", dfa)
+                        )
+                        .foregroundStyle(.purple.opacity(0.1))
+                    }
+                }
+            }
+            .chartYScale(domain: 0.3...1.5)
+            .chartXAxis(.hidden)
+            .chartYAxis {
+                AxisMarks(position: .leading, values: [0.5, 0.75, 1.0, 1.25]) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let d = value.as(Double.self) {
+                            Text(String(format: "%.2f", d))
+                                .font(.system(size: 8, design: .monospaced))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 struct GraphLegend: View {
     var body: some View {
         HStack(spacing: 12) {

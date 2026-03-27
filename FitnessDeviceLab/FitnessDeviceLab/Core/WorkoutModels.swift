@@ -8,15 +8,17 @@ public struct Trackpoint: Identifiable, Sendable {
     public let cadence: Int?
     public let altitude: Double?
     public let powerBalance: Double?
+    public let dfaAlpha1: Double?
     public let rrIntervals: [Double]
 
-    public init(time: Date, hr: Int? = nil, power: Int? = nil, cadence: Int? = nil, altitude: Double? = nil, powerBalance: Double? = nil, rrIntervals: [Double] = []) {
+    public init(time: Date, hr: Int? = nil, power: Int? = nil, cadence: Int? = nil, altitude: Double? = nil, powerBalance: Double? = nil, dfaAlpha1: Double? = nil, rrIntervals: [Double] = []) {
         self.time = time
         self.hr = hr
         self.power = power
         self.cadence = cadence
         self.altitude = altitude
         self.powerBalance = powerBalance
+        self.dfaAlpha1 = dfaAlpha1
         self.rrIntervals = rrIntervals
     }
 }

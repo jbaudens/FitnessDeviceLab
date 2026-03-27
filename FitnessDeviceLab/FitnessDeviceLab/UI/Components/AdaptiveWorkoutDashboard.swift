@@ -124,6 +124,15 @@ struct AdaptiveWorkoutDashboard: View {
             .foregroundColor(color)
             .padding(.horizontal)
             
+            if viewModel.workoutManager.activeProfile.name == "DFA Analysis" {
+                DFAAlpha1ChartView(recorder: recorder)
+                    .frame(height: 100)
+                    .padding(8)
+                    .background(Color.purple.opacity(0.05))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+            }
+            
             if let workout = viewModel.workoutManager.selectedWorkout {
                 WorkoutGraphView(
                     workout: workout,
