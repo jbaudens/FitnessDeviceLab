@@ -29,6 +29,9 @@ fastlane/test_output
 # --- Miscellaneous ---
 # macOS system files
 .DS_Store
+*.xcresult
+.superpowers/
+.xcodebuildmcp/
 
 # Gemini settings
 .gemini/
