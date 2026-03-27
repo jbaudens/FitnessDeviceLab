@@ -13,39 +13,71 @@ final class FitnessDeviceLabUITests: XCTestCase {
     func testUserWalkthrough() throws {
         // 1. Devices Tab (Initial screen)
         // Add virtual sensors to simulate a user setup
-        let addVirtual = app.buttons["Add Virtual"]
+        let addVirtual = app.buttons["add_virtual_device"]
         if addVirtual.waitForExistence(timeout: 5) {
             addVirtual.tap()
             addVirtual.tap()
         }
         
         // Connect the virtual devices
-        let connectButtons = app.buttons.matching(identifier: "Connect")
-        if connectButtons.element(boundBy: 0).waitForExistence(timeout: 2) {
-            connectButtons.element(boundBy: 0).tap()
+        let connectButton1 = app.buttons["connect_button_virtual_trainer_1"]
+        if connectButton1.waitForExistence(timeout: 5) {
+            connectButton1.tap()
         }
-        // After connecting the first, the second one is now at index 0 of "Connect" buttons
-        if connectButtons.element(boundBy: 0).waitForExistence(timeout: 2) {
-            connectButtons.element(boundBy: 0).tap()
+        
+        let connectButton2 = app.buttons["connect_button_virtual_trainer_2"]
+        if connectButton2.waitForExistence(timeout: 5) {
+            connectButton2.tap()
         }
         
         takeScreenshot(name: "1_Devices_Tab")
 
         // 2. Library Tab
         let libraryTab = app.buttons["Library"]
-        if libraryTab.exists {
+        let tabLibrary = app.descendants(matching: .any).matching(identifier: "tab_library").firstMatch
+        
+        if libraryTab.exists && libraryTab.isHittable {
             libraryTab.tap()
+        } else if tabLibrary.exists && tabLibrary.isHittable {
+            tabLibrary.tap()
         } else {
-            app.staticTexts["Library"].tap()
+            // Check for Sidebar toggle on iPad/Mac if hidden
+            let sidebarButton = app.buttons["Sidebar"]
+            if sidebarButton.exists {
+                sidebarButton.tap()
+            }
+            
+            if tabLibrary.waitForExistence(timeout: 2) {
+                tabLibrary.tap()
+            } else if app.staticTexts["Library"].exists {
+                app.staticTexts["Library"].firstMatch.tap()
+            } else {
+                XCTFail("Could not find Library tab")
+            }
         }
         takeScreenshot(name: "2_Library_Tab")
 
         // 3. Workout Tab (Setup)
         let workoutTab = app.buttons["Workout"]
-        if workoutTab.exists {
+        let tabWorkout = app.descendants(matching: .any).matching(identifier: "tab_workout").firstMatch
+        
+        if workoutTab.exists && workoutTab.isHittable {
             workoutTab.tap()
+        } else if tabWorkout.exists && tabWorkout.isHittable {
+            tabWorkout.tap()
         } else {
-            app.staticTexts["Workout"].tap()
+            let sidebarButton = app.buttons["Sidebar"]
+            if sidebarButton.exists {
+                sidebarButton.tap()
+            }
+            
+            if tabWorkout.waitForExistence(timeout: 2) {
+                tabWorkout.tap()
+            } else if app.staticTexts["Workout"].exists {
+                app.staticTexts["Workout"].firstMatch.tap()
+            } else {
+                XCTFail("Could not find Workout tab")
+            }
         }
 
         // Wait for setup screen
@@ -114,7 +146,12 @@ final class FitnessDeviceLabUITests: XCTestCase {
         if settingsTab.exists {
             settingsTab.tap()
         } else {
-            app.staticTexts["Settings"].tap()
+            // Check for Sidebar on iPad/Mac
+            let sidebarButton = app.buttons["Sidebar"]
+            if sidebarButton.exists {
+                sidebarButton.tap()
+            }
+            app.staticTexts["Settings"].firstMatch.tap()
         }
         takeScreenshot(name: "5_Settings_Tab")
     }

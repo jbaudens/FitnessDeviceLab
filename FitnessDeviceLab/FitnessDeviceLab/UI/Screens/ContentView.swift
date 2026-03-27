@@ -46,6 +46,7 @@ struct ContentView: View {
                 Label("Devices", systemImage: "antenna.radiowaves.left.and.right")
             }
             .tag(AppTab.devices)
+            .accessibilityIdentifier("tab_devices")
 
             // Tab 2: Library
             NavigationStack {
@@ -59,6 +60,7 @@ struct ContentView: View {
                 Label("Library", systemImage: "books.vertical")
             }
             .tag(AppTab.library)
+            .accessibilityIdentifier("tab_library")
 
             // Tab 3: Workout
             NavigationStack {
@@ -68,6 +70,7 @@ struct ContentView: View {
                 Label("Workout", systemImage: "play.circle")
             }
             .tag(AppTab.workout)
+            .accessibilityIdentifier("tab_workout")
 
             // Tab 4: Settings
             NavigationStack {
@@ -77,6 +80,7 @@ struct ContentView: View {
                 Label("Settings", systemImage: "gear")
             }
             .tag(AppTab.settings)
+            .accessibilityIdentifier("tab_settings")
         }
     }
 
@@ -85,12 +89,15 @@ struct ContentView: View {
             List(AppTab.allCases, selection: $navigationManager.selectedTab) { tab in
                 NavigationLink(value: tab) {
                     Label(tab.rawValue, systemImage: tab.icon)
+                        .accessibilityIdentifier("tab_\(tab.rawValue.lowercased())")
                 }
             }
             .navigationTitle("Lab Dashboard")
+            .accessibilityIdentifier("sidebar_column")
         } detail: {
             if let tab = navigationManager.selectedTab {
                 detailView(for: tab)
+                    .accessibilityIdentifier("detail_column")
             } else {
                 Text("Select a tab")
                     .font(.title)

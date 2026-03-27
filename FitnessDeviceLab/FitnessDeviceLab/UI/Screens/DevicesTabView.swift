@@ -73,6 +73,7 @@ struct DevicesListContent: View {
                 .buttonStyle(.bordered)
                 .tint(.orange)
                 .controlSize(.small)
+                .accessibilityIdentifier("add_virtual_device")
                 #endif
             }
             
@@ -83,6 +84,7 @@ struct DevicesListContent: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
+                    .accessibilityIdentifier("stop_scanning")
                 } else {
                     Button(action: { viewModel.startScanning() }) {
                         Label("Search for Devices", systemImage: "magnifyingglass")
@@ -90,6 +92,7 @@ struct DevicesListContent: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(viewModel.bluetoothManager.state != .poweredOn)
+                    .accessibilityIdentifier("start_scanning")
                 }
             }
         }
@@ -177,6 +180,7 @@ struct PeripheralCardView: View {
                     .buttonStyle(.bordered)
                     .tint(peripheral.isConnected ? .red : .blue)
                     .controlSize(.small)
+                    .accessibilityIdentifier("connect_button_\(peripheral.name.replacingOccurrences(of: " ", with: "_").lowercased())")
                 }
             }
             .padding()

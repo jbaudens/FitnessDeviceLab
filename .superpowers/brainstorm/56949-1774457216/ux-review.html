@@ -1,0 +1,72 @@
+<h2>UI/UX Review: Fitness Device Lab</h2>
+<p class="subtitle">An expert critique based on Apple HIG and athletic performance requirements.</p>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-body">
+      <h3 style="color: #22c55e;">STRENGTHS</h3>
+      <ul>
+        <li><b>Glanceable Information</b>: The high-contrast data fields in the Workout Player are excellent for mid-effort checks.</li>
+        <li><b>Clear Hierarchy</b>: The use of TabView for primary navigation provides a standard, easy-to-learn structure.</li>
+        <li><b>Contextual Feedback</b>: Color-coding for workout zones is a great way to communicate intensity without text.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <h3 style="color: #f59e0b;">AREAS FOR IMPROVEMENT</h3>
+      <ul>
+        <li><b>Interaction Safety</b>: Some buttons are too small for "sweaty hands" or high-intensity moments.</li>
+        <li><b>Information Density</b>: The Devices tab can feel cluttered when multiple sensors are active.</li>
+        <li><b>Navigation Transitions</b>: Moving between Library and Player could be more fluid to reduce friction before a ride.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Deep Dive: Interaction Safety</h3>
+  <p>During a hard interval (Z4+), fine motor skills degrade. The current 44x44pt touch targets are the <i>minimum</i> recommended by HIG, but for an athletic app, we should aim for <b>60x60pt</b> or larger for critical mid-workout actions like "Lap" or "Pause".</p>
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">Current: Standard Buttons</div>
+      <div class="mockup-body" style="display:flex; justify-content:center; padding: 20px;">
+        <button class="mock-button" style="width: 44px; height: 44px; border-radius: 22px;">II</button>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">Proposed: Ride-Ready Buttons</div>
+      <div class="mockup-body" style="display:flex; justify-content:center; padding: 20px;">
+        <button class="mock-button" style="width: 72px; height: 72px; border-radius: 36px; background: #ef4444; border: none; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);">II</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Question for You</h3>
+  <p>Which area should we prioritize for the first set of UI/UX improvements?</p>
+  <div class="options" data-choice="interaction" onclick="toggleSelect(this)">
+    <div class="option" data-choice="safety">
+      <div class="letter">A</div>
+      <div class="content">
+        <h3>Interaction Safety</h3>
+        <p>Bigger buttons, better spacing, and tactile layouts for mid-ride use.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="density">
+      <div class="letter">B</div>
+      <div class="content">
+        <h3>Visual Clarity & Density</h3>
+        <p>Refining the Devices and Library views to be cleaner and more descriptive.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="onboarding">
+      <div class="letter">C</div>
+      <div class="content">
+        <h3>Empty States & Onboarding</h3>
+        <p>Making the app feel "alive" even when no sensors are connected or workouts exist.</p>
+      </div>
+    </div>
+  </div>
+</div>
