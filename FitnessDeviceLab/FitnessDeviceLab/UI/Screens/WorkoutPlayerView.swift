@@ -231,19 +231,22 @@ struct WorkoutPlayerContentView: View {
             if viewModel.isSummaryState {
                 VStack {
                     Spacer()
-                    SessionSummaryCard(files: viewModel.workoutManager.exportedFiles, engine: viewModel.workoutManager.recorderA.engine)
+                    let primaryRecorder = viewModel.workoutManager.recorderA.hasAnySensor ? viewModel.workoutManager.recorderA : viewModel.workoutManager.recorderB
+                    SessionSummaryCard(files: viewModel.workoutManager.exportedFiles, engine: primaryRecorder.engine)
                         .padding()
                     
-                    Button {
-                        viewModel.showingComparison = true
-                    } label: {
-                        Label("Compare Sensors", systemImage: "chart.bar.xaxis")
-                            .frame(maxWidth: .infinity)
-                            .padding()
+                    if viewModel.workoutManager.recorderA.hasAnySensor && viewModel.workoutManager.recorderB.hasAnySensor {
+                        Button {
+                            viewModel.showingComparison = true
+                        } label: {
+                            Label("Compare Sensors", systemImage: "chart.bar.xaxis")
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.blue)
+                        .padding(.horizontal)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.blue)
-                    .padding(.horizontal)
                     
                     Button(role: .destructive) {
                         viewModel.showingDiscardConfirmation = true
@@ -1155,9 +1158,17 @@ struct LapsHistoryView: View {
                         
                         // Lap Summary Table (A vs B)
                         HStack(spacing: 20) {
-                            LapSummaryColumn(label: "SET A", lap: lap, settings: settings, recorder: workoutManager.recorderA, color: .blue)
-                            Divider()
-                            LapSummaryColumn(label: "SET B", lap: lap, settings: settings, recorder: workoutManager.recorderB, color: .purple)
+                            if workoutManager.recorderA.hasAnySensor {
+                                LapSummaryColumn(label: "SET A", lap: lap, settings: settings, recorder: workoutManager.recorderA, color: .blue)
+                            }
+                            
+                            if workoutManager.recorderA.hasAnySensor && workoutManager.recorderB.hasAnySensor {
+                                Divider()
+                            }
+                            
+                            if workoutManager.recorderB.hasAnySensor {
+                                LapSummaryColumn(label: "SET B", lap: lap, settings: settings, recorder: workoutManager.recorderB, color: .purple)
+                            }
                         }
                         .padding(10)
                         .background(Color.secondary.opacity(0.05))
@@ -1324,15 +1335,21 @@ struct SensorConnectionStatusBar: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            if let hr = recorderA.hrSource ?? recorderB.hrSource {
-                statusIcon(systemName: "heart.fill", isConnected: hr.isConnected, color: .red)
+            let hr = (recorderA.hrSource ?? recorderB.hrSource)
+            if hr != nil {
+                statusIcon(systemName: "heart.fill", isConnected: hr?.isConnected ?? false, color: .red)
             }
-            if let pwr = recorderA.powerSource ?? recorderB.powerSource {
-                statusIcon(systemName: "bolt.fill", isConnected: pwr.isConnected, color: .orange)
+            
+            let pwr = (recorderA.powerSource ?? recorderB.powerSource)
+            if pwr != nil {
+                statusIcon(systemName: "bolt.fill", isConnected: pwr?.isConnected ?? false, color: .orange)
             }
-            if let cad = recorderA.cadenceSource ?? recorderB.cadenceSource {
-                statusIcon(systemName: "bicycle", isConnected: cad.isConnected, color: .blue)
+            
+            let cad = (recorderA.cadenceSource ?? recorderB.cadenceSource)
+            if cad != nil {
+                statusIcon(systemName: "bicycle", isConnected: cad?.isConnected ?? false, color: .blue)
             }
+            
             if let trainer = trainer {
                 statusIcon(systemName: "dial.low.fill", isConnected: trainer.isConnected, color: .purple)
             }

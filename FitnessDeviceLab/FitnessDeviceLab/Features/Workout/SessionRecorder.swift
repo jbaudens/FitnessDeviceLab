@@ -8,6 +8,11 @@ public class SessionRecorder {
     public var powerSource: PowerSensor?
     public var cadenceSource: CadenceSensor?
     
+    @ObservationIgnored
+    public var hasAnySensor: Bool {
+        hrSource != nil || powerSource != nil || cadenceSource != nil
+    }
+    
     public var isRecording: Bool = false
     
     public var trackpoints: [Trackpoint] = []

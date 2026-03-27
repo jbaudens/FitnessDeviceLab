@@ -14,9 +14,17 @@ struct AdaptiveWorkoutDashboard: View {
                         VStack(spacing: 40) {
                             ForEach(viewModel.workoutManager.activeProfile.pages) { page in
                                 HStack(spacing: 0) {
-                                    sensorSetColumn(title: "SET A", color: .blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
-                                    varianceColumn
-                                    sensorSetColumn(title: "SET B", color: .purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
+                                    if viewModel.workoutManager.recorderA.hasAnySensor {
+                                        sensorSetColumn(title: "SET A", color: .blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
+                                    }
+                                    
+                                    if viewModel.workoutManager.recorderA.hasAnySensor && viewModel.workoutManager.recorderB.hasAnySensor {
+                                        varianceColumn
+                                    }
+                                    
+                                    if viewModel.workoutManager.recorderB.hasAnySensor {
+                                        sensorSetColumn(title: "SET B", color: .purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
+                                    }
                                 }
                                 
                                 if page.id != viewModel.workoutManager.activeProfile.pages.last?.id {
@@ -41,11 +49,17 @@ struct AdaptiveWorkoutDashboard: View {
                     ForEach(viewModel.workoutManager.activeProfile.pages) { page in
                         ScrollView {
                             VStack(spacing: 32) {
-                                sensorSetSection(title: "SET A", color: Color.blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
+                                if viewModel.workoutManager.recorderA.hasAnySensor {
+                                    sensorSetSection(title: "SET A", color: Color.blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
+                                }
                                 
-                                Divider().padding(.horizontal)
+                                if viewModel.workoutManager.recorderA.hasAnySensor && viewModel.workoutManager.recorderB.hasAnySensor {
+                                    Divider().padding(.horizontal)
+                                }
                                 
-                                sensorSetSection(title: "SET B", color: Color.purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
+                                if viewModel.workoutManager.recorderB.hasAnySensor {
+                                    sensorSetSection(title: "SET B", color: Color.purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
+                                }
                             }
                             .padding(.vertical)
                         }

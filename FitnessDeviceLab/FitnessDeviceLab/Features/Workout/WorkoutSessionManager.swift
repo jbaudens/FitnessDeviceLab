@@ -49,6 +49,11 @@ public class WorkoutSessionManager {
     
     public var exportedFiles: [URL] = []
     
+    @ObservationIgnored
+    public var activeRecorders: [SessionRecorder] {
+        [recorderA, recorderB].filter { $0.hasAnySensor }
+    }
+    
     public let settings: SettingsProvider
     private let locationProvider: LocationProvider
     private let errorManager: ErrorManager
@@ -335,8 +340,12 @@ public class WorkoutSessionManager {
             )
             
             do {
-                files.append(contentsOf: try recorderA.stop(metadata: metaA, laps: laps))
-                files.append(contentsOf: try recorderB.stop(metadata: metaB, laps: laps))
+                if recorderA.hasAnySensor {
+                    files.append(contentsOf: try recorderA.stop(metadata: metaA, laps: laps))
+                }
+                if recorderB.hasAnySensor {
+                    files.append(contentsOf: try recorderB.stop(metadata: metaB, laps: laps))
+                }
                 self.exportedFiles = files
             } catch let error as AppError {
                 errorManager.report(error)
