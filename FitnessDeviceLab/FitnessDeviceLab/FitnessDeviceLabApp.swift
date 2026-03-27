@@ -6,6 +6,7 @@ struct FitnessDeviceLabApp: App {
     @State private var workoutManager: WorkoutSessionManager
     @State private var bluetoothManager: BluetoothManager
     @State private var errorManager: ErrorManager
+    @State private var navigationManager = NavigationManager()
     
     @State private var devicesViewModel: DevicesViewModel
     @State private var workoutPlayerViewModel: WorkoutPlayerViewModel
@@ -40,6 +41,7 @@ struct FitnessDeviceLabApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView(
+                navigationManager: navigationManager,
                 devicesViewModel: devicesViewModel,
                 workoutPlayerViewModel: workoutPlayerViewModel,
                 workoutManager: workoutManager,

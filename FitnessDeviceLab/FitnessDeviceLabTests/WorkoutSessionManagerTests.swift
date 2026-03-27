@@ -150,7 +150,7 @@ struct WorkoutSessionManagerTests {
     }
     
     @Test func testFreeRideManualControl() async throws {
-        let (sut, timer, settings, _) = makeSUT()
+        let (sut, timer, _, _) = makeSUT()
         
         let mockTrainer = MockTrainer()
         let controllable = ControllableTrainer(peripheral: mockTrainer)!

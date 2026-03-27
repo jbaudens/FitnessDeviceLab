@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Bindable var navigationManager: NavigationManager
     @Bindable var devicesViewModel: DevicesViewModel
     @Bindable var workoutPlayerViewModel: WorkoutPlayerViewModel
     
@@ -10,42 +12,15 @@ struct ContentView: View {
     @Environment(ErrorManager.self) private var errorManager
 
     var body: some View {
-        TabView {
-            // Tab 1: Devices
-            NavigationStack {
-                DevicesTabView(viewModel: devicesViewModel)
+        Group {
+            if horizontalSizeClass == .compact {
+                tabRoot
+            } else {
+                splitRoot
             }
-            .tabItem {
-                Label("Devices", systemImage: "antenna.radiowaves.left.and.right")
-            }
-
-            // Tab 2: Library
-            NavigationStack {
-                WorkoutLibraryView(
-                    repository: WorkoutRepository.shared,
-                    workoutManager: workoutManager,
-                    settings: settingsManager
-                )
-            }
-            .tabItem {
-                Label("Library", systemImage: "books.vertical")
-            }
-
-            // Tab 3: Workout
-            NavigationStack {
-                WorkoutPlayerView(viewModel: workoutPlayerViewModel)
-            }
-            .tabItem {
-                Label("Workout", systemImage: "play.circle")
-            }
-
-            // Tab 4: Settings
-            NavigationStack {
-                SettingsView(settings: settingsManager)
-            }
-            .tabItem {
-                Label("Settings", systemImage: "gear")
-            }
+        }
+        .onChange(of: workoutPlayerViewModel.isActiveState) { _, isActive in
+            navigationManager.isWorkoutActive = isActive
         }
         .alert(
             item: Binding(
@@ -60,6 +35,102 @@ struct ContentView: View {
             )
         }
     }
+
+    private var tabRoot: some View {
+        TabView(selection: $navigationManager.selectedTab) {
+            // Tab 1: Devices
+            NavigationStack {
+                DevicesTabView(viewModel: devicesViewModel)
+            }
+            .tabItem {
+                Label("Devices", systemImage: "antenna.radiowaves.left.and.right")
+            }
+            .tag(AppTab.devices)
+            .accessibilityIdentifier("tab_devices")
+
+            // Tab 2: Library
+            NavigationStack {
+                WorkoutLibraryView(
+                    repository: WorkoutRepository.shared,
+                    workoutManager: workoutManager,
+                    settings: settingsManager
+                )
+            }
+            .tabItem {
+                Label("Library", systemImage: "books.vertical")
+            }
+            .tag(AppTab.library)
+            .accessibilityIdentifier("tab_library")
+
+            // Tab 3: Workout
+            NavigationStack {
+                WorkoutPlayerView(viewModel: workoutPlayerViewModel)
+            }
+            .tabItem {
+                Label("Workout", systemImage: "play.circle")
+            }
+            .tag(AppTab.workout)
+            .accessibilityIdentifier("tab_workout")
+
+            // Tab 4: Settings
+            NavigationStack {
+                SettingsView(settings: settingsManager)
+            }
+            .tabItem {
+                Label("Settings", systemImage: "gear")
+            }
+            .tag(AppTab.settings)
+            .accessibilityIdentifier("tab_settings")
+        }
+    }
+
+    private var splitRoot: some View {
+        NavigationSplitView(columnVisibility: $navigationManager.sidebarVisibility) {
+            List(AppTab.allCases, selection: $navigationManager.selectedTab) { tab in
+                NavigationLink(value: tab) {
+                    Label(tab.rawValue, systemImage: tab.icon)
+                        .accessibilityIdentifier("tab_\(tab.rawValue.lowercased())")
+                }
+            }
+            .navigationTitle("Lab Dashboard")
+            .accessibilityIdentifier("sidebar_column")
+        } detail: {
+            if let tab = navigationManager.selectedTab {
+                detailView(for: tab)
+                    .accessibilityIdentifier("detail_column")
+            } else {
+                Text("Select a tab")
+                    .font(.title)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func detailView(for tab: AppTab) -> some View {
+        switch tab {
+        case .devices:
+            NavigationStack {
+                DevicesTabView(viewModel: devicesViewModel)
+            }
+        case .library:
+            NavigationStack {
+                WorkoutLibraryView(
+                    repository: WorkoutRepository.shared,
+                    workoutManager: workoutManager,
+                    settings: settingsManager
+                )
+            }
+        case .workout:
+            NavigationStack {
+                WorkoutPlayerView(viewModel: workoutPlayerViewModel)
+            }
+        case .settings:
+            NavigationStack {
+                SettingsView(settings: settingsManager)
+            }
+        }
+    }
 }
 
 /// A wrapper to make AppError Identifiable for .alert(item:)
@@ -67,6 +138,7 @@ struct IdentifiableError: Identifiable {
     let id = UUID()
     let error: AppError
 }
+
 #Preview {
     let settings = SettingsManager()
     let locationManager = LocationManager()
@@ -86,8 +158,10 @@ struct IdentifiableError: Identifiable {
     
     let devicesVM = DevicesViewModel(bluetoothManager: bluetooth)
     let workoutVM = WorkoutPlayerViewModel(workoutManager: manager, bluetoothManager: bluetooth, settings: settings)
+    let navigationManager = NavigationManager()
     
     ContentView(
+        navigationManager: navigationManager,
         devicesViewModel: devicesVM,
         workoutPlayerViewModel: workoutVM,
         workoutManager: manager,

@@ -115,7 +115,6 @@ struct WorkoutPlayerView: View {
 
 #Preview("Session Summary Card") {
     let settings = SettingsManager()
-    let recorder = SessionRecorder(settings: settings)
     let engine = DataFieldEngine(settings: settings)
     let _ = {
         engine.liveStandard.instant = 250
@@ -198,7 +197,7 @@ struct WorkoutPlayerView: View {
         errorManager: errorManager
     )
     let _ = {
-        for i in 0..<3 {
+        for _ in 0..<3 {
             manager.lapManager.startNewLap(type: .work)
         }
         return true
@@ -316,86 +315,26 @@ struct WorkoutPlayerContentView: View {
                 trainer: viewModel.workoutManager.trainerController.trainer
             )
             
-            TabView {
-                // Data Pages
-                ForEach(viewModel.workoutManager.activeProfile.pages) { page in
-                    ScrollView {
-                        VStack(spacing: 32) {
-                            sensorSetSection(title: "SET A", color: Color.blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
-                            
-                            Divider().padding(.horizontal)
-                            
-                            sensorSetSection(title: "SET B", color: Color.purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
-                        }
-                        .padding(.vertical)
-                    }
-                }
+            AdaptiveWorkoutDashboard(viewModel: viewModel, settings: viewModel.settings)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            // Fixed Bottom Zone (Cockpit & Controls)
+            VStack(spacing: 0) {
+                Divider()
                 
-                // Laps View
-                LapsHistoryView(workoutManager: viewModel.workoutManager, settings: viewModel.settings)
+                // Cockpit Zone (Bottom Interaction)
+                InteractionCockpit(workoutManager: viewModel.workoutManager)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                
+                activeControls
             }
-            #if os(iOS)
-            .tabViewStyle(.page(indexDisplayMode: .always))
-            #endif
-            
-            // Cockpit Zone (Bottom Interaction)
-            InteractionCockpit(workoutManager: viewModel.workoutManager)
-                .padding(.horizontal)
-                .padding(.top, 8)
-            
-            activeControls
+            .background(Color.systemBackground)
         }
         .navigationTitle(viewModel.workoutManager.selectedWorkout?.name ?? "Free Ride")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
-    }
-    
-    private func sensorSetSection(title: String, color: Color, recorder: SessionRecorder, fields: [DataFieldType]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label(title, systemImage: title == "SET A" ? "1.circle.fill" : "2.circle.fill")
-                Spacer()
-                Text(viewModel.deviceNames(recorder: recorder))
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-            }
-            .font(.caption)
-            .fontWeight(.black)
-            .foregroundColor(color)
-            .padding(.horizontal)
-            
-            if let workout = viewModel.workoutManager.selectedWorkout {
-                WorkoutGraphView(
-                    workout: workout,
-                    userFTP: viewModel.settings.userFTP,
-                    elapsedTime: viewModel.workoutManager.workoutElapsedTime,
-                    recorder: recorder,
-                    scale: viewModel.workoutManager.workoutDifficultyScale
-                )
-                .frame(height: 140)
-                .padding(8)
-                .background(Color.secondary.opacity(0.05))
-                .cornerRadius(12)
-                .padding(.horizontal)
-            } else {
-                SessionGraphView(
-                    recorder: recorder,
-                    userFTP: viewModel.settings.userFTP
-                )
-                .frame(height: 140)
-                .padding(8)
-                .background(Color.secondary.opacity(0.05))
-                .cornerRadius(12)
-                .padding(.horizontal)
-            }
-            
-            DataFieldGrid(
-                engine: recorder.engine,
-                fields: fields,
-                settings: viewModel.settings
-            )
-            .padding(.horizontal)
-        }
     }
     
     private var activeControls: some View {
@@ -788,19 +727,24 @@ struct FreeRideHeader: View {
 }
 
 struct InteractionCockpit: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Bindable var workoutManager: WorkoutSessionManager
     
+    private var isRegular: Bool { horizontalSizeClass == .regular }
+    
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: isRegular ? 24 : 12) {
             if workoutManager.selectedWorkout == nil {
                 // Free Ride Controls
-                VStack(spacing: 12) {
+                VStack(spacing: isRegular ? 24 : 12) {
                     Picker("Mode", selection: $workoutManager.freeRideControlMode) {
                         ForEach(WorkoutSessionManager.FreeRideControlMode.allCases) { mode in
                             Text(mode.rawValue).tag(mode)
                         }
                     }
                     .pickerStyle(.segmented)
+                    .scaleEffect(isRegular ? 1.2 : 1.0)
+                    .padding(.vertical, isRegular ? 8 : 0)
                     
                     adjustmentRow(
                         value: currentValueString,
@@ -810,13 +754,15 @@ struct InteractionCockpit: View {
                 }
             } else {
                 // Structured Workout Controls
-                VStack(spacing: 12) {
+                VStack(spacing: isRegular ? 24 : 12) {
                     Picker("Mode", selection: $workoutManager.ergModeEnabled) {
                         Text("Resistance").tag(false)
                         Text("ERG Mode").tag(true)
                     }
                     .pickerStyle(.segmented)
                     .disabled(!workoutManager.canEnableErgMode)
+                    .scaleEffect(isRegular ? 1.2 : 1.0)
+                    .padding(.vertical, isRegular ? 8 : 0)
                     
                     adjustmentRow(
                         value: workoutManager.ergModeEnabled ? "\(Int(round(workoutManager.workoutDifficultyScale * 100)))%" : "\(Int(workoutManager.resistanceLevel))%",
@@ -826,81 +772,89 @@ struct InteractionCockpit: View {
                 }
             }
         }
-        .padding()
+        .padding(isRegular ? 24 : 12)
         .background(Color.secondary.opacity(0.1))
-        .cornerRadius(12)
+        .cornerRadius(16)
         .foregroundColor(.blue)
     }
     
     @ViewBuilder
     private func adjustmentRow(value: String, label: String, coarseAmount: Int) -> some View {
+        let buttonSize: CGFloat = isRegular ? 100 : 60
+        let fineIconSize: CGFloat = isRegular ? 64 : 44
+        let coarseIconSize: CGFloat = isRegular ? 36 : 24
+        
         HStack(spacing: 0) {
             // Coarse Decrease (Subdued & Shielded)
             Button(action: { workoutManager.adjustManualTarget(amount: -coarseAmount) }) {
-                VStack(spacing: 2) {
+                VStack(spacing: 4) {
                     Image(systemName: "minus.square.fill")
-                        .font(.system(size: 24))
+                        .font(.system(size: coarseIconSize))
                     Text("-\(coarseAmount)")
-                        .font(.system(size: 10, weight: .black))
+                        .font(.system(size: isRegular ? 14 : 10, weight: .black))
                 }
                 .foregroundColor(.secondary.opacity(0.6))
-                .frame(width: 60, height: 60)
+                .frame(width: buttonSize, height: buttonSize)
                 .background(Color.secondary.opacity(0.1))
                 .cornerRadius(12)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("coarse_decrease")
             
-            Spacer().frame(width: 12) // Safety Gutter
+            Spacer().frame(width: isRegular ? 24 : 12) // Safety Gutter
             
             // Fine Decrease (Prominent & Central)
             Button(action: { workoutManager.adjustManualTarget(amount: -1) }) {
                 Image(systemName: "minus.circle.fill")
-                    .font(.system(size: 44))
+                    .font(.system(size: fineIconSize))
                     .foregroundColor(.blue)
-                    .frame(width: 60, height: 60)
+                    .frame(width: buttonSize, height: buttonSize)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("fine_decrease")
             
             Spacer()
             
             // Center Value Hero
             VStack(spacing: 0) {
                 Text(value)
-                    .font(.system(size: 28, weight: .bold, design: .monospaced))
+                    .font(.system(size: isRegular ? 44 : 28, weight: .bold, design: .monospaced))
                     .foregroundColor(.primary)
                 Text(label)
-                    .font(.system(size: 10, weight: .black))
+                    .font(.system(size: isRegular ? 14 : 10, weight: .black))
                     .foregroundColor(.secondary)
             }
-            .frame(minWidth: 80)
+            .frame(minWidth: isRegular ? 120 : 80)
             
             Spacer()
             
             // Fine Increase (Prominent & Central)
             Button(action: { workoutManager.adjustManualTarget(amount: 1) }) {
                 Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 44))
+                    .font(.system(size: fineIconSize))
                     .foregroundColor(.blue)
-                    .frame(width: 60, height: 60)
+                    .frame(width: buttonSize, height: buttonSize)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("fine_increase")
             
-            Spacer().frame(width: 12) // Safety Gutter
+            Spacer().frame(width: isRegular ? 24 : 12) // Safety Gutter
             
             // Coarse Increase (Subdued & Shielded)
             Button(action: { workoutManager.adjustManualTarget(amount: coarseAmount) }) {
-                VStack(spacing: 2) {
+                VStack(spacing: 4) {
                     Image(systemName: "plus.square.fill")
-                        .font(.system(size: 24))
+                        .font(.system(size: coarseIconSize))
                     Text("+\(coarseAmount)")
-                        .font(.system(size: 10, weight: .black))
+                        .font(.system(size: isRegular ? 14 : 10, weight: .black))
                 }
                 .foregroundColor(.secondary.opacity(0.6))
-                .frame(width: 60, height: 60)
+                .frame(width: buttonSize, height: buttonSize)
                 .background(Color.secondary.opacity(0.1))
                 .cornerRadius(12)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("coarse_increase")
         }
         .padding(.horizontal, 4)
     }
@@ -1311,6 +1265,7 @@ struct SensorSetCard: View {
                     }
                     .pickerStyle(.menu)
                     .labelsHidden()
+                    .accessibilityIdentifier(title.contains("(A)") ? "hr_picker_a" : "hr_picker_b")
                 }
                 
                 // Power Picker
@@ -1329,6 +1284,7 @@ struct SensorSetCard: View {
                     }
                     .pickerStyle(.menu)
                     .labelsHidden()
+                    .accessibilityIdentifier(title.contains("(A)") ? "pwr_picker_a" : "pwr_picker_b")
                 }
                 
                 // Cadence Picker
@@ -1347,6 +1303,7 @@ struct SensorSetCard: View {
                     }
                     .pickerStyle(.menu)
                     .labelsHidden()
+                    .accessibilityIdentifier(title.contains("(A)") ? "cad_picker_a" : "cad_picker_b")
                 }
             }
         }
