@@ -40,6 +40,7 @@ public class SessionRecorder {
             cadence: cadenceSource?.cadence,
             altitude: altitude,
             powerBalance: powerSource?.powerBalance,
+            dfaAlpha1: engine.hrvMetrics.dfaAlpha1,
             rrIntervals: rrIntervals
         )
         
@@ -82,9 +83,11 @@ public class SessionRecorder {
             )
             let startTime = trackpoints.first?.time ?? Date()
             let filename = FileNameGenerator.generate(metadata: metadata, startTime: startTime, extension: "fit")
-            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-            try fitData.write(to: tempURL)
-            files.append(tempURL)
+            let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let fileURL = documentsURL.appendingPathComponent(filename)
+            
+            try fitData.write(to: fileURL, options: .atomic)
+            files.append(fileURL)
         } catch {
             print("Fit encoding failed: \(error)")
             // We still want TCX if FIT failed, or we can rethrow

@@ -510,9 +510,22 @@ struct WorkoutPlayerContentView: View {
                 Text("Workout Setup")
                     .font(.title2)
                     .fontWeight(.bold)
-                Text(viewModel.workoutManager.activeProfile.name)
+                
+                Menu {
+                    Picker("Profile", selection: $viewModel.workoutManager.activeProfile) {
+                        ForEach(ActivityProfile.availableProfiles) { profile in
+                            Text(profile.name).tag(profile)
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(viewModel.workoutManager.activeProfile.name)
+                        Image(systemName: "chevron.up.down")
+                            .imageScale(.small)
+                    }
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.blue)
+                }
             }
             Spacer()
             Button("Clear All") {
