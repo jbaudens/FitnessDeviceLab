@@ -43,23 +43,30 @@ nonisolated public struct HRVMetrics {
     }
 }
 
+nonisolated public struct Beat: Sendable {
+    public let time: Date
+    public let rr: Double
+    
+    public init(time: Date, rr: Double) {
+        self.time = time
+        self.rr = rr
+    }
+}
+
 public struct HRVEngine {
     
-    nonisolated public static func calculateMetrics(rawRRIntervals: [Double], config: HRVConfig = .hrvLoggerExercise) -> HRVMetrics {
-        // 1. Time-based windowing
-        // We expect rawRRIntervals to potentially be longer than the window.
-        // We sum from the end until we reach windowSizeSeconds.
-        var windowedRR: [Double] = []
-        var totalTime: Double = 0
-        for rr in rawRRIntervals.reversed() {
-            totalTime += rr
-            windowedRR.insert(rr, at: 0)
-            if totalTime >= Double(config.windowSizeSeconds) { break }
-        }
+    nonisolated public static func calculateMetrics(beats: [Beat], config: HRVConfig = .hrvLoggerExercise) -> HRVMetrics {
+        // 1. Wall-clock time-based windowing
+        // We filter beats that occurred within the windowSizeSeconds relative to the last beat.
+        guard let latestTime = beats.last?.time else { return HRVMetrics() }
+        let startTime = latestTime.addingTimeInterval(-Double(config.windowSizeSeconds))
+        
+        let windowedBeats = beats.filter { $0.time >= startTime }
+        let rawRRIntervals = windowedBeats.map { $0.rr }
         
         // 2. Artifact removal & filtering on the windowed data
         var filteredRR: [Double] = []
-        for rr in windowedRR {
+        for rr in rawRRIntervals {
             if rr < 0.3 || rr > 2.0 { continue }
             if let last = filteredRR.last {
                 let diff = abs(rr - last) / last
@@ -70,7 +77,7 @@ public struct HRVEngine {
         
         let N = filteredRR.count
         // For DFA a1 we need a decent number of points even in exercise
-        let minIntervals = config.mode == .resting ? 150 : 50
+        let minIntervals = config.mode == .exercise ? 50 : 150
         guard N >= minIntervals else { return HRVMetrics() }
         
         // 1. Time Domain

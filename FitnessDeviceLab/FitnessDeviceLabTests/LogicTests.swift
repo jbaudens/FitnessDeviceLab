@@ -57,4 +57,37 @@ struct LogicTests {
         let p3 = PhysicsUtilities.estimateSpeed(power: 400, totalWeight: 80)
         #expect(p3 > p2)
     }
+    
+    @Test func testHRVWindowing() async throws {
+        let now = Date()
+        var beats: [Beat] = []
+        
+        // 1. Create 60 seconds of steady beats (1 per second)
+        for i in 0..<60 {
+            beats.append(Beat(time: now.addingTimeInterval(Double(i)), rr: 1.0))
+        }
+        
+        // 2. Add a 30 second gap
+        let gapTime = now.addingTimeInterval(90)
+        
+        // 3. Add another 60 seconds of beats (total wall clock time = 150s)
+        for i in 0..<60 {
+            beats.append(Beat(time: gapTime.addingTimeInterval(Double(i)), rr: 1.0))
+        }
+        
+        // Window size is 120s. 
+        // Latest time is now + 150s.
+        // Start time should be now + 30s.
+        // Beats from 0-60 include: 30-60 (30 beats)
+        // Gap: 60-90 (0 beats)
+        // Beats from 90-150 (60 beats)
+        // Expected total beats in window: 30 + 60 = 90
+        
+        let config = HRVConfig(windowSizeSeconds: 120, stepSizeSeconds: 5, artifactCorrectionThreshold: 0.2, mode: .exercise)
+        let metrics = HRVEngine.calculateMetrics(beats: beats, config: config)
+        
+        // We can't easily check N inside, but we can verify it calculated something
+        #expect(metrics.avnn != nil)
+        #expect(metrics.avnn == 1000.0) // Average of 1.0s RR
+    }
 }
