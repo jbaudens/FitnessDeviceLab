@@ -3,11 +3,25 @@ import SwiftUI
 public struct ActivityProfile: Identifiable, Codable, Hashable {
     public var id = UUID()
     public var name: String
+    public var iconName: String
+    public var colorName: String
     public var pages: [DataPage]
     
+    public var color: Color {
+        switch colorName.lowercased() {
+        case "blue": return .blue
+        case "purple": return .purple
+        case "green": return .green
+        case "orange": return .orange
+        case "red": return .red
+        default: return .blue
+        }
+    }
     
     public static let defaultProfile = ActivityProfile(
         name: "Cycling",
+        iconName: "bicycle",
+        colorName: "blue",
         pages: [
             // Page 1: General
             DataPage(fields: [
@@ -24,6 +38,8 @@ public struct ActivityProfile: Identifiable, Codable, Hashable {
     
     public static let dfaAnalysisProfile = ActivityProfile(
         name: "DFA Analysis",
+        iconName: "waveform.path.ecg",
+        colorName: "purple",
         pages: [
             DataPage(fields: [
                 .dfaAlpha1, .currentHR, .currentPower, .power3s,

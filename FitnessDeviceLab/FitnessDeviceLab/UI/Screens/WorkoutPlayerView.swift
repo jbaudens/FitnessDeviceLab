@@ -448,6 +448,11 @@ struct WorkoutPlayerContentView: View {
         VStack(spacing: 24) {
             setupHeader
             
+            ActivityProfileSelector(
+                selectedProfile: $viewModel.workoutManager.activeProfile,
+                profiles: ActivityProfile.availableProfiles
+            )
+            
             if let workout = viewModel.workoutManager.selectedWorkout {
                 selectedWorkoutCard(workout: workout)
             }
@@ -506,27 +511,9 @@ struct WorkoutPlayerContentView: View {
     
     private var setupHeader: some View {
         HStack {
-            VStack(alignment: .leading) {
-                Text("Workout Setup")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                Menu {
-                    Picker("Profile", selection: $viewModel.workoutManager.activeProfile) {
-                        ForEach(ActivityProfile.availableProfiles) { profile in
-                            Text(profile.name).tag(profile)
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(viewModel.workoutManager.activeProfile.name)
-                        Image(systemName: "chevron.up.down")
-                            .imageScale(.small)
-                    }
-                    .font(.subheadline)
-                    .foregroundColor(.blue)
-                }
-            }
+            Text("Workout Setup")
+                .font(.title2)
+                .fontWeight(.bold)
             Spacer()
             Button("Clear All") {
                 viewModel.clearAllSelections()
