@@ -351,7 +351,11 @@ public class DataFieldEngine {
         calculationTask?.cancel()
         
         let metricsSettings = settings.metricsSettings
-        let rrHistory = Array(trackpoints.flatMap { $0.rrIntervals }.suffix(600))
+        // Provide enough history for time-based windowing (e.g., last 300 trackpoints)
+        let relevantPoints = trackpoints.suffix(300)
+        let beats = relevantPoints.flatMap { pt in
+            pt.rrIntervals.map { rr in Beat(time: pt.time, rr: rr) }
+        }
         
         calculationTask = Task.detached(priority: .userInitiated) {
             if Task.isCancelled { return }
@@ -371,7 +375,7 @@ public class DataFieldEngine {
             }()
             
             // HRV
-            let newHRV = HRVEngine.calculateMetrics(rawRRIntervals: rrHistory)
+            let newHRV = HRVEngine.calculateMetrics(beats: beats)
             
             if Task.isCancelled { return }
             
