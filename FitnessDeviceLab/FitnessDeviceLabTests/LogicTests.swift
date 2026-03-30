@@ -90,4 +90,73 @@ struct LogicTests {
         #expect(metrics.avnn != nil)
         #expect(metrics.avnn == 1000.0) // Average of 1.0s RR
     }
+    
+    // MARK: - Edge Cases & Rollovers
+    
+    @Test func testSensorDataParserMalformedPackets() async throws {
+        // 1. Heart Rate - Missing RR interval bytes despite flag
+        let hrData = Data([0x10, 0x4B, 0xFF]) // 0x10 means RR present, but only 1 byte of RR is provided
+        let hrResult = SensorDataParser.parseHeartRate(data: hrData)
+        #expect(hrResult.hr == 75)
+        #expect(hrResult.rrIntervals.isEmpty == true) // Should gracefully fail to parse the truncated RR
+        
+        // 2. Power - Missing crank data despite flag
+        let pwrData = Data([0x20, 0x00, 0xC8, 0x00, 0x01, 0x00]) // 0x20 means Cadence present, but missing CrankTime bytes
+        let pwrResult = SensorDataParser.parseCyclingPower(data: pwrData, lastCrankRevs: 0, lastCrankTime: 0)
+        #expect(pwrResult.power == 200)
+        #expect(pwrResult.cadence == nil) // Should gracefully fail to parse cadence
+        
+        // 3. Indoor Bike - Missing bytes
+        let ibdData = Data([0x44, 0x00, 0x00, 0x00, 0xB4, 0x00, 0x2C]) // Missing high byte of Power
+        let ibdResult = SensorDataParser.parseIndoorBikeData(data: ibdData)
+        #expect(ibdResult.power == nil) // Should not crash
+        #expect(ibdResult.cadence == 90) // Cadence was parsed before the truncation
+    }
+    
+    @Test func testSensorDataParserRollovers() async throws {
+        // Test 16-bit integer rollover for Crank Revolutions and Time
+        // Max UInt16 is 65535
+        
+        let lastRevs = 65530
+        let lastTime = 65500
+        
+        // New values rolled over past zero
+        // Revs: 65530 -> 65535, 0, 1, 2, 3 (Delta = 9)
+        // Time: 65500 -> 65535, 0 ... 1000 (Delta = 1036) -> ~1 second
+        let currentRevs = 3
+        let currentTime = 1000
+        
+        // Flags: 0x0020 (Cadence present), Power: 200W
+        let data = Data([
+            0x20, 0x00, // Flags
+            0xC8, 0x00, // Power
+            UInt8(currentRevs & 0xFF), UInt8((currentRevs >> 8) & 0xFF), // Revs Low, High
+            UInt8(currentTime & 0xFF), UInt8((currentTime >> 8) & 0xFF)  // Time Low, High
+        ])
+        
+        let result = SensorDataParser.parseCyclingPower(data: data, lastCrankRevs: lastRevs, lastCrankTime: lastTime)
+        
+        #expect(result.power == 200)
+        #expect(result.crankRevs == 3)
+        #expect(result.crankTime == 1000)
+        
+        // RPM = (9 revs / (1036 / 1024 seconds)) * 60
+        // RPM = (9 / 1.0117) * 60 = 8.89 * 60 = 533.5 -> 534
+        #expect(result.cadence == 534) 
+    }
+    
+    @Test func testIndoorBikeDataNegativePowerArtifact() async throws {
+        // Some trainers send negative power during coasting due to SInt16 wrap bugs
+        // Ensure we filter it to 0 or nil
+        let flags: UInt16 = 0x0040 // Instantaneous Power present, Speed missing
+        let power: Int16 = -50 // 0xFFCE
+        
+        let data = Data([
+            UInt8(flags & 0xFF), UInt8((flags >> 8) & 0xFF),
+            UInt8(bitPattern: Int8(truncatingIfNeeded: power & 0xFF)), UInt8(bitPattern: Int8(truncatingIfNeeded: (power >> 8) & 0xFF))
+        ])
+        
+        let result = SensorDataParser.parseIndoorBikeData(data: data)
+        #expect(result.power == nil) // App ignores negative power artifacts
+    }
 }
