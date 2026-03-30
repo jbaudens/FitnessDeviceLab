@@ -1,7 +1,7 @@
 import Foundation
 
-public struct Trackpoint: Identifiable, Sendable {
-    public let id = UUID()
+public struct Trackpoint: Identifiable, Sendable, Codable {
+    public let id: UUID
     public let time: Date
     public let hr: Int?
     public let power: Int?
@@ -11,7 +11,8 @@ public struct Trackpoint: Identifiable, Sendable {
     public let dfaAlpha1: Double?
     public let rrIntervals: [Double]
 
-    public init(time: Date, hr: Int? = nil, power: Int? = nil, cadence: Int? = nil, altitude: Double? = nil, powerBalance: Double? = nil, dfaAlpha1: Double? = nil, rrIntervals: [Double] = []) {
+    public init(id: UUID = UUID(), time: Date, hr: Int? = nil, power: Int? = nil, cadence: Int? = nil, altitude: Double? = nil, powerBalance: Double? = nil, dfaAlpha1: Double? = nil, rrIntervals: [Double] = []) {
+        self.id = id
         self.time = time
         self.hr = hr
         self.power = power
@@ -23,8 +24,8 @@ public struct Trackpoint: Identifiable, Sendable {
     }
 }
 
-public struct Lap: Identifiable, Sendable {
-    public let id = UUID()
+public struct Lap: Identifiable, Sendable, Codable {
+    public let id: UUID
     public let index: Int
     public let startTime: Date
     public var endTime: Date?
@@ -35,7 +36,8 @@ public struct Lap: Identifiable, Sendable {
         return activeDuration
     }
 
-    public init(index: Int, startTime: Date, type: WorkoutStepType) {
+    public init(id: UUID = UUID(), index: Int, startTime: Date, type: WorkoutStepType) {
+        self.id = id
         self.index = index
         self.startTime = startTime
         self.type = type
