@@ -204,7 +204,7 @@ public class DataFieldEngine {
         self.slFTP = settings.userFTP / homeRatio
         self.localFTP = (self.slFTP ?? 0) * currentRatio
         
-        let totalWeight = settings.userWeight + 6.8
+        let totalWeight = settings.userWeight + Constants.Physics.defaultBikeWeight
         let speed = PhysicsUtilities.estimateSpeed(power: Double(point.power ?? 0), totalWeight: totalWeight)
         self.currentSpeed = speed
         
@@ -396,7 +396,7 @@ public class DataFieldEngine {
         let userFTP = settings.userFTP
         let userWeight = settings.userWeight
         let ftpAltitude = settings.ftpAltitude
-        let totalWeight = userWeight + 6.8
+        let totalWeight = userWeight + Constants.Physics.defaultBikeWeight
         
         let powerSamples = trackpoints.compactMap { $0.power }
         let hrSamples = trackpoints.compactMap { $0.hr }

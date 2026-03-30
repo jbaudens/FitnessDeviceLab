@@ -7,11 +7,11 @@ public struct PhysicsUtilities {
         guard power > 0 else { return 0 }
         
         // Constants for a typical road bike on flats
-        let frontalArea = 0.5 // m^2
-        let dragCoefficient = 0.63
-        let airDensity = 1.225 // kg/m^3
-        let rollingResistanceCoeff = 0.005
-        let gravity = 9.81
+        let frontalArea = Constants.Physics.frontalArea
+        let dragCoefficient = Constants.Physics.dragCoefficient
+        let airDensity = Constants.Physics.airDensity
+        let rollingResistanceCoeff = Constants.Physics.rollingResistanceCoeff
+        let gravity = Constants.Physics.gravity
         
         // P = (Rolling Resistance + Drag) * Speed
         // P = (Crr * m * g + 0.5 * Cd * A * rho * v^2) * v

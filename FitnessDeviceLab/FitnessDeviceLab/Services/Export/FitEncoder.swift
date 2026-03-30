@@ -34,7 +34,7 @@ class FitEncoder {
         let encoder = Encoder()
         let startTime = trackpoints.first!.time
         let endTime = trackpoints.last!.time
-        let totalWeight = userWeight + 6.8 // User + UCI limit bike
+        let totalWeight = userWeight + Constants.Physics.defaultBikeWeight // User + UCI limit bike
         
         // 1. File ID Message (Required first message)
         let fileId = FileIdMesg()

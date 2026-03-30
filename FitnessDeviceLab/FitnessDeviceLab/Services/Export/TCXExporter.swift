@@ -21,7 +21,7 @@ public class TCXExporter {
         let formatter = ISO8601DateFormatter()
         let startTimeStr = formatter.string(from: trackpoints.first!.time)
         let totalTime = trackpoints.last!.time.timeIntervalSince(trackpoints.first!.time)
-        let totalWeight = userWeight + 6.8 // Bike weight offset
+        let totalWeight = userWeight + Constants.Physics.defaultBikeWeight // Bike weight offset
         
         var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
         xml += "<TrainingCenterDatabase xmlns=\"http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2\" xmlns:ns3=\"http://www.garmin.com/xmlschemas/ActivityExtension/v2\">\n"
