@@ -26,7 +26,7 @@ nonisolated public struct SensorDataParser {
         if rrPresent {
             while offset + 1 < data.count {
                 let rrValue = Int(data[offset]) | (Int(data[offset+1]) << 8)
-                let rrInSeconds = Double(rrValue) / 1024.0
+                let rrInSeconds = Double(rrValue) / Constants.BLE.bleTimeResolution
                 rrIntervals.append(rrInSeconds)
                 offset += 2
             }
@@ -75,7 +75,7 @@ nonisolated public struct SensorDataParser {
                 if timeDiff < 0 { timeDiff += 65536 }
                 
                 if timeDiff > 0 && revDiff > 0 {
-                    let rpm = (Double(revDiff) / (Double(timeDiff) / 1024.0)) * 60.0
+                    let rpm = (Double(revDiff) / (Double(timeDiff) / Constants.BLE.bleTimeResolution)) * 60.0
                     cadence = Int(round(rpm))
                 } else if timeDiff > 2048 { // More than 2 seconds since last event
                     cadence = 0 // Actually stopped
@@ -167,7 +167,7 @@ nonisolated public struct SensorDataParser {
                 if timeDiff < 0 { timeDiff += 65536 }
                 
                 if timeDiff > 0 && revDiff > 0 {
-                    let rpm = (Double(revDiff) / (Double(timeDiff) / 1024.0)) * 60.0
+                    let rpm = (Double(revDiff) / (Double(timeDiff) / Constants.BLE.bleTimeResolution)) * 60.0
                     cadence = Int(round(rpm))
                 } else if timeDiff > 2048 {
                     cadence = 0

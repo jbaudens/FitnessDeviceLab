@@ -89,9 +89,8 @@ public class SessionRecorder {
             try fitData.write(to: fileURL, options: .atomic)
             files.append(fileURL)
         } catch {
-            print("Fit encoding failed: \(error)")
-            // We still want TCX if FIT failed, or we can rethrow
-            if files.isEmpty { throw error }
+            // Route the FIT error through the AppError system instead of swallowing it
+            throw AppError.export(.failedToGenerate("FIT Encoding Error: \(error.localizedDescription)"))
         }
 
         return files

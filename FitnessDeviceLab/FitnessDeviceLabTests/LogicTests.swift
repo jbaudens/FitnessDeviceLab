@@ -7,12 +7,12 @@ struct LogicTests {
     @Test func testHeartRateParsing() async throws {
         // Flag 0x10 means RR intervals present, 0x01 means UInt16 HR
         // Data: [Flags, HR_Low, HR_High, RR_Low, RR_High]
-        let data = Data([0x10, 0x4B, 0xFF, 0x03]) // 75 bpm, 1 RR interval (1023 / 1024.0)
+        let data = Data([0x10, 0x4B, 0xFF, 0x03]) // 75 bpm, 1 RR interval (1023 / Constants.BLE.bleTimeResolution)
         let result = SensorDataParser.parseHeartRate(data: data)
         
         #expect(result.hr == 75)
         #expect(result.rrIntervals.count == 1)
-        #expect(abs(result.rrIntervals[0] - (1023.0 / 1024.0)) < 0.001)
+        #expect(abs(result.rrIntervals[0] - (1023.0 / Constants.BLE.bleTimeResolution)) < 0.001)
     }
     
     @Test func testCyclingPowerParsing() async throws {
