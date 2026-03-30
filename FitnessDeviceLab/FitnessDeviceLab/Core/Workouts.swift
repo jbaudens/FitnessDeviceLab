@@ -50,7 +50,8 @@ public struct DefaultWorkouts {
         gabriel,
         antelopePlus2,
         hrTest,
-        vt1vt2Ramp
+        vt1vt2Ramp,
+        vt1Ramp
     ]
     
     // MARK: - Test Workouts
@@ -517,6 +518,26 @@ public struct DefaultWorkouts {
             // 15 steps of 6 minutes each, increasing by 5% (~10-15W)
             // Starting from 40% up to 110%
             for i in 0..<15 {
+                let intensity = 0.40 + (Double(i) * 0.05)
+                s.append(WorkoutStep(duration: 360, targetPowerPercent: intensity, type: .work))
+            }
+            
+            s.append(WorkoutStep(duration: 300, targetPowerPercent: 0.40, type: .cooldown))
+            return s
+        }()
+    )
+
+    private static let vt1Ramp = StructuredWorkout(
+        name: "DFA a1 VT1 Ramp",
+        description: "A granular ramp focusing on the VT1 range (a1 ~ 0.75). 10m warmup, then 5% FTP steps every 6 minutes from 40% to 85%.",
+        steps: {
+            var s: [WorkoutStep] = []
+            // 10 min warmup at 50%
+            s.append(WorkoutStep(duration: 600, targetPowerPercent: 0.50, type: .warmup))
+            
+            // 10 steps of 6 minutes each, increasing by 5%
+            // Starting from 40% up to 85%
+            for i in 0..<10 {
                 let intensity = 0.40 + (Double(i) * 0.05)
                 s.append(WorkoutStep(duration: 360, targetPowerPercent: intensity, type: .work))
             }
