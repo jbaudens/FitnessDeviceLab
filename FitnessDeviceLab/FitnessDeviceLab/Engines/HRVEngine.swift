@@ -46,9 +46,20 @@ nonisolated public struct HRVMetrics {
 public struct HRVEngine {
     
     nonisolated public static func calculateMetrics(rawRRIntervals: [Double], config: HRVConfig = .hrvLoggerExercise) -> HRVMetrics {
-        // Artifact removal & filtering
+        // 1. Time-based windowing
+        // We expect rawRRIntervals to potentially be longer than the window.
+        // We sum from the end until we reach windowSizeSeconds.
+        var windowedRR: [Double] = []
+        var totalTime: Double = 0
+        for rr in rawRRIntervals.reversed() {
+            totalTime += rr
+            windowedRR.insert(rr, at: 0)
+            if totalTime >= Double(config.windowSizeSeconds) { break }
+        }
+        
+        // 2. Artifact removal & filtering on the windowed data
         var filteredRR: [Double] = []
-        for rr in rawRRIntervals {
+        for rr in windowedRR {
             if rr < 0.3 || rr > 2.0 { continue }
             if let last = filteredRR.last {
                 let diff = abs(rr - last) / last
@@ -58,7 +69,8 @@ public struct HRVEngine {
         }
         
         let N = filteredRR.count
-        let minIntervals = config.mode == .resting ? 150 : 60
+        // For DFA a1 we need a decent number of points even in exercise
+        let minIntervals = config.mode == .resting ? 150 : 50
         guard N >= minIntervals else { return HRVMetrics() }
         
         // 1. Time Domain

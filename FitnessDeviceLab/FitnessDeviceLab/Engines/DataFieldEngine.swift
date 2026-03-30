@@ -351,7 +351,8 @@ public class DataFieldEngine {
         calculationTask?.cancel()
         
         let metricsSettings = settings.metricsSettings
-        let rrHistory = Array(trackpoints.flatMap { $0.rrIntervals }.suffix(600))
+        // Provide enough history for time-based windowing (e.g., 1200 intervals)
+        let rrHistory = Array(trackpoints.flatMap { $0.rrIntervals }.suffix(1200))
         
         calculationTask = Task.detached(priority: .userInitiated) {
             if Task.isCancelled { return }
