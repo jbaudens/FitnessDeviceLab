@@ -2,6 +2,8 @@ import SwiftUI
 
 struct WorkoutLibraryView: View {
     @State private var viewModel: LibraryViewModel
+    @State private var editingWorkout: StructuredWorkout? = nil
+    @State private var showingNewWorkoutEditor = false
     
     init(repository: WorkoutRepository, workoutManager: WorkoutSessionManager, settings: SettingsManager) {
         _viewModel = State(initialValue: LibraryViewModel(repository: repository, workoutManager: workoutManager, settings: settings))
@@ -78,6 +80,19 @@ struct WorkoutLibraryView: View {
                                         }
                                     )) {
                                         WorkoutRowView(workout: workout, userFTP: vm.settings.userFTP)
+                                            .contextMenu {
+                                                Button {
+                                                    editingWorkout = workout
+                                                } label: {
+                                                    Label("Edit", systemImage: "pencil")
+                                                }
+                                                
+                                                Button(role: .destructive) {
+                                                    vm.deleteWorkout(workout)
+                                                } label: {
+                                                    Label("Delete", systemImage: "trash")
+                                                }
+                                            }
                                     }
                                 }
                             }
@@ -90,16 +105,30 @@ struct WorkoutLibraryView: View {
             .hideNavigationBarOnMobile()
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Picker("Sort By", selection: $vm.sortOrder) {
-                            ForEach(LibraryViewModel.SortOrder.allCases) { order in
-                                Text("Sort by \(order.rawValue)").tag(order)
-                            }
+                    HStack {
+                        Button {
+                            showingNewWorkoutEditor = true
+                        } label: {
+                            Image(systemName: "plus")
                         }
-                    } label: {
-                        Label("Sort", systemImage: "arrow.up.arrow.down")
+                        
+                        Menu {
+                            Picker("Sort By", selection: $vm.sortOrder) {
+                                ForEach(LibraryViewModel.SortOrder.allCases) { order in
+                                    Text("Sort by \(order.rawValue)").tag(order)
+                                }
+                            }
+                        } label: {
+                            Label("Sort", systemImage: "arrow.up.arrow.down")
+                        }
                     }
                 }
+            }
+            .sheet(isPresented: $showingNewWorkoutEditor) {
+                WorkoutEditorView(viewModel: WorkoutEditorViewModel())
+            }
+            .sheet(item: $editingWorkout) { workout in
+                WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout))
             }
         }
     }

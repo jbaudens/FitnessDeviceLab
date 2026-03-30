@@ -71,4 +71,8 @@ public class LibraryViewModel {
     public func selectWorkout(_ workout: StructuredWorkout) {
         workoutManager.selectedWorkout = workout
     }
+    
+    public func deleteWorkout(_ workout: StructuredWorkout) {
+        repository.delete(workout)
+    }
 }
