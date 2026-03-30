@@ -7,18 +7,17 @@ struct InteractionCockpit: View {
     private var isRegular: Bool { horizontalSizeClass == .regular }
     
     var body: some View {
-        VStack(spacing: isRegular ? 24 : 12) {
+        VStack(spacing: 8) {
             if workoutManager.selectedWorkout == nil {
                 // Free Ride Controls
-                VStack(spacing: isRegular ? 24 : 12) {
+                VStack(spacing: 8) {
                     Picker("Mode", selection: $workoutManager.freeRideControlMode) {
                         ForEach(WorkoutSessionManager.FreeRideControlMode.allCases) { mode in
                             Text(mode.rawValue).tag(mode)
                         }
                     }
                     .pickerStyle(.segmented)
-                    .scaleEffect(isRegular ? 1.2 : 1.0)
-                    .padding(.vertical, isRegular ? 8 : 0)
+                    .scaleEffect(isRegular ? 1.0 : 1.0)
                     
                     adjustmentRow(
                         value: currentValueString,
@@ -28,15 +27,14 @@ struct InteractionCockpit: View {
                 }
             } else {
                 // Structured Workout Controls
-                VStack(spacing: isRegular ? 24 : 12) {
+                VStack(spacing: 8) {
                     Picker("Mode", selection: $workoutManager.ergModeEnabled) {
                         Text("Resistance").tag(false)
                         Text("ERG Mode").tag(true)
                     }
                     .pickerStyle(.segmented)
                     .disabled(!workoutManager.canEnableErgMode)
-                    .scaleEffect(isRegular ? 1.2 : 1.0)
-                    .padding(.vertical, isRegular ? 8 : 0)
+                    .scaleEffect(isRegular ? 1.0 : 1.0)
                     
                     adjustmentRow(
                         value: workoutManager.ergModeEnabled ? "\(Int(round(workoutManager.workoutDifficultyScale * 100)))%" : "\(Int(workoutManager.resistanceLevel))%",
@@ -46,7 +44,7 @@ struct InteractionCockpit: View {
                 }
             }
         }
-        .padding(isRegular ? 24 : 12)
+        .padding(12)
         .background(Color.secondary.opacity(0.1))
         .cornerRadius(16)
         .foregroundColor(.blue)
@@ -54,18 +52,18 @@ struct InteractionCockpit: View {
     
     @ViewBuilder
     private func adjustmentRow(value: String, label: String, coarseAmount: Int) -> some View {
-        let buttonSize: CGFloat = isRegular ? 100 : 60
-        let fineIconSize: CGFloat = isRegular ? 64 : 44
-        let coarseIconSize: CGFloat = isRegular ? 36 : 24
+        let buttonSize: CGFloat = isRegular ? 60 : 60
+        let fineIconSize: CGFloat = isRegular ? 44 : 44
+        let coarseIconSize: CGFloat = isRegular ? 24 : 24
         
         HStack(spacing: 0) {
             // Coarse Decrease (Subdued & Shielded)
             Button(action: { workoutManager.adjustManualTarget(amount: -coarseAmount) }) {
-                VStack(spacing: 4) {
+                VStack(spacing: 2) {
                     Image(systemName: "minus.square.fill")
                         .font(.system(size: coarseIconSize))
                     Text("-\(coarseAmount)")
-                        .font(.system(size: isRegular ? 14 : 10, weight: .black))
+                        .font(.system(size: 8, weight: .black))
                 }
                 .foregroundColor(.secondary.opacity(0.6))
                 .frame(width: buttonSize, height: buttonSize)
@@ -75,7 +73,7 @@ struct InteractionCockpit: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("coarse_decrease")
             
-            Spacer().frame(width: isRegular ? 24 : 12) // Safety Gutter
+            Spacer().frame(width: 12) // Safety Gutter
             
             // Fine Decrease (Prominent & Central)
             Button(action: { workoutManager.adjustManualTarget(amount: -1) }) {
@@ -92,13 +90,13 @@ struct InteractionCockpit: View {
             // Center Value Hero
             VStack(spacing: 0) {
                 Text(value)
-                    .font(.system(size: isRegular ? 44 : 28, weight: .bold, design: .monospaced))
+                    .font(.system(size: 28, weight: .bold, design: .monospaced))
                     .foregroundColor(.primary)
                 Text(label)
-                    .font(.system(size: isRegular ? 14 : 10, weight: .black))
+                    .font(.system(size: 10, weight: .black))
                     .foregroundColor(.secondary)
             }
-            .frame(minWidth: isRegular ? 120 : 80)
+            .frame(minWidth: 80)
             
             Spacer()
             
@@ -112,15 +110,15 @@ struct InteractionCockpit: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("fine_increase")
             
-            Spacer().frame(width: isRegular ? 24 : 12) // Safety Gutter
+            Spacer().frame(width: 12) // Safety Gutter
             
             // Coarse Increase (Subdued & Shielded)
             Button(action: { workoutManager.adjustManualTarget(amount: coarseAmount) }) {
-                VStack(spacing: 4) {
+                VStack(spacing: 2) {
                     Image(systemName: "plus.square.fill")
                         .font(.system(size: coarseIconSize))
                     Text("+\(coarseAmount)")
-                        .font(.system(size: isRegular ? 14 : 10, weight: .black))
+                        .font(.system(size: 8, weight: .black))
                 }
                 .foregroundColor(.secondary.opacity(0.6))
                 .frame(width: buttonSize, height: buttonSize)
