@@ -33,6 +33,7 @@ class MockTrainer: NSObject, SensorPeripheral, ResistanceControllable {
     let id = UUID()
     let name = "Mock Trainer"
     var isConnected = true
+    var expectedDisconnect = false
     var manufacturerName: String? = "Mock"
     var modelNumber: String? = "Mock-1"
     var capabilities: Set<DeviceCapability> = [.cyclingPower, .fitnessMachine]
