@@ -30,6 +30,7 @@ public class DiscoveredPeripheral: NSObject, Identifiable, SensorPeripheral {
     public var name: String
     public var rssi: NSNumber
     public var isConnected: Bool = false
+    public var expectedDisconnect: Bool = false
     
     // Static Data
     public var manufacturerName: String?
@@ -125,106 +126,100 @@ extension DiscoveredPeripheral: CBPeripheralDelegate {
         ])
     }
     
-    nonisolated public func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
+    public func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         guard let services = peripheral.services else { return }
-        Task { @MainActor in
-            for service in services {
-                if service.uuid == Self.heartRateServiceUUID { self.capabilities.insert(.heartRate) }
-                if service.uuid == Self.cyclingPowerServiceUUID { self.capabilities.insert(.cyclingPower) }
-                if service.uuid == Self.fitnessMachineServiceUUID { self.capabilities.insert(.fitnessMachine) }
-                if service.uuid == Self.cscServiceUUID { self.capabilities.insert(.cadence) }
-                
-                switch service.uuid {
-                case Self.heartRateServiceUUID:
-                    peripheral.discoverCharacteristics([Self.heartRateMeasurementUUID], for: service)
-                case Self.cyclingPowerServiceUUID:
-                    peripheral.discoverCharacteristics([Self.cyclingPowerMeasurementUUID], for: service)
-                case Self.fitnessMachineServiceUUID:
-                    peripheral.discoverCharacteristics([
-                        Self.indoorBikeDataUUID,
-                        Self.fitnessMachineControlPointUUID,
-                        Self.fitnessMachineFeatureUUID,
-                        Self.fitnessMachineStatusUUID,
-                        Self.supportedResistanceLevelRangeUUID
-                    ], for: service)
-                case Self.cscServiceUUID:
-                    peripheral.discoverCharacteristics([Self.cscMeasurementUUID], for: service)
-                case Self.deviceInfoServiceUUID:
-                    peripheral.discoverCharacteristics([Self.manufacturerNameUUID, Self.modelNumberUUID, Self.firmwareRevisionUUID], for: service)
-                case Self.batteryServiceUUID:
-                    peripheral.discoverCharacteristics([Self.batteryLevelUUID], for: service)
-                default:
-                    break
-                }
-            }
-        }
-    }
-    
-    nonisolated public func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
-        guard let characteristics = service.characteristics else { return }
-        Task { @MainActor in
-            for characteristic in characteristics {
-                if characteristic.uuid == Self.fitnessMachineControlPointUUID {
-                    self.controlPointCharacteristic = characteristic
-                    peripheral.setNotifyValue(true, for: characteristic)
-                }
-                
-                if characteristic.properties.contains(.read) {
-                    peripheral.readValue(for: characteristic)
-                }
-                if characteristic.properties.contains(.notify) {
-                    peripheral.setNotifyValue(true, for: characteristic)
-                }
-            }
-        }
-    }
-    
-    nonisolated public func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        guard let data = characteristic.value else { return }
-        
-        Task { @MainActor in
-            self.rawDataHex = data.map { String(format: "%02hhx", $0) }.joined(separator: " ")
+        for service in services {
+            if service.uuid == Self.heartRateServiceUUID { self.capabilities.insert(.heartRate) }
+            if service.uuid == Self.cyclingPowerServiceUUID { self.capabilities.insert(.cyclingPower) }
+            if service.uuid == Self.fitnessMachineServiceUUID { self.capabilities.insert(.fitnessMachine) }
+            if service.uuid == Self.cscServiceUUID { self.capabilities.insert(.cadence) }
             
-            switch characteristic.uuid {
-            case Self.fitnessMachineFeatureUUID:
-                self.parseFTMSFeatures(data: data)
-            case Self.supportedResistanceLevelRangeUUID:
-                self.parseResistanceRange(data: data)
-            case Self.heartRateMeasurementUUID:
-                let result = SensorDataParser.parseHeartRate(data: data)
-                self.heartRate = result.hr
-                if !result.rrIntervals.isEmpty {
-                    self.latestRRIntervals = result.rrIntervals
-                }
-            case Self.cyclingPowerMeasurementUUID:
-                let result = SensorDataParser.parseCyclingPower(data: data, lastCrankRevs: self.lastCrankRevs, lastCrankTime: self.lastCrankTime)
-                if let power = result.power { self.cyclingPower = power }
-                if let cadence = result.cadence { self.cadence = cadence }
-                if let balance = result.balance { self.powerBalance = balance }
-                self.lastCrankRevs = result.crankRevs
-                self.lastCrankTime = result.crankTime
-            case Self.cscMeasurementUUID:
-                let result = SensorDataParser.parseCSC(data: data, lastCrankRevs: self.lastCSCRevs, lastCrankTime: self.lastCSCTime)
-                if let cadence = result.cadence { self.cadence = cadence }
-                self.lastCSCRevs = result.crankRevs
-                self.lastCSCTime = result.crankTime
-            case Self.indoorBikeDataUUID:
-                let result = SensorDataParser.parseIndoorBikeData(data: data)
-                if let power = result.power { self.cyclingPower = power }
-                if let cadence = result.cadence { self.cadence = cadence }
-            case Self.fitnessMachineControlPointUUID:
-                self.handleControlPointResponse(data: data)
-            case Self.manufacturerNameUUID:
-                self.manufacturerName = String(data: data, encoding: .utf8)
-            case Self.modelNumberUUID:
-                self.modelNumber = String(data: data, encoding: .utf8)
-            case Self.firmwareRevisionUUID:
-                self.firmwareRevision = String(data: data, encoding: .utf8)
-            case Self.batteryLevelUUID:
-                self.batteryLevel = Int(data[0])
+            switch service.uuid {
+            case Self.heartRateServiceUUID:
+                peripheral.discoverCharacteristics([Self.heartRateMeasurementUUID], for: service)
+            case Self.cyclingPowerServiceUUID:
+                peripheral.discoverCharacteristics([Self.cyclingPowerMeasurementUUID], for: service)
+            case Self.fitnessMachineServiceUUID:
+                peripheral.discoverCharacteristics([
+                    Self.indoorBikeDataUUID,
+                    Self.fitnessMachineControlPointUUID,
+                    Self.fitnessMachineFeatureUUID,
+                    Self.fitnessMachineStatusUUID,
+                    Self.supportedResistanceLevelRangeUUID
+                ], for: service)
+            case Self.cscServiceUUID:
+                peripheral.discoverCharacteristics([Self.cscMeasurementUUID], for: service)
+            case Self.deviceInfoServiceUUID:
+                peripheral.discoverCharacteristics([Self.manufacturerNameUUID, Self.modelNumberUUID, Self.firmwareRevisionUUID], for: service)
+            case Self.batteryServiceUUID:
+                peripheral.discoverCharacteristics([Self.batteryLevelUUID], for: service)
             default:
                 break
             }
+        }
+    }
+    
+    public func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+        guard let characteristics = service.characteristics else { return }
+        for characteristic in characteristics {
+            if characteristic.uuid == Self.fitnessMachineControlPointUUID {
+                self.controlPointCharacteristic = characteristic
+                peripheral.setNotifyValue(true, for: characteristic)
+            }
+            
+            if characteristic.properties.contains(.read) {
+                peripheral.readValue(for: characteristic)
+            }
+            if characteristic.properties.contains(.notify) {
+                peripheral.setNotifyValue(true, for: characteristic)
+            }
+        }
+    }
+    
+    public func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+        guard let data = characteristic.value else { return }
+        
+        self.rawDataHex = data.map { String(format: "%02hhx", $0) }.joined(separator: " ")
+        
+        switch characteristic.uuid {
+        case Self.fitnessMachineFeatureUUID:
+            self.parseFTMSFeatures(data: data)
+        case Self.supportedResistanceLevelRangeUUID:
+            self.parseResistanceRange(data: data)
+        case Self.heartRateMeasurementUUID:
+            let result = SensorDataParser.parseHeartRate(data: data)
+            self.heartRate = result.hr
+            if !result.rrIntervals.isEmpty {
+                self.latestRRIntervals = result.rrIntervals
+            }
+        case Self.cyclingPowerMeasurementUUID:
+            let result = SensorDataParser.parseCyclingPower(data: data, lastCrankRevs: self.lastCrankRevs, lastCrankTime: self.lastCrankTime)
+            if let power = result.power { self.cyclingPower = power }
+            if let cadence = result.cadence { self.cadence = cadence }
+            if let balance = result.balance { self.powerBalance = balance }
+            self.lastCrankRevs = result.crankRevs
+            self.lastCrankTime = result.crankTime
+        case Self.cscMeasurementUUID:
+            let result = SensorDataParser.parseCSC(data: data, lastCrankRevs: self.lastCSCRevs, lastCrankTime: self.lastCSCTime)
+            if let cadence = result.cadence { self.cadence = cadence }
+            self.lastCSCRevs = result.crankRevs
+            self.lastCSCTime = result.crankTime
+        case Self.indoorBikeDataUUID:
+            let result = SensorDataParser.parseIndoorBikeData(data: data)
+            if let power = result.power { self.cyclingPower = power }
+            if let cadence = result.cadence { self.cadence = cadence }
+        case Self.fitnessMachineControlPointUUID:
+            self.handleControlPointResponse(data: data)
+        case Self.manufacturerNameUUID:
+            self.manufacturerName = String(data: data, encoding: .utf8)
+        case Self.modelNumberUUID:
+            self.modelNumber = String(data: data, encoding: .utf8)
+        case Self.firmwareRevisionUUID:
+            self.firmwareRevision = String(data: data, encoding: .utf8)
+        case Self.batteryLevelUUID:
+            self.batteryLevel = Int(data[0])
+        default:
+            break
         }
     }
     

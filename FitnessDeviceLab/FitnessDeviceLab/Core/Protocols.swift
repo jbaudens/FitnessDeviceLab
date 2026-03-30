@@ -46,6 +46,7 @@ public protocol SensorPeripheral: AnyObject, Observation.Observable {
     var id: UUID { get }
     var name: String { get }
     var isConnected: Bool { get }
+    var expectedDisconnect: Bool { get set }
     
     var manufacturerName: String? { get }
     var modelNumber: String? { get }

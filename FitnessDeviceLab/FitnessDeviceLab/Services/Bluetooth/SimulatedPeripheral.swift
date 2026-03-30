@@ -6,6 +6,7 @@ public class SimulatedPeripheral: NSObject, SensorPeripheral, HeartRateProviding
     public let id: UUID
     public let name: String
     public var isConnected: Bool = false
+    public var expectedDisconnect: Bool = false
     
     public var manufacturerName: String? = "FitnessDeviceLab"
     public var modelNumber: String? = "Digital Twin v1"
