@@ -53,16 +53,13 @@ public class LibraryViewModel {
         // Metric Filter
         if let filter = selectedMetricFilter {
             workouts = workouts.filter { workout in
-                let hasPower = workout.steps.contains { $0.targetPowerPercent != nil }
-                let hasHR = workout.steps.contains { $0.targetHeartRatePercent != nil }
-                
                 switch filter {
                 case .power:
-                    return hasPower && !hasHR
+                    return workout.hasPower && !workout.hasHR
                 case .heartRate:
-                    return hasHR && !hasPower
+                    return workout.hasHR && !workout.hasPower
                 case .hybrid:
-                    return hasPower && hasHR
+                    return workout.isHybrid
                 }
             }
         }

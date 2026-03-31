@@ -391,10 +391,7 @@ struct WorkoutRowView: View {
                         Text("IF \(String(format: "%.2f", workout.intensityFactor))")
                         Text("•")
                         
-                        let hasPower = workout.steps.contains { $0.targetPowerPercent != nil }
-                        let hasHR = workout.steps.contains { $0.targetHeartRatePercent != nil }
-                        
-                        if hasPower && hasHR {
+                        if workout.isHybrid {
                             HStack(spacing: 4) {
                                 Image(systemName: "bolt.fill").foregroundColor(.yellow)
                                 Image(systemName: "heart.fill").foregroundColor(.red)

@@ -121,6 +121,18 @@ public struct StructuredWorkout: Identifiable, Codable, Hashable, Sendable {
         case power = "Power"
         case heartRate = "Heart Rate"
     }
+
+    public var hasPower: Bool {
+        steps.contains { $0.targetPowerPercent != nil }
+    }
+    
+    public var hasHR: Bool {
+        steps.contains { $0.targetHeartRatePercent != nil }
+    }
+    
+    public var isHybrid: Bool {
+        hasPower && hasHR
+    }
     
     public var primaryMetric: WorkoutMetric {
         let hrSteps = steps.filter { $0.targetHeartRatePercent != nil }.count
