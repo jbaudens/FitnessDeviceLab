@@ -14,29 +14,13 @@ struct WorkoutTimelineCanvas: View {
     @State private var isTargeted = false
     
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal, showsIndicators: true) {
             ZStack(alignment: .topLeading) {
                 // The Grid Background (Captures the Lasso Gesture)
                 TimelineGrid()
                     .frame(minWidth: max(400, totalWidth), minHeight: 140)
                     .contentShape(Rectangle())
-                    .simultaneousGesture(
-                        DragGesture(minimumDistance: 20)
-                            .onChanged { value in
-                                let start = value.startLocation
-                                let current = value.location
-                                lassoRect = CGRect(
-                                    x: min(start.x, current.x),
-                                    y: min(start.y, current.y),
-                                    width: abs(current.x - start.x),
-                                    height: abs(current.y - start.y)
-                                )
-                                updateSelection()
-                            }
-                            .onEnded { _ in
-                                lassoRect = nil
-                            }
-                    )
+                    .gesture(selectionGesture)
                 
                 HStack(alignment: .bottom, spacing: 0) {
                     if steps.isEmpty {
@@ -164,6 +148,36 @@ struct WorkoutTimelineCanvas: View {
             }
             insertionIndex = nil
         }
+    }
+    
+    private var selectionGesture: some Gesture {
+        LongPressGesture(minimumDuration: 0.5)
+            .onEnded { _ in
+                #if os(iOS)
+                UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                #endif
+            }
+            .sequenced(before: DragGesture(minimumDistance: 0))
+            .onChanged { value in
+                switch value {
+                case .second(true, let drag):
+                    guard let drag = drag else { return }
+                    let start = drag.startLocation
+                    let current = drag.location
+                    lassoRect = CGRect(
+                        x: min(start.x, current.x),
+                        y: min(start.y, current.y),
+                        width: abs(current.x - start.x),
+                        height: abs(current.y - start.y)
+                    )
+                    updateSelection()
+                default:
+                    break
+                }
+            }
+            .onEnded { _ in
+                lassoRect = nil
+            }
     }
 }
 
