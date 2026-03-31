@@ -2,12 +2,24 @@ import SwiftUI
 
 struct StepInspector: View {
     @Binding var step: WorkoutStep?
+    var selectedIDs: Set<UUID> = []
     var onDuplicate: () -> Void
     var onDelete: () -> Void
+    var onDuplicateGroup: () -> Void = {}
+    var onDeleteGroup: () -> Void = {}
     
     var body: some View {
         VStack(spacing: 0) {
-            if let step = Binding($step) {
+            if selectedIDs.count > 1 {
+                GroupActionsView(
+                    count: selectedIDs.count,
+                    onDuplicate: onDuplicateGroup,
+                    onDelete: onDeleteGroup
+                )
+                .padding(16)
+                .background(Color(uiColor: .secondarySystemBackground))
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else if let step = Binding($step) {
                 VStack(alignment: .leading, spacing: 12) {
                     // Header with Actions
                     HStack {
@@ -145,7 +157,8 @@ struct StepInspector: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(.spring(), value: step?.id)
+        .animation(.spring(), value: step?.id ?? UUID())
+        .animation(.spring(), value: selectedIDs.count)
     }
     
     // MARK: - Bindings
@@ -200,13 +213,49 @@ struct StepInspector: View {
     }
 }
 
+struct GroupActionsView: View {
+    let count: Int
+    var onDuplicate: () -> Void
+    var onDelete: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 20) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("GROUP ACTIONS")
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(.secondary)
+                Text("\(count) items selected")
+                    .font(.caption)
+                    .fontWeight(.bold)
+            }
+            
+            Spacer()
+            
+            Button(action: onDuplicate) {
+                Label("DUPLICATE SET", systemImage: "plus.square.on.square.fill")
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            
+            Button(role: .destructive, action: onDelete) {
+                Label("DELETE GROUP", systemImage: "trash.fill")
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+        }
+    }
+}
+
 #Preview {
     VStack {
         Spacer()
         StepInspector(
             step: .constant(WorkoutStep(duration: 300, targetPowerPercent: 0.7)),
+            selectedIDs: [UUID()],
             onDuplicate: {},
-            onDelete: {}
+            onDelete: {},
+            onDuplicateGroup: {},
+            onDeleteGroup: {}
         )
     }
 }

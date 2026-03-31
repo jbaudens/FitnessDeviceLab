@@ -4,29 +4,73 @@ import UniformTypeIdentifiers
 struct WorkoutTimelineCanvas: View {
     @Binding var steps: [WorkoutStep]
     @Binding var selectedStepID: UUID?
+    @Binding var selectedStepIDs: Set<UUID>
+    
+    @State private var lassoRect: CGRect?
+    @State private var stepFrames: [UUID: CGRect] = [:]
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .bottom, spacing: 4) {
-                if steps.isEmpty {
-                    EmptyTimelinePlaceholder()
-                } else {
-                    ForEach(steps) { step in
-                        WorkoutStepBlock(step: step, isSelected: selectedStepID == step.id)
-                            .onTapGesture {
-                                selectedStepID = step.id
-                            }
-                            .draggable(TransferableWorkoutStep(step: step))
-                            .dropDestination(for: TransferableWorkoutStep.self) { items, location in
-                                handleReorder(item: items.first?.step, targetStep: step)
-                                return true
-                            }
+            ZStack(alignment: .topLeading) {
+                HStack(alignment: .bottom, spacing: 4) {
+                    if steps.isEmpty {
+                        EmptyTimelinePlaceholder()
+                    } else {
+                        ForEach(steps) { step in
+                            WorkoutStepBlock(step: step, isSelected: selectedStepIDs.contains(step.id))
+                                .background(
+                                    GeometryReader { geo in
+                                        Color.clear.preference(
+                                            key: StepFramePreferenceKey.self,
+                                            value: [step.id: geo.frame(in: .named("TimelineCanvas"))]
+                                        )
+                                    }
+                                )
+                                .onTapGesture {
+                                    selectedStepID = step.id
+                                    selectedStepIDs = [step.id]
+                                }
+                                .draggable(TransferableWorkoutStep(step: step))
+                                .dropDestination(for: TransferableWorkoutStep.self) { items, location in
+                                    handleReorder(item: items.first?.step, targetStep: step)
+                                    return true
+                                }
+                        }
                     }
                 }
+                .padding(.horizontal)
+                .frame(minWidth: 400, minHeight: 120)
+                .background(TimelineGrid())
+                .onPreferenceChange(StepFramePreferenceKey.self) { frames in
+                    self.stepFrames = frames
+                }
+                
+                if let rect = lassoRect {
+                    Rectangle()
+                        .stroke(Color.blue, style: StrokeStyle(lineWidth: 1, dash: [4]))
+                        .background(Color.blue.opacity(0.1))
+                        .frame(width: rect.width, height: rect.height)
+                        .offset(x: rect.origin.x, y: rect.origin.y)
+                }
             }
-            .padding(.horizontal)
-            .frame(minWidth: 400, minHeight: 120)
-            .background(TimelineGrid())
+            .coordinateSpace(name: "TimelineCanvas")
+            .gesture(
+                DragGesture(minimumDistance: 10)
+                    .onChanged { value in
+                        let start = value.startLocation
+                        let current = value.location
+                        lassoRect = CGRect(
+                            x: min(start.x, current.x),
+                            y: min(start.y, current.y),
+                            width: abs(current.x - start.x),
+                            height: abs(current.y - start.y)
+                        )
+                        updateSelection()
+                    }
+                    .onEnded { _ in
+                        lassoRect = nil
+                    }
+            )
         }
         .dropDestination(for: TransferableWorkoutStep.self) { items, location in
             if let tStep = items.first, !steps.contains(where: { $0.id == tStep.step.id }) {
@@ -34,6 +78,19 @@ struct WorkoutTimelineCanvas: View {
                 return true
             }
             return false
+        }
+    }
+    
+    private func updateSelection() {
+        guard let lasso = lassoRect else { return }
+        let selected = stepFrames.filter { $1.intersects(lasso) }.map { $0.key }
+        if !selected.isEmpty {
+            selectedStepIDs = Set(selected)
+            if selected.count == 1 {
+                selectedStepID = selected.first
+            } else {
+                selectedStepID = nil
+            }
         }
     }
     
@@ -46,6 +103,13 @@ struct WorkoutTimelineCanvas: View {
         withAnimation {
             steps.move(fromOffsets: IndexSet(integer: fromIndex), toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex)
         }
+    }
+}
+
+struct StepFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [UUID: CGRect] = [:]
+    static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { $1 })
     }
 }
 
@@ -65,7 +129,7 @@ struct WorkoutStepBlock: View {
                     .fill(step.currentZone.color.opacity(0.3))
                     .overlay(
                         RampShape(startRelativeHeight: startPct, endRelativeHeight: endPct)
-                            .stroke(step.currentZone.color, lineWidth: isSelected ? 3 : 1)
+                            .stroke(isSelected ? Color.blue : step.currentZone.color, lineWidth: isSelected ? 4 : 1)
                     )
                 
                 // Duration Label

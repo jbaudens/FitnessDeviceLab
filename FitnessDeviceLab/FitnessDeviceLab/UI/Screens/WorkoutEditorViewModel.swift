@@ -8,6 +8,7 @@ public class WorkoutEditorViewModel {
     public var description: String
     public var steps: [WorkoutStep]
     public var selectedStepID: UUID?
+    public var selectedStepIDs: Set<UUID> = []
     public let id: UUID
     
     private let repository: WorkoutRepository
@@ -57,25 +58,41 @@ public class WorkoutEditorViewModel {
     }
     
     public func duplicateStep(id: UUID) {
-        guard let index = steps.firstIndex(where: { $0.id == id }) else { return }
-        let original = steps[index]
-        let copy = WorkoutStep(
-            duration: original.duration,
-            targetPowerPercent: original.targetPowerPercent,
-            endTargetPowerPercent: original.endTargetPowerPercent,
-            targetHeartRatePercent: original.targetHeartRatePercent,
-            type: original.type,
-            targetCadence: original.targetCadence
-        )
-        steps.insert(copy, at: index + 1)
-        selectedStepID = copy.id
+        duplicateSteps(ids: [id])
+    }
+    
+    public func duplicateSteps(ids: Set<UUID>) {
+        let sortedIndices = ids.compactMap { id in steps.firstIndex(where: { $0.id == id }) }.sorted()
+        guard !sortedIndices.isEmpty else { return }
+        
+        let originalSteps = sortedIndices.map { steps[$0] }
+        let copies = originalSteps.map { original in
+            WorkoutStep(
+                duration: original.duration,
+                targetPowerPercent: original.targetPowerPercent,
+                endTargetPowerPercent: original.endTargetPowerPercent,
+                targetHeartRatePercent: original.targetHeartRatePercent,
+                type: original.type,
+                targetCadence: original.targetCadence
+            )
+        }
+        
+        let insertAt = sortedIndices.last! + 1
+        steps.insert(contentsOf: copies, at: insertAt)
+        
+        selectedStepIDs = Set(copies.map { $0.id })
+        selectedStepID = copies.first?.id
     }
     
     public func deleteStep(id: UUID) {
-        guard let index = steps.firstIndex(where: { $0.id == id }) else { return }
-        steps.remove(at: index)
-        if selectedStepID == id {
+        deleteSteps(ids: [id])
+    }
+    
+    public func deleteSteps(ids: Set<UUID>) {
+        steps.removeAll(where: { ids.contains($0.id) })
+        if ids.contains(selectedStepID ?? UUID()) {
             selectedStepID = nil
         }
+        selectedStepIDs.subtract(ids)
     }
 }
