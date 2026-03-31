@@ -44,18 +44,19 @@ struct StepInspector: View {
                         }
                     }
                     
-                    VStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 16) {
                         // Metric Selection
                         VStack(alignment: .leading, spacing: 4) {
                             Text("TARGET METRIC")
                                 .font(.system(size: 9, weight: .black))
                                 .foregroundColor(.secondary)
                             
-                            Picker("Metric", selection: metricBinding) {
+                            Picker("", selection: metricBinding) {
                                 Label("Power", systemImage: "bolt.fill").tag(StructuredWorkout.WorkoutMetric.power)
                                 Label("Heart Rate", systemImage: "heart.fill").tag(StructuredWorkout.WorkoutMetric.heartRate)
                             }
                             .pickerStyle(.segmented)
+                            .labelsHidden()
                             .frame(maxWidth: 200)
                         }
 
@@ -65,12 +66,13 @@ struct StepInspector: View {
                                 .font(.system(size: 9, weight: .black))
                                 .foregroundColor(.secondary)
                             
-                            Picker("Type", selection: typeBinding) {
+                            Picker("", selection: typeBinding) {
                                 ForEach(WorkoutStepType.allCases, id: \.self) { type in
                                     Text(type.rawValue).tag(type)
                                 }
                             }
                             .pickerStyle(.segmented)
+                            .labelsHidden()
                             .frame(maxWidth: 300)
                         }
 
