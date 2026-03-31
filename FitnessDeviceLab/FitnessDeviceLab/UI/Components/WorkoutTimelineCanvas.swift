@@ -9,66 +9,100 @@ struct WorkoutTimelineCanvas: View {
     @State private var lassoRect: CGRect?
     @State private var stepFrames: [UUID: CGRect] = [:]
     
+    // Scroll tracking for macOS manual slider
+    @State private var scrollOffset: CGFloat = 0
+    @State private var containerWidth: CGFloat = 0
+    
     // Drop tracking
     @State private var insertionIndex: Int? = nil
-    @State private var isTargeted = false
     
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: true) {
-            ZStack(alignment: .topLeading) {
-                // The Grid Background (Captures the Lasso Gesture)
-                TimelineGrid()
-                    .frame(minWidth: max(400, totalWidth), minHeight: 140)
-                    .contentShape(Rectangle())
-                    .gesture(selectionGesture)
-                
-                HStack(alignment: .bottom, spacing: 0) {
-                    if steps.isEmpty {
-                        EmptyTimelinePlaceholder()
-                            .dropDestination(for: TransferableWorkoutStep.self) { items, _ in
-                                handleDrop(items: items, at: 0)
-                                return true
-                            }
-                    } else {
-                        // Initial drop zone
-                        dropGap(at: 0)
+        VStack(spacing: 0) {
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: true) {
+                    ZStack(alignment: .topLeading) {
+                        // 1. Grid & Interaction Background
+                        TimelineGrid()
+                            .frame(minWidth: max(containerWidth, totalWidth), minHeight: 140)
+                            .background(Color.primary.opacity(0.001))
+                            .gesture(selectionGesture)
                         
-                        ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
-                            WorkoutStepBlock(step: step, isSelected: selectedStepIDs.contains(step.id))
-                                .background(
-                                    GeometryReader { geo in
-                                        Color.clear.preference(
-                                            key: StepFramePreferenceKey.self,
-                                            value: [step.id: geo.frame(in: .named("TimelineCanvas"))]
-                                        )
+                        // 2. The Content
+                        HStack(alignment: .bottom, spacing: 0) {
+                            if steps.isEmpty {
+                                EmptyTimelinePlaceholder()
+                                    .dropDestination(for: TransferableWorkoutStep.self) { items, _ in
+                                        handleDrop(items: items, at: 0)
+                                        return true
                                     }
-                                )
-                                .onTapGesture {
-                                    selectedStepID = step.id
-                                    selectedStepIDs = [step.id]
+                            } else {
+                                dropGap(at: 0)
+                                
+                                ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
+                                    WorkoutStepBlock(step: step, isSelected: selectedStepIDs.contains(step.id))
+                                        .id(step.id) // Used for ScrollViewProxy
+                                        .background(
+                                            GeometryReader { geo in
+                                                Color.clear.preference(
+                                                    key: StepFramePreferenceKey.self,
+                                                    value: [step.id: geo.frame(in: .named("TimelineCanvas"))]
+                                                )
+                                            }
+                                        )
+                                        .onTapGesture {
+                                            selectedStepID = step.id
+                                            selectedStepIDs = [step.id]
+                                        }
+                                        .draggable(dragValue(for: step))
+                                    
+                                    dropGap(at: index + 1)
                                 }
-                                .draggable(dragValue(for: step))
-                            
-                            // Gap after each block
-                            dropGap(at: index + 1)
+                            }
+                        }
+                        .padding(.horizontal, 100)
+                        .padding(.bottom, 20)
+                        
+                        // 3. Lasso Box
+                        if let rect = lassoRect {
+                            Rectangle()
+                                .stroke(Color.blue, style: StrokeStyle(lineWidth: 1, dash: [4]))
+                                .background(Color.blue.opacity(0.1))
+                                .frame(width: rect.width, height: rect.height)
+                                .offset(x: rect.origin.x, y: rect.origin.y)
+                                .allowsHitTesting(false)
                         }
                     }
+                    .coordinateSpace(name: "TimelineCanvas")
+                    .onPreferenceChange(StepFramePreferenceKey.self) { frames in
+                        self.stepFrames = frames
+                    }
                 }
-                .padding(.horizontal)
-                .padding(.bottom, 20)
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.onAppear { containerWidth = geo.size.width }
+                            .onChange(of: geo.size.width) { _, newValue in containerWidth = newValue }
+                    }
+                )
                 
-                // Lasso Box
-                if let rect = lassoRect {
-                    Rectangle()
-                        .stroke(Color.blue, style: StrokeStyle(lineWidth: 1, dash: [4]))
-                        .background(Color.blue.opacity(0.1))
-                        .frame(width: rect.width, height: rect.height)
-                        .offset(x: rect.origin.x, y: rect.origin.y)
+                #if os(macOS)
+                // Manual Scroll Controller for macOS (Always Visible)
+                if totalWidth > containerWidth {
+                    HStack(spacing: 12) {
+                        Image(systemName: "arrow.left.and.right")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Slider(value: $scrollOffset, in: 0...1) { _ in
+                            updateScroll(proxy: proxy)
+                        }
+                        .controlSize(.small)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 8)
+                    .background(Color.secondarySystemGroupedBackground)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-            }
-            .coordinateSpace(name: "TimelineCanvas")
-            .onPreferenceChange(StepFramePreferenceKey.self) { frames in
-                self.stepFrames = frames
+                #endif
             }
         }
     }
@@ -78,7 +112,6 @@ struct WorkoutTimelineCanvas: View {
     @ViewBuilder
     private func dropGap(at index: Int) -> some View {
         ZStack {
-            // Invisible but wide hit area
             Color.clear
                 .frame(width: 20, height: 120)
                 .contentShape(Rectangle())
@@ -93,13 +126,11 @@ struct WorkoutTimelineCanvas: View {
                     }
                 }
             
-            // Visual Indicator
             if insertionIndex == index {
                 Rectangle()
                     .fill(Color.blue)
                     .frame(width: 2, height: 100)
                     .shadow(color: .blue.opacity(0.5), radius: 4)
-                    .transition(.scale.combined(with: .opacity))
             }
         }
         .animation(.spring(), value: insertionIndex)
@@ -108,7 +139,16 @@ struct WorkoutTimelineCanvas: View {
     // MARK: - Logic
     
     private var totalWidth: CGFloat {
-        steps.reduce(0) { $0 + max(40, CGFloat($1.duration / 5)) } + CGFloat(steps.count * 20) + 40
+        steps.reduce(0) { $0 + max(40, CGFloat($1.duration / 5)) } + CGFloat(steps.count * 20) + 240
+    }
+    
+    private func updateScroll(proxy: ScrollViewProxy) {
+        guard !steps.isEmpty else { return }
+        // Simple heuristic: map slider 0...1 to step indices
+        let index = Int(Double(steps.count - 1) * scrollOffset)
+        withAnimation {
+            proxy.scrollTo(steps[index].id, anchor: .center)
+        }
     }
     
     private func dragValue(for step: WorkoutStep) -> TransferableWorkoutStep {
@@ -144,18 +184,46 @@ struct WorkoutTimelineCanvas: View {
                 let fromIndices = IndexSet(itemsToReorder.compactMap { item in steps.firstIndex(where: { $0.id == item.id }) })
                 steps.move(fromOffsets: fromIndices, toOffset: index)
             } else if !itemsToInsert.isEmpty {
-                steps.insert(contentsOf: itemsToInsert, at: min(index, steps.count))
+                let itemsWithNewIDs = itemsToInsert.map { item in
+                    WorkoutStep(
+                        id: UUID(), 
+                        duration: item.duration,
+                        targetPowerPercent: item.targetPowerPercent,
+                        endTargetPowerPercent: item.endTargetPowerPercent,
+                        targetHeartRatePercent: item.targetHeartRatePercent,
+                        type: item.type,
+                        targetCadence: item.targetCadence
+                    )
+                }
+                steps.insert(contentsOf: itemsWithNewIDs, at: min(index, steps.count))
             }
             insertionIndex = nil
         }
     }
     
     private var selectionGesture: some Gesture {
-        LongPressGesture(minimumDuration: 0.5)
+        #if os(macOS)
+        // On macOS, a standard DragGesture with a higher priority
+        return DragGesture(minimumDistance: 10)
+            .onChanged { value in
+                let start = value.startLocation
+                let current = value.location
+                lassoRect = CGRect(
+                    x: min(start.x, current.x),
+                    y: min(start.y, current.y),
+                    width: abs(current.x - start.x),
+                    height: abs(current.y - start.y)
+                )
+                updateSelection()
+            }
             .onEnded { _ in
-                #if os(iOS)
+                lassoRect = nil
+            }
+        #else
+        // On iPad/iOS, require long-press to distinguish from scroll
+        return LongPressGesture(minimumDuration: 0.5)
+            .onEnded { _ in
                 UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-                #endif
             }
             .sequenced(before: DragGesture(minimumDistance: 0))
             .onChanged { value in
@@ -178,6 +246,7 @@ struct WorkoutTimelineCanvas: View {
             .onEnded { _ in
                 lassoRect = nil
             }
+        #endif
     }
 }
 
