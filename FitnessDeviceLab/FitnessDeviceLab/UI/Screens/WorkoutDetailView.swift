@@ -97,6 +97,13 @@ struct WorkoutDetailView: View {
             .padding()
         }
         .navigationTitle(workout.name)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                NavigationLink(destination: WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout))) {
+                    Text("Edit")
+                }
+            }
+        }
     }
 }
 

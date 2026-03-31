@@ -72,9 +72,21 @@ struct WorkoutLibraryView: View {
                         ForEach(sortedZones) { zone in
                             Section(header: Text("Zone \(zone.rawValue) - \(zone.name)")) {
                                 ForEach(grouped[zone] ?? []) { workout in
-                                    NavigationLink(destination: WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout))) {
+                                    NavigationLink(destination: WorkoutDetailView(
+                                        workout: workout,
+                                        userFTP: vm.settings.userFTP,
+                                        onSelect: { selected in
+                                            vm.selectWorkout(selected)
+                                        }
+                                    )) {
                                         WorkoutRowView(workout: workout, userFTP: vm.settings.userFTP)
                                             .contextMenu {
+                                                Button {
+                                                    editingWorkout = workout
+                                                } label: {
+                                                    Label("Edit", systemImage: "pencil")
+                                                }
+                                                
                                                 Button {
                                                     vm.duplicateWorkout(workout)
                                                 } label: {
@@ -103,6 +115,9 @@ struct WorkoutLibraryView: View {
             }
             .navigationTitle("Workout Library")
             .searchable(text: $vm.searchText, prompt: "Search workouts...")
+            .navigationDestination(item: $editingWorkout) { workout in
+                WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout))
+            }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     HStack {
