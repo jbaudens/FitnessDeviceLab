@@ -253,8 +253,8 @@ struct WorkoutStepBlock: View {
             .frame(width: width, height: 100)
             
             let avgPercent = ((step.targetPowerPercent ?? step.targetHeartRatePercent ?? 0.0) + (step.endTargetPowerPercent ?? step.targetHeartRatePercent ?? 0.0)) / 2.0
-            Text("\(Int(round(avgPercent * 100)))\(isHR ? " HR" : "%")")
-                .font(.system(size: 10, weight: .black, design: .monospaced))
+            Text("\(Int(round(avgPercent * 100)))\(isHR ? "% LTHR" : "% FTP")")
+                .font(.system(size: 8, weight: .black, design: .monospaced))
                 .foregroundColor(step.currentZone.color)
         }
     }
