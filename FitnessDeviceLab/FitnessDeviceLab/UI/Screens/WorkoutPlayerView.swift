@@ -269,7 +269,6 @@ struct WorkoutPlayerContentView: View {
                     Spacer()
                 }
                 .navigationTitle("Session Summary")
-                .hideNavigationBarOnMobile()
                 .sheet(isPresented: $viewModel.showingComparison) {
                     DualPowerComparisonView(
                         recorderA: viewModel.workoutManager.recorderA,
@@ -289,12 +288,10 @@ struct WorkoutPlayerContentView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .navigationTitle("Saving...")
-                .hideNavigationBarOnMobile()
             } else if viewModel.isActiveState {
                 activeView
             } else {
                 setupView
-                    .hideNavigationBarOnMobile()
             }
         }
     }

@@ -41,7 +41,6 @@ struct DevicesListContent: View {
         .adaptiveListStyle()
         .navigationTitle("Devices")
         .background(Color.systemGroupedBackground)
-        .hideNavigationBarOnMobile()
     }
     
     private var headerSection: some View {

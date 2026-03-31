@@ -12,8 +12,7 @@ struct WorkoutLibraryView: View {
     
     var body: some View {
         @Bindable var vm = viewModel
-        NavigationStack {
-            VStack(spacing: 0) {
+        VStack(spacing: 0) {
                 // Filters Header
                 VStack(alignment: .leading, spacing: 12) {
                     // Zone Badges
@@ -109,7 +108,6 @@ struct WorkoutLibraryView: View {
             }
             .navigationTitle("Workout Library")
             .searchable(text: $vm.searchText, prompt: "Search workouts...")
-            .hideNavigationBarOnMobile()
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     HStack {
@@ -156,7 +154,6 @@ struct WorkoutLibraryView: View {
             .sheet(item: $editingWorkout) { workout in
                 WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout))
             }
-        }
     }
 }
 
