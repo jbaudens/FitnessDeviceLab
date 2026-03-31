@@ -9,101 +9,80 @@ struct WorkoutTimelineCanvas: View {
     @State private var lassoRect: CGRect?
     @State private var stepFrames: [UUID: CGRect] = [:]
     
-    // Scroll tracking for macOS manual slider
-    @State private var scrollOffset: CGFloat = 0
-    @State private var containerWidth: CGFloat = 0
-    
     // Drop tracking
     @State private var insertionIndex: Int? = nil
     
     var body: some View {
         VStack(spacing: 0) {
-            ScrollViewReader { proxy in
-                ScrollView(.horizontal, showsIndicators: true) {
-                    ZStack(alignment: .topLeading) {
-                        // 1. Grid & Interaction Background
-                        TimelineGrid()
-                            .frame(minWidth: max(containerWidth, totalWidth), minHeight: 140)
-                            .background(Color.primary.opacity(0.001))
-                            .gesture(selectionGesture)
-                        
-                        // 2. The Content
-                        HStack(alignment: .bottom, spacing: 0) {
-                            if steps.isEmpty {
-                                EmptyTimelinePlaceholder()
-                                    .dropDestination(for: TransferableWorkoutStep.self) { items, _ in
-                                        handleDrop(items: items, at: 0)
-                                        return true
-                                    }
-                            } else {
-                                dropGap(at: 0)
-                                
-                                ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
-                                    WorkoutStepBlock(step: step, isSelected: selectedStepIDs.contains(step.id))
-                                        .id(step.id) // Used for ScrollViewProxy
-                                        .background(
-                                            GeometryReader { geo in
-                                                Color.clear.preference(
-                                                    key: StepFramePreferenceKey.self,
-                                                    value: [step.id: geo.frame(in: .named("TimelineCanvas"))]
-                                                )
-                                            }
-                                        )
-                                        .onTapGesture {
-                                            selectedStepID = step.id
-                                            selectedStepIDs = [step.id]
-                                        }
-                                        .draggable(dragValue(for: step))
-                                    
-                                    dropGap(at: index + 1)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 100)
-                        .padding(.bottom, 20)
-                        
-                        // 3. Lasso Box
-                        if let rect = lassoRect {
-                            Rectangle()
-                                .stroke(Color.blue, style: StrokeStyle(lineWidth: 1, dash: [4]))
-                                .background(Color.blue.opacity(0.1))
-                                .frame(width: rect.width, height: rect.height)
-                                .offset(x: rect.origin.x, y: rect.origin.y)
-                                .allowsHitTesting(false)
-                        }
-                    }
-                    .coordinateSpace(name: "TimelineCanvas")
-                    .onPreferenceChange(StepFramePreferenceKey.self) { frames in
-                        self.stepFrames = frames
-                    }
-                }
-                .background(
-                    GeometryReader { geo in
-                        Color.clear.onAppear { containerWidth = geo.size.width }
-                            .onChange(of: geo.size.width) { _, newValue in containerWidth = newValue }
-                    }
-                )
-                
-                #if os(macOS)
-                // Manual Scroll Controller for macOS (Always Visible)
-                if totalWidth > containerWidth {
-                    HStack(spacing: 12) {
-                        Image(systemName: "arrow.left.and.right")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Slider(value: $scrollOffset, in: 0...1) { _ in
-                            updateScroll(proxy: proxy)
-                        }
-                        .controlSize(.small)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 8)
-                    .background(Color.secondarySystemGroupedBackground)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-                #endif
+            #if os(macOS)
+            NativeHorizontalScrollView(content: timelineContent)
+                .frame(height: 160)
+            #else
+            ScrollView(.horizontal, showsIndicators: true) {
+                timelineContent
             }
+            .scrollIndicators(.visible)
+            #endif
+        }
+    }
+    
+    private var timelineContent: some View {
+        ZStack(alignment: .topLeading) {
+            // 1. Grid & Interaction Background
+            TimelineGrid()
+                .frame(minWidth: 800, minHeight: 140)
+                .background(Color.primary.opacity(0.001))
+                .gesture(selectionGesture)
+            
+            // 2. The Content
+            HStack(alignment: .bottom, spacing: 0) {
+                if steps.isEmpty {
+                    EmptyTimelinePlaceholder()
+                        .dropDestination(for: TransferableWorkoutStep.self) { items, _ in
+                            handleDrop(items: items, at: 0)
+                            return true
+                        }
+                } else {
+                    // Initial drop zone
+                    dropGap(at: 0)
+                    
+                    ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
+                        WorkoutStepBlock(step: step, isSelected: selectedStepIDs.contains(step.id))
+                            .background(
+                                GeometryReader { geo in
+                                    Color.clear.preference(
+                                        key: StepFramePreferenceKey.self,
+                                        value: [step.id: geo.frame(in: .named("TimelineCanvas"))]
+                                    )
+                                }
+                            )
+                            .onTapGesture {
+                                selectedStepID = step.id
+                                selectedStepIDs = [step.id]
+                            }
+                            .draggable(dragValue(for: step))
+                        
+                        // Gap after each block
+                        dropGap(at: index + 1)
+                    }
+                }
+            }
+            .padding(.horizontal, 100)
+            .padding(.bottom, 20)
+            
+            // 3. Lasso Box
+            if let rect = lassoRect {
+                Rectangle()
+                    .stroke(Color.blue, style: StrokeStyle(lineWidth: 1, dash: [4]))
+                    .background(Color.blue.opacity(0.1))
+                    .frame(width: rect.width, height: rect.height)
+                    .offset(x: rect.origin.x, y: rect.origin.y)
+                    .allowsHitTesting(false)
+            }
+        }
+        .coordinateSpace(name: "TimelineCanvas")
+        .onPreferenceChange(StepFramePreferenceKey.self) { frames in
+            self.stepFrames = frames
         }
     }
     
@@ -113,17 +92,13 @@ struct WorkoutTimelineCanvas: View {
     private func dropGap(at index: Int) -> some View {
         ZStack {
             Color.clear
-                .frame(width: 20, height: 120)
+                .frame(width: 40, height: 120)
                 .contentShape(Rectangle())
                 .dropDestination(for: TransferableWorkoutStep.self) { items, _ in
                     handleDrop(items: items, at: index)
                     return true
                 } isTargeted: { targeted in
-                    if targeted {
-                        insertionIndex = index
-                    } else if insertionIndex == index {
-                        insertionIndex = nil
-                    }
+                    insertionIndex = targeted ? index : nil
                 }
             
             if insertionIndex == index {
@@ -133,23 +108,11 @@ struct WorkoutTimelineCanvas: View {
                     .shadow(color: .blue.opacity(0.5), radius: 4)
             }
         }
+        .frame(width: 40, height: 120)
         .animation(.spring(), value: insertionIndex)
     }
     
     // MARK: - Logic
-    
-    private var totalWidth: CGFloat {
-        steps.reduce(0) { $0 + max(40, CGFloat($1.duration / 5)) } + CGFloat(steps.count * 20) + 240
-    }
-    
-    private func updateScroll(proxy: ScrollViewProxy) {
-        guard !steps.isEmpty else { return }
-        // Simple heuristic: map slider 0...1 to step indices
-        let index = Int(Double(steps.count - 1) * scrollOffset)
-        withAnimation {
-            proxy.scrollTo(steps[index].id, anchor: .center)
-        }
-    }
     
     private func dragValue(for step: WorkoutStep) -> TransferableWorkoutStep {
         if selectedStepIDs.contains(step.id) {
@@ -203,7 +166,6 @@ struct WorkoutTimelineCanvas: View {
     
     private var selectionGesture: some Gesture {
         #if os(macOS)
-        // On macOS, a standard DragGesture with a higher priority
         return DragGesture(minimumDistance: 10)
             .onChanged { value in
                 let start = value.startLocation
@@ -220,7 +182,6 @@ struct WorkoutTimelineCanvas: View {
                 lassoRect = nil
             }
         #else
-        // On iPad/iOS, require long-press to distinguish from scroll
         return LongPressGesture(minimumDuration: 0.5)
             .onEnded { _ in
                 UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
