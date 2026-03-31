@@ -1,7 +1,6 @@
 import Foundation
-import SwiftUI
 
-public enum WorkoutZone: Int, Codable, CaseIterable, Identifiable {
+public enum WorkoutZone: Int, Codable, CaseIterable, Identifiable, Sendable {
     case z1 = 1 // Active Recovery
     case z2 = 2 // Endurance
     case z3 = 3 // Tempo
@@ -21,18 +20,6 @@ public enum WorkoutZone: Int, Codable, CaseIterable, Identifiable {
         case .z5: return "VO2 Max"
         case .z6: return "Anaerobic"
         case .z7: return "Sprints"
-        }
-    }
-    
-    public var color: Color {
-        switch self {
-        case .z1: return .gray
-        case .z2: return .blue
-        case .z3: return .green
-        case .z4: return .yellow
-        case .z5: return .orange
-        case .z6: return .red
-        case .z7: return .purple
         }
     }
     
@@ -59,14 +46,14 @@ public enum WorkoutZone: Int, Codable, CaseIterable, Identifiable {
     }
 }
 
-public enum WorkoutStepType: String, Codable {
+public enum WorkoutStepType: String, Codable, Sendable {
     case warmup = "Warmup"
     case work = "Work"
     case recovery = "Recovery"
     case cooldown = "Cooldown"
 }
 
-public struct WorkoutStep: Identifiable, Codable, Hashable {
+public struct WorkoutStep: Identifiable, Codable, Hashable, Sendable {
     public let id: UUID
     public let duration: TimeInterval // seconds
     public let targetPowerPercent: Double? // % of FTP (start of step)
@@ -107,7 +94,7 @@ public struct WorkoutStep: Identifiable, Codable, Hashable {
     }
 }
 
-public struct StructuredWorkout: Identifiable, Codable, Hashable {
+public struct StructuredWorkout: Identifiable, Codable, Hashable, Sendable {
     public let id: UUID
     public let name: String
     public let description: String
