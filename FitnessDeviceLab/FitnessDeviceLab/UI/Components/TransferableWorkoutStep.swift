@@ -6,7 +6,13 @@ struct TransferableWorkoutStep: Codable, Transferable, Sendable {
     let step: WorkoutStep
     
     static var transferRepresentation: some TransferRepresentation {
-        CodableRepresentation(contentType: .workoutStep)
+        // Use a more standard data type for reliability
+        DataRepresentation(contentType: .data) { item in
+            try JSONEncoder().encode(item.step)
+        } importing: { data in
+            let step = try JSONDecoder().decode(WorkoutStep.self, from: data)
+            return TransferableWorkoutStep(step: step)
+        }
     }
 }
 

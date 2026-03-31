@@ -54,7 +54,8 @@ struct WorkoutTimelineCanvas: View {
                                 }
                                 .draggable(TransferableWorkoutStep(step: step))
                                 .dropDestination(for: TransferableWorkoutStep.self) { items, location in
-                                    handleReorder(item: items.first?.step, targetStep: step)
+                                    guard let droppedStep = items.first?.step else { return false }
+                                    handleDrop(droppedStep: droppedStep, targetStep: step)
                                     return true
                                 }
                         }
@@ -77,10 +78,11 @@ struct WorkoutTimelineCanvas: View {
             }
         }
         .dropDestination(for: TransferableWorkoutStep.self) { items, location in
-            // Handle drops from palette onto the empty canvas
-            if let tStep = items.first, !steps.contains(where: { $0.id == tStep.step.id }) {
+            // Handle drops from palette onto the canvas background (append to end)
+            guard let droppedStep = items.first?.step else { return false }
+            if !steps.contains(where: { $0.id == droppedStep.id }) {
                 withAnimation {
-                    steps.append(tStep.step)
+                    steps.append(droppedStep)
                 }
                 return true
             }
@@ -105,14 +107,23 @@ struct WorkoutTimelineCanvas: View {
         }
     }
     
-    private func handleReorder(item: WorkoutStep?, targetStep: WorkoutStep) {
-        guard let item = item,
-              let fromIndex = steps.firstIndex(where: { $0.id == item.id }),
-              let toIndex = steps.firstIndex(where: { $0.id == targetStep.id }),
-              fromIndex != toIndex else { return }
-        
-        withAnimation {
-            steps.move(fromOffsets: IndexSet(integer: fromIndex), toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex)
+    private func handleDrop(droppedStep: WorkoutStep, targetStep: WorkoutStep) {
+        if let fromIndex = steps.firstIndex(where: { $0.id == droppedStep.id }) {
+            // Reordering
+            guard let toIndex = steps.firstIndex(where: { $0.id == targetStep.id }),
+                  fromIndex != toIndex else { return }
+            
+            withAnimation {
+                steps.move(fromOffsets: IndexSet(integer: fromIndex), toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex)
+            }
+        } else {
+            // Insertion from Palette
+            guard let toIndex = steps.firstIndex(where: { $0.id == targetStep.id }) else { return }
+            
+            withAnimation {
+                // Insert at the dropped position
+                steps.insert(droppedStep, at: toIndex)
+            }
         }
     }
 }
@@ -128,10 +139,13 @@ struct WorkoutStepBlock: View {
     let step: WorkoutStep
     let isSelected: Bool
     
+    // 250% is the max height displayed in the editor
+    static let maxDisplayIntensity: Double = 2.5
+    
     var body: some View {
         let width = max(40, CGFloat(step.duration / 5)) // Scale: 5s = 1pt
-        let startPct = step.targetPowerPercent ?? step.targetHeartRatePercent ?? 0.0
-        let endPct = step.endTargetPowerPercent ?? step.targetHeartRatePercent ?? 0.0
+        let startPct = (step.targetPowerPercent ?? step.targetHeartRatePercent ?? 0.0) / Self.maxDisplayIntensity
+        let endPct = (step.endTargetPowerPercent ?? step.targetHeartRatePercent ?? 0.0) / Self.maxDisplayIntensity
         
         VStack(spacing: 4) {
             ZStack(alignment: .bottom) {
@@ -152,7 +166,7 @@ struct WorkoutStepBlock: View {
             .frame(width: width, height: 100)
             
             // Intensity Label
-            let avgPercent = (startPct + endPct) / 2.0
+            let avgPercent = ((step.targetPowerPercent ?? step.targetHeartRatePercent ?? 0.0) + (step.endTargetPowerPercent ?? step.targetHeartRatePercent ?? 0.0)) / 2.0
             Text("\(Int(round(avgPercent * 100)))%")
                 .font(.system(size: 10, weight: .black, design: .monospaced))
                 .foregroundColor(step.currentZone.color)
