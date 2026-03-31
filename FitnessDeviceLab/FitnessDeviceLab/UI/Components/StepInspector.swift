@@ -17,7 +17,7 @@ struct StepInspector: View {
                     onDelete: onDeleteGroup
                 )
                 .padding(16)
-                .background(Color(uiColor: .secondarySystemBackground))
+                .background(Color.secondarySystemGroupedBackground)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             } else if let step = Binding($step) {
                 VStack(alignment: .leading, spacing: 12) {
@@ -153,7 +153,7 @@ struct StepInspector: View {
                     }
                 }
                 .padding(16)
-                .background(Color(uiColor: .secondarySystemBackground))
+                .background(Color.secondarySystemGroupedBackground)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }

@@ -57,7 +57,7 @@ struct WorkoutEditorView: View {
                 }
             }
             .navigationTitle(vm.isNewWorkout ? "New Workout" : "Edit Workout")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavigationBarTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(action: {

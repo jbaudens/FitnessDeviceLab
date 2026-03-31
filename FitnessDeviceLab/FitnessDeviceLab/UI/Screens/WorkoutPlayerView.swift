@@ -332,9 +332,7 @@ struct WorkoutPlayerContentView: View {
             .background(Color.systemBackground)
         }
         .navigationTitle(viewModel.workoutManager.selectedWorkout?.name ?? "Free Ride")
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
+        .inlineNavigationBarTitle()
     }
     
     private var activeControls: some View {
