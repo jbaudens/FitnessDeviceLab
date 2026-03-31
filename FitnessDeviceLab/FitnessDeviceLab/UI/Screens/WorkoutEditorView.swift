@@ -7,8 +7,7 @@ struct WorkoutEditorView: View {
     var body: some View {
         @Bindable var vm = viewModel
         
-        NavigationStack {
-            VStack(spacing: 0) {
+        VStack(spacing: 0) {
                 // Header (Summary Metrics)
                 WorkoutSummaryHeader(
                     duration: vm.totalDuration,
@@ -28,7 +27,7 @@ struct WorkoutEditorView: View {
                 .background(Color.black.opacity(0.1))
                 
                 // Step Palette
-                StepPalette()
+                StepPalette(viewModel: vm)
                 
                 Form {
                     Section(header: Text("Basic Info")) {
@@ -36,6 +35,17 @@ struct WorkoutEditorView: View {
                             .submitLabel(.done)
                         TextField("Description", text: $vm.description, axis: .vertical)
                             .lineLimit(3...5)
+                    }
+                    
+                    if !vm.isNewWorkout {
+                        Section {
+                            Button(role: .destructive) {
+                                viewModel.deleteWorkout()
+                                dismiss()
+                            } label: {
+                                Label("Delete Workout", systemImage: "trash")
+                            }
+                        }
                     }
                 }
                 
@@ -59,14 +69,6 @@ struct WorkoutEditorView: View {
             .navigationTitle(vm.isNewWorkout ? "New Workout" : "Edit Workout")
             .inlineNavigationBarTitle()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(action: {
-                        dismiss()
-                    }) {
-                        Image(systemName: "xmark")
-                    }
-                }
-                
                 ToolbarItem(placement: .confirmationAction) {
                     Button("SAVE") {
                         vm.save()
@@ -76,7 +78,6 @@ struct WorkoutEditorView: View {
                     .disabled(!vm.canSave)
                 }
             }
-        }
     }
 }
 

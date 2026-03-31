@@ -65,6 +65,17 @@ public class WorkoutEditorViewModel {
         }
     }
     
+    public func deleteWorkout() {
+        guard !isNewWorkout else { return }
+        repository.delete(draftWorkout)
+    }
+    
+    public func addStep(_ step: WorkoutStep) {
+        steps.append(step)
+        selectedStepID = step.id
+        selectedStepIDs = [step.id]
+    }
+    
     public func duplicateStep(id: UUID) {
         duplicateSteps(ids: [id])
     }

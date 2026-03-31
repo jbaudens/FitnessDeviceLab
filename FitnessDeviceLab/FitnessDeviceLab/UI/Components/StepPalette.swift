@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct StepPalette: View {
+    @Bindable var viewModel: WorkoutEditorViewModel
+    
     let templates: [WorkoutStepTemplate] = [
         WorkoutStepTemplate(name: "Warmup", type: .warmup, duration: 600, startPct: 0.5, endPct: 0.7),
         WorkoutStepTemplate(name: "Work", type: .work, duration: 300, startPct: 1.0, endPct: 1.0),
@@ -10,7 +12,7 @@ struct StepPalette: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("STEP PALETTE")
+            Text("STEP PALETTE (TAP TO ADD)")
                 .font(.system(size: 10, weight: .black))
                 .foregroundColor(.secondary)
                 .padding(.horizontal)
@@ -19,6 +21,9 @@ struct StepPalette: View {
                 HStack(spacing: 12) {
                     ForEach(templates) { template in
                         PaletteItem(template: template)
+                            .onTapGesture {
+                                viewModel.addStep(template.toWorkoutStep())
+                            }
                             .draggable(TransferableWorkoutStep(step: template.toWorkoutStep()))
                     }
                 }
@@ -40,7 +45,7 @@ struct WorkoutStepTemplate: Identifiable {
     
     func toWorkoutStep() -> WorkoutStep {
         WorkoutStep(
-            id: UUID(), // New ID for each drag
+            id: UUID(), // New ID for each drag/tap
             duration: duration,
             targetPowerPercent: startPct,
             endTargetPowerPercent: endPct,

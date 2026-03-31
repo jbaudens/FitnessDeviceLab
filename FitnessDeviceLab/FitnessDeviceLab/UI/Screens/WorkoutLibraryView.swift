@@ -72,21 +72,9 @@ struct WorkoutLibraryView: View {
                         ForEach(sortedZones) { zone in
                             Section(header: Text("Zone \(zone.rawValue) - \(zone.name)")) {
                                 ForEach(grouped[zone] ?? []) { workout in
-                                    NavigationLink(destination: WorkoutDetailView(
-                                        workout: workout,
-                                        userFTP: vm.settings.userFTP,
-                                        onSelect: { selected in
-                                            vm.selectWorkout(selected)
-                                        }
-                                    )) {
+                                    NavigationLink(destination: WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout))) {
                                         WorkoutRowView(workout: workout, userFTP: vm.settings.userFTP)
                                             .contextMenu {
-                                                Button {
-                                                    editingWorkout = workout
-                                                } label: {
-                                                    Label("Edit", systemImage: "pencil")
-                                                }
-                                                
                                                 Button {
                                                     vm.duplicateWorkout(workout)
                                                 } label: {
@@ -101,6 +89,13 @@ struct WorkoutLibraryView: View {
                                             }
                                     }
                                 }
+                                .onDelete { offsets in
+                                    if let items = grouped[zone] {
+                                        offsets.forEach { index in
+                                            vm.deleteWorkout(items[index])
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -111,9 +106,7 @@ struct WorkoutLibraryView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     HStack {
-                        Button {
-                            showingNewWorkoutEditor = true
-                        } label: {
+                        NavigationLink(destination: WorkoutEditorView(viewModel: WorkoutEditorViewModel())) {
                             Image(systemName: "plus")
                         }
                         
@@ -147,12 +140,6 @@ struct WorkoutLibraryView: View {
                 }
             } message: { workout in
                 Text("Are you sure you want to permanently delete this workout?")
-            }
-            .sheet(isPresented: $showingNewWorkoutEditor) {
-                WorkoutEditorView(viewModel: WorkoutEditorViewModel())
-            }
-            .sheet(item: $editingWorkout) { workout in
-                WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout))
             }
     }
 }

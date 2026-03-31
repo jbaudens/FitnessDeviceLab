@@ -12,6 +12,28 @@ struct WorkoutTimelineCanvas: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             ZStack(alignment: .topLeading) {
+                // The Grid Background (Captures the Lasso Gesture)
+                TimelineGrid()
+                    .frame(minWidth: max(400, totalWidth), minHeight: 140)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 20)
+                            .onChanged { value in
+                                let start = value.startLocation
+                                let current = value.location
+                                lassoRect = CGRect(
+                                    x: min(start.x, current.x),
+                                    y: min(start.y, current.y),
+                                    width: abs(current.x - start.x),
+                                    height: abs(current.y - start.y)
+                                )
+                                updateSelection()
+                            }
+                            .onEnded { _ in
+                                lassoRect = nil
+                            }
+                    )
+                
                 HStack(alignment: .bottom, spacing: 4) {
                     if steps.isEmpty {
                         EmptyTimelinePlaceholder()
@@ -39,11 +61,7 @@ struct WorkoutTimelineCanvas: View {
                     }
                 }
                 .padding(.horizontal)
-                .frame(minWidth: 400, minHeight: 120)
-                .background(TimelineGrid())
-                .onPreferenceChange(StepFramePreferenceKey.self) { frames in
-                    self.stepFrames = frames
-                }
+                .padding(.bottom, 20)
                 
                 if let rect = lassoRect {
                     Rectangle()
@@ -54,31 +72,24 @@ struct WorkoutTimelineCanvas: View {
                 }
             }
             .coordinateSpace(name: "TimelineCanvas")
-            .gesture(
-                DragGesture(minimumDistance: 10)
-                    .onChanged { value in
-                        let start = value.startLocation
-                        let current = value.location
-                        lassoRect = CGRect(
-                            x: min(start.x, current.x),
-                            y: min(start.y, current.y),
-                            width: abs(current.x - start.x),
-                            height: abs(current.y - start.y)
-                        )
-                        updateSelection()
-                    }
-                    .onEnded { _ in
-                        lassoRect = nil
-                    }
-            )
+            .onPreferenceChange(StepFramePreferenceKey.self) { frames in
+                self.stepFrames = frames
+            }
         }
         .dropDestination(for: TransferableWorkoutStep.self) { items, location in
+            // Handle drops from palette onto the empty canvas
             if let tStep = items.first, !steps.contains(where: { $0.id == tStep.step.id }) {
-                steps.append(tStep.step)
+                withAnimation {
+                    steps.append(tStep.step)
+                }
                 return true
             }
             return false
         }
+    }
+    
+    private var totalWidth: CGFloat {
+        steps.reduce(0) { $0 + max(40, CGFloat($1.duration / 5)) } + CGFloat(steps.count * 4) + 40
     }
     
     private func updateSelection() {
@@ -162,10 +173,10 @@ struct WorkoutStepBlock: View {
 struct EmptyTimelinePlaceholder: View {
     var body: some View {
         VStack {
-            Image(systemName: "plus.square.dashed")
+            Image(systemName: "plus.app")
                 .font(.largeTitle)
                 .foregroundColor(.secondary)
-            Text("Drag steps here")
+            Text("Tap or Drag steps here")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
