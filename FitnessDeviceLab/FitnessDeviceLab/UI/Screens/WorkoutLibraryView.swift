@@ -35,7 +35,7 @@ struct WorkoutLibraryView: View {
                         .padding(.horizontal)
                     }
                     
-                    // Metric Badges (Power / HR)
+                    // Metric Badges (Power / HR / Hybrid)
                     HStack(spacing: 8) {
                         FilterBadge(name: "All Metrics", color: .secondary, isSelected: vm.selectedMetricFilter == nil) {
                             vm.selectedMetricFilter = nil
@@ -47,6 +47,10 @@ struct WorkoutLibraryView: View {
                         
                         FilterBadge(name: "HR Only", color: .red, isSelected: vm.selectedMetricFilter == .heartRate) {
                             vm.selectedMetricFilter = .heartRate
+                        }
+                        
+                        FilterBadge(name: "Hybrid", color: .purple, isSelected: vm.selectedMetricFilter == .hybrid) {
+                            vm.selectedMetricFilter = .hybrid
                         }
                         
                         Divider().frame(height: 20).padding(.horizontal, 4)

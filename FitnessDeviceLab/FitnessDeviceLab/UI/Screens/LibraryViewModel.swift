@@ -10,9 +10,16 @@ public class LibraryViewModel {
     
     public var searchText = ""
     public var selectedZoneFilter: WorkoutZone? = nil
-    public var selectedMetricFilter: StructuredWorkout.WorkoutMetric? = nil
+    public var selectedMetricFilter: MetricFilter? = nil
     public var showTestingWorkoutsOnly: Bool = false
     public var sortOrder: SortOrder = .name
+    
+    public enum MetricFilter: String, CaseIterable, Identifiable {
+        case power = "Power Only"
+        case heartRate = "HR Only"
+        case hybrid = "Hybrid"
+        public var id: String { rawValue }
+    }
     
     public enum SortOrder: String, CaseIterable, Identifiable {
         case name = "Name"
@@ -44,8 +51,20 @@ public class LibraryViewModel {
         }
         
         // Metric Filter
-        if let metric = selectedMetricFilter {
-            workouts = workouts.filter { $0.primaryMetric == metric }
+        if let filter = selectedMetricFilter {
+            workouts = workouts.filter { workout in
+                let hasPower = workout.steps.contains { $0.targetPowerPercent != nil }
+                let hasHR = workout.steps.contains { $0.targetHeartRatePercent != nil }
+                
+                switch filter {
+                case .power:
+                    return hasPower && !hasHR
+                case .heartRate:
+                    return hasHR && !hasPower
+                case .hybrid:
+                    return hasPower && hasHR
+                }
+            }
         }
         
         // Testing Filter

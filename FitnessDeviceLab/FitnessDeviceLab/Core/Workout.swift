@@ -46,11 +46,13 @@ public enum WorkoutZone: Int, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
-public enum WorkoutStepType: String, Codable, Sendable {
+public enum WorkoutStepType: String, Codable, Sendable, CaseIterable, Identifiable {
     case warmup = "Warmup"
     case work = "Work"
     case recovery = "Recovery"
     case cooldown = "Cooldown"
+    
+    public var id: String { rawValue }
 }
 
 public struct WorkoutStep: Identifiable, Codable, Hashable, Sendable {

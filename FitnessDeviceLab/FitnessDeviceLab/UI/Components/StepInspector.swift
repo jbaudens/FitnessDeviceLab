@@ -60,6 +60,22 @@ struct StepInspector: View {
                         }
                         .padding(.bottom, 4)
 
+                        // Interval Type Selection
+                        HStack {
+                            Text("INTERVAL TYPE")
+                                .font(.system(size: 9, weight: .black))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Picker("Type", selection: typeBinding) {
+                                ForEach(WorkoutStepType.allCases, id: \.self) { type in
+                                    Text(type.rawValue).tag(type)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(width: 220)
+                        }
+                        .padding(.bottom, 4)
+
                         // Intensity Control
                         let isHR = editingStep.targetHeartRatePercent != nil
                         inspectorSlider(
@@ -234,6 +250,16 @@ struct StepInspector: View {
                     localStep?.endTargetPowerPercent = currentVal
                     localStep?.targetHeartRatePercent = nil
                 }
+                syncBack()
+            }
+        )
+    }
+
+    private var typeBinding: Binding<WorkoutStepType> {
+        Binding(
+            get: { localStep?.type ?? .work },
+            set: { 
+                localStep?.type = $0
                 syncBack()
             }
         )
