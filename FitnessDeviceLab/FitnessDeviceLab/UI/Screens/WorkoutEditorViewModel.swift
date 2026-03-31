@@ -114,4 +114,26 @@ public class WorkoutEditorViewModel {
         }
         selectedStepIDs.subtract(ids)
     }
+    
+    public func moveStepsLeft(ids: Set<UUID>) {
+        let sortedIndices = ids.compactMap { id in steps.firstIndex(where: { $0.id == id }) }.sorted()
+        guard let first = sortedIndices.first, first > 0 else { return }
+        
+        withAnimation {
+            for index in sortedIndices {
+                steps.swapAt(index, index - 1)
+            }
+        }
+    }
+    
+    public func moveStepsRight(ids: Set<UUID>) {
+        let sortedIndices = ids.compactMap { id in steps.firstIndex(where: { $0.id == id }) }.sorted(by: >)
+        guard let last = sortedIndices.first, last < steps.count - 1 else { return }
+        
+        withAnimation {
+            for index in sortedIndices {
+                steps.swapAt(index, index + 1)
+            }
+        }
+    }
 }

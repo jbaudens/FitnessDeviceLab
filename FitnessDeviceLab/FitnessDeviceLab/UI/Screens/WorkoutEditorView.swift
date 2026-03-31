@@ -51,18 +51,28 @@ struct WorkoutEditorView: View {
                 
                 if !vm.selectedStepIDs.isEmpty {
                     let firstID = vm.selectedStepIDs.first!
-                    let index = vm.steps.firstIndex(where: { $0.id == firstID })
                     
                     StepInspector(
-                        step: index != nil && vm.selectedStepIDs.count == 1 ? Binding<WorkoutStep?>(
-                            get: { vm.steps[index!] },
-                            set: { if let val = $0 { vm.steps[index!] = val } }
-                        ) : .constant(nil),
+                        step: Binding<WorkoutStep?>(
+                            get: { 
+                                vm.steps.first(where: { $0.id == firstID && vm.selectedStepIDs.count == 1 })
+                            },
+                            set: { newValue in
+                                if let newValue = newValue,
+                                   let index = vm.steps.firstIndex(where: { $0.id == firstID }) {
+                                    vm.steps[index] = newValue
+                                }
+                            }
+                        ),
                         selectedIDs: vm.selectedStepIDs,
                         onDuplicate: { vm.duplicateStep(id: firstID) },
                         onDelete: { vm.deleteStep(id: firstID) },
+                        onMoveLeft: { vm.moveStepsLeft(ids: [firstID]) },
+                        onMoveRight: { vm.moveStepsRight(ids: [firstID]) },
                         onDuplicateGroup: { vm.duplicateSteps(ids: vm.selectedStepIDs) },
-                        onDeleteGroup: { vm.deleteSteps(ids: vm.selectedStepIDs) }
+                        onDeleteGroup: { vm.deleteSteps(ids: vm.selectedStepIDs) },
+                        onMoveLeftGroup: { vm.moveStepsLeft(ids: vm.selectedStepIDs) },
+                        onMoveRightGroup: { vm.moveStepsRight(ids: vm.selectedStepIDs) }
                     )
                 }
             }
