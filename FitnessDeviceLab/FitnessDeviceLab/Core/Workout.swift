@@ -66,7 +66,11 @@ public struct WorkoutStep: Identifiable, Codable, Hashable, Sendable {
         self.id = id
         self.duration = duration
         self.targetPowerPercent = targetPowerPercent
-        self.endTargetPowerPercent = endTargetPowerPercent ?? targetPowerPercent
+        if let targetPowerPercent = targetPowerPercent {
+            self.endTargetPowerPercent = endTargetPowerPercent ?? targetPowerPercent
+        } else {
+            self.endTargetPowerPercent = endTargetPowerPercent
+        }
         self.targetHeartRatePercent = targetHeartRatePercent
         self.type = type
         self.targetCadence = targetCadence

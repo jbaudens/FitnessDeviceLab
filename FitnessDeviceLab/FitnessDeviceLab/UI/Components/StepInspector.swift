@@ -45,24 +45,42 @@ struct StepInspector: View {
                     }
                     
                     VStack(spacing: 12) {
+                        // Metric Selection
+                        HStack {
+                            Text("TARGET METRIC")
+                                .font(.system(size: 9, weight: .black))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Picker("Metric", selection: metricBinding) {
+                                Label("Power", systemImage: "bolt.fill").tag(StructuredWorkout.WorkoutMetric.power)
+                                Label("Heart Rate", systemImage: "heart.fill").tag(StructuredWorkout.WorkoutMetric.heartRate)
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(width: 150)
+                        }
+                        .padding(.bottom, 4)
+
                         // Intensity Control
+                        let isHR = editingStep.targetHeartRatePercent != nil
                         inspectorSlider(
                             title: editingStep.isRamp ? "START INTENSITY" : "INTENSITY",
-                            value: targetPct,
+                            value: isHR ? targetHRPct : targetPct,
                             range: 0.1...2.5,
                             step: 0.01,
                             color: editingStep.currentZone.color,
-                            formatter: { "\(Int(round($0 * 100)))%" },
+                            formatter: { "\(Int(round($0 * 100)))\(isHR ? " HR" : "%")" },
                             trailingView: {
-                                Toggle("RAMP", isOn: isRamp)
-                                    .labelsHidden()
-                                    .scaleEffect(0.7)
-                                    .frame(width: 35)
+                                if !isHR {
+                                    Toggle("RAMP", isOn: isRamp)
+                                        .labelsHidden()
+                                        .scaleEffect(0.7)
+                                        .frame(width: 35)
+                                }
                             }
                         )
                         
-                        // End Intensity (Ramp only)
-                        if editingStep.isRamp {
+                        // End Intensity (Ramp only, Power only)
+                        if editingStep.isRamp && !isHR {
                             inspectorSlider(
                                 title: "END INTENSITY",
                                 value: endTargetPct,
@@ -181,6 +199,40 @@ struct StepInspector: View {
                 localStep?.targetPowerPercent = newValue
                 if !wasRamp {
                     localStep?.endTargetPowerPercent = newValue
+                }
+                syncBack()
+            }
+        )
+    }
+
+    private var targetHRPct: Binding<Double> {
+        Binding(
+            get: { localStep?.targetHeartRatePercent ?? 0.0 },
+            set: { 
+                localStep?.targetHeartRatePercent = $0
+                syncBack()
+            }
+        )
+    }
+
+    private var metricBinding: Binding<StructuredWorkout.WorkoutMetric> {
+        Binding(
+            get: { 
+                localStep?.targetHeartRatePercent != nil ? .heartRate : .power 
+            },
+            set: { newMetric in
+                if newMetric == .heartRate {
+                    // Switch to HR: use current power or default to 0.7
+                    let currentVal = localStep?.targetPowerPercent ?? 0.7
+                    localStep?.targetHeartRatePercent = currentVal
+                    localStep?.targetPowerPercent = nil
+                    localStep?.endTargetPowerPercent = nil
+                } else {
+                    // Switch to Power: use current HR or default to 0.7
+                    let currentVal = localStep?.targetHeartRatePercent ?? 0.7
+                    localStep?.targetPowerPercent = currentVal
+                    localStep?.endTargetPowerPercent = currentVal
+                    localStep?.targetHeartRatePercent = nil
                 }
                 syncBack()
             }
