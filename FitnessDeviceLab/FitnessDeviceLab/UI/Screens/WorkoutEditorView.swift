@@ -19,9 +19,13 @@ struct WorkoutEditorView: View {
                 .background(Color.secondary.opacity(0.05))
                 
                 // Visual Timeline
-                WorkoutTimelineCanvas(steps: $vm.steps, selectedStepID: $vm.selectedStepID)
-                    .frame(height: 160)
-                    .background(Color.black.opacity(0.1))
+                WorkoutTimelineCanvas(
+                    steps: $vm.steps,
+                    selectedStepID: $vm.selectedStepID,
+                    selectedStepIDs: $vm.selectedStepIDs
+                )
+                .frame(height: 160)
+                .background(Color.black.opacity(0.1))
                 
                 // Step Palette
                 StepPalette()
@@ -29,20 +33,26 @@ struct WorkoutEditorView: View {
                 Form {
                     Section(header: Text("Basic Info")) {
                         TextField("Workout Name", text: $vm.name)
+                            .submitLabel(.done)
                         TextField("Description", text: $vm.description, axis: .vertical)
                             .lineLimit(3...5)
                     }
                 }
                 
-                if let selectedID = vm.selectedStepID,
-                   let index = vm.steps.firstIndex(where: { $0.id == selectedID }) {
+                if !vm.selectedStepIDs.isEmpty {
+                    let firstID = vm.selectedStepIDs.first!
+                    let index = vm.steps.firstIndex(where: { $0.id == firstID })
+                    
                     StepInspector(
-                        step: Binding<WorkoutStep?>(
-                            get: { vm.steps[index] },
-                            set: { if let val = $0 { vm.steps[index] = val } }
-                        ),
-                        onDuplicate: { vm.duplicateStep(id: selectedID) },
-                        onDelete: { vm.deleteStep(id: selectedID) }
+                        step: index != nil && vm.selectedStepIDs.count == 1 ? Binding<WorkoutStep?>(
+                            get: { vm.steps[index!] },
+                            set: { if let val = $0 { vm.steps[index!] = val } }
+                        ) : .constant(nil),
+                        selectedIDs: vm.selectedStepIDs,
+                        onDuplicate: { vm.duplicateStep(id: firstID) },
+                        onDelete: { vm.deleteStep(id: firstID) },
+                        onDuplicateGroup: { vm.duplicateSteps(ids: vm.selectedStepIDs) },
+                        onDeleteGroup: { vm.deleteSteps(ids: vm.selectedStepIDs) }
                     )
                 }
             }
@@ -63,6 +73,7 @@ struct WorkoutEditorView: View {
                         dismiss()
                     }
                     .fontWeight(.bold)
+                    .disabled(!vm.canSave)
                 }
             }
         }

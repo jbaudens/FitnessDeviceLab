@@ -48,7 +48,15 @@ public class WorkoutEditorViewModel {
         draftWorkout.tss
     }
     
+    public var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && 
+        !steps.isEmpty && 
+        totalDuration > 0
+    }
+    
     public func save() {
+        guard canSave else { return }
+        
         let workout = draftWorkout
         if isNewWorkout {
             repository.add(workout)

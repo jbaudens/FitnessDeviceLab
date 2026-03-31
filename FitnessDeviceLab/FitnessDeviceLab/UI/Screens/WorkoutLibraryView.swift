@@ -4,6 +4,7 @@ struct WorkoutLibraryView: View {
     @State private var viewModel: LibraryViewModel
     @State private var editingWorkout: StructuredWorkout? = nil
     @State private var showingNewWorkoutEditor = false
+    @State private var workoutToDelete: StructuredWorkout? = nil
     
     init(repository: WorkoutRepository, workoutManager: WorkoutSessionManager, settings: SettingsManager) {
         _viewModel = State(initialValue: LibraryViewModel(repository: repository, workoutManager: workoutManager, settings: settings))
@@ -87,8 +88,14 @@ struct WorkoutLibraryView: View {
                                                     Label("Edit", systemImage: "pencil")
                                                 }
                                                 
+                                                Button {
+                                                    vm.duplicateWorkout(workout)
+                                                } label: {
+                                                    Label("Duplicate", systemImage: "plus.square.on.square")
+                                                }
+                                                
                                                 Button(role: .destructive) {
-                                                    vm.deleteWorkout(workout)
+                                                    workoutToDelete = workout
                                                 } label: {
                                                     Label("Delete", systemImage: "trash")
                                                 }
@@ -123,6 +130,25 @@ struct WorkoutLibraryView: View {
                         }
                     }
                 }
+            }
+            .confirmationDialog(
+                "Delete Workout",
+                isPresented: Binding(
+                    get: { workoutToDelete != nil },
+                    set: { if !$0 { workoutToDelete = nil } }
+                ),
+                titleVisibility: .visible,
+                presenting: workoutToDelete
+            ) { workout in
+                Button("Delete \"\(workout.name)\"", role: .destructive) {
+                    vm.deleteWorkout(workout)
+                    workoutToDelete = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    workoutToDelete = nil
+                }
+            } message: { workout in
+                Text("Are you sure you want to permanently delete this workout?")
             }
             .sheet(isPresented: $showingNewWorkoutEditor) {
                 WorkoutEditorView(viewModel: WorkoutEditorViewModel())

@@ -72,6 +72,16 @@ public class LibraryViewModel {
         workoutManager.selectedWorkout = workout
     }
     
+    public func duplicateWorkout(_ workout: StructuredWorkout) {
+        let newWorkout = StructuredWorkout(
+            id: UUID(),
+            name: "\(workout.name) (Copy)",
+            description: workout.description,
+            steps: workout.steps
+        )
+        repository.add(newWorkout)
+    }
+    
     public func deleteWorkout(_ workout: StructuredWorkout) {
         repository.delete(workout)
     }
