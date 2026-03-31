@@ -9,6 +9,10 @@ struct WorkoutTimelineCanvas: View {
     @State private var lassoRect: CGRect?
     @State private var stepFrames: [UUID: CGRect] = [:]
     
+    // Drop tracking
+    @State private var insertionIndex: Int? = nil
+    @State private var isTargeted = false
+    
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             ZStack(alignment: .topLeading) {
@@ -16,7 +20,7 @@ struct WorkoutTimelineCanvas: View {
                 TimelineGrid()
                     .frame(minWidth: max(400, totalWidth), minHeight: 140)
                     .contentShape(Rectangle())
-                    .gesture(
+                    .simultaneousGesture(
                         DragGesture(minimumDistance: 20)
                             .onChanged { value in
                                 let start = value.startLocation
@@ -34,11 +38,18 @@ struct WorkoutTimelineCanvas: View {
                             }
                     )
                 
-                HStack(alignment: .bottom, spacing: 4) {
+                HStack(alignment: .bottom, spacing: 0) {
                     if steps.isEmpty {
                         EmptyTimelinePlaceholder()
+                            .dropDestination(for: TransferableWorkoutStep.self) { items, _ in
+                                handleDrop(items: items, at: 0)
+                                return true
+                            }
                     } else {
-                        ForEach(steps) { step in
+                        // Initial drop zone
+                        dropGap(at: 0)
+                        
+                        ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
                             WorkoutStepBlock(step: step, isSelected: selectedStepIDs.contains(step.id))
                                 .background(
                                     GeometryReader { geo in
@@ -52,18 +63,17 @@ struct WorkoutTimelineCanvas: View {
                                     selectedStepID = step.id
                                     selectedStepIDs = [step.id]
                                 }
-                                .draggable(TransferableWorkoutStep(step: step))
-                                .dropDestination(for: TransferableWorkoutStep.self) { items, location in
-                                    guard let droppedStep = items.first?.step else { return false }
-                                    handleDrop(droppedStep: droppedStep, targetStep: step)
-                                    return true
-                                }
+                                .draggable(dragValue(for: step))
+                            
+                            // Gap after each block
+                            dropGap(at: index + 1)
                         }
                     }
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 20)
                 
+                // Lasso Box
                 if let rect = lassoRect {
                     Rectangle()
                         .stroke(Color.blue, style: StrokeStyle(lineWidth: 1, dash: [4]))
@@ -77,21 +87,53 @@ struct WorkoutTimelineCanvas: View {
                 self.stepFrames = frames
             }
         }
-        .dropDestination(for: TransferableWorkoutStep.self) { items, location in
-            // Handle drops from palette onto the canvas background (append to end)
-            guard let droppedStep = items.first?.step else { return false }
-            if !steps.contains(where: { $0.id == droppedStep.id }) {
-                withAnimation {
-                    steps.append(droppedStep)
-                }
-                return true
-            }
-            return false
-        }
     }
     
+    // MARK: - Components
+    
+    @ViewBuilder
+    private func dropGap(at index: Int) -> some View {
+        ZStack {
+            // Invisible but wide hit area
+            Color.clear
+                .frame(width: 20, height: 120)
+                .contentShape(Rectangle())
+                .dropDestination(for: TransferableWorkoutStep.self) { items, _ in
+                    handleDrop(items: items, at: index)
+                    return true
+                } isTargeted: { targeted in
+                    if targeted {
+                        insertionIndex = index
+                    } else if insertionIndex == index {
+                        insertionIndex = nil
+                    }
+                }
+            
+            // Visual Indicator
+            if insertionIndex == index {
+                Rectangle()
+                    .fill(Color.blue)
+                    .frame(width: 2, height: 100)
+                    .shadow(color: .blue.opacity(0.5), radius: 4)
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .animation(.spring(), value: insertionIndex)
+    }
+    
+    // MARK: - Logic
+    
     private var totalWidth: CGFloat {
-        steps.reduce(0) { $0 + max(40, CGFloat($1.duration / 5)) } + CGFloat(steps.count * 4) + 40
+        steps.reduce(0) { $0 + max(40, CGFloat($1.duration / 5)) } + CGFloat(steps.count * 20) + 40
+    }
+    
+    private func dragValue(for step: WorkoutStep) -> TransferableWorkoutStep {
+        if selectedStepIDs.contains(step.id) {
+            let selectedSteps = steps.filter { selectedStepIDs.contains($0.id) }
+            return TransferableWorkoutStep(steps: selectedSteps)
+        } else {
+            return TransferableWorkoutStep(step: step)
+        }
     }
     
     private func updateSelection() {
@@ -107,23 +149,20 @@ struct WorkoutTimelineCanvas: View {
         }
     }
     
-    private func handleDrop(droppedStep: WorkoutStep, targetStep: WorkoutStep) {
-        if let fromIndex = steps.firstIndex(where: { $0.id == droppedStep.id }) {
-            // Reordering
-            guard let toIndex = steps.firstIndex(where: { $0.id == targetStep.id }),
-                  fromIndex != toIndex else { return }
-            
-            withAnimation {
-                steps.move(fromOffsets: IndexSet(integer: fromIndex), toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex)
+    private func handleDrop(items: [TransferableWorkoutStep], at index: Int) {
+        guard let droppedSteps = items.first?.steps else { return }
+        let existingIDs = Set(steps.map { $0.id })
+        let itemsToReorder = droppedSteps.filter { existingIDs.contains($0.id) }
+        let itemsToInsert = droppedSteps.filter { !existingIDs.contains($0.id) }
+        
+        withAnimation(.spring()) {
+            if !itemsToReorder.isEmpty {
+                let fromIndices = IndexSet(itemsToReorder.compactMap { item in steps.firstIndex(where: { $0.id == item.id }) })
+                steps.move(fromOffsets: fromIndices, toOffset: index)
+            } else if !itemsToInsert.isEmpty {
+                steps.insert(contentsOf: itemsToInsert, at: min(index, steps.count))
             }
-        } else {
-            // Insertion from Palette
-            guard let toIndex = steps.firstIndex(where: { $0.id == targetStep.id }) else { return }
-            
-            withAnimation {
-                // Insert at the dropped position
-                steps.insert(droppedStep, at: toIndex)
-            }
+            insertionIndex = nil
         }
     }
 }
@@ -138,18 +177,15 @@ struct StepFramePreferenceKey: PreferenceKey {
 struct WorkoutStepBlock: View {
     let step: WorkoutStep
     let isSelected: Bool
-    
-    // 250% is the max height displayed in the editor
     static let maxDisplayIntensity: Double = 2.5
     
     var body: some View {
-        let width = max(40, CGFloat(step.duration / 5)) // Scale: 5s = 1pt
+        let width = max(40, CGFloat(step.duration / 5))
         let startPct = (step.targetPowerPercent ?? step.targetHeartRatePercent ?? 0.0) / Self.maxDisplayIntensity
         let endPct = (step.endTargetPowerPercent ?? step.targetHeartRatePercent ?? 0.0) / Self.maxDisplayIntensity
         
         VStack(spacing: 4) {
             ZStack(alignment: .bottom) {
-                // Background Ramp/Block
                 RampShape(startRelativeHeight: startPct, endRelativeHeight: endPct)
                     .fill(step.currentZone.color.opacity(0.3))
                     .overlay(
@@ -157,7 +193,6 @@ struct WorkoutStepBlock: View {
                             .stroke(isSelected ? Color.blue : step.currentZone.color, lineWidth: isSelected ? 4 : 1)
                     )
                 
-                // Duration Label
                 Text(formatDuration(step.duration))
                     .font(.system(size: 8, weight: .bold, design: .monospaced))
                     .foregroundColor(.secondary)
@@ -165,7 +200,6 @@ struct WorkoutStepBlock: View {
             }
             .frame(width: width, height: 100)
             
-            // Intensity Label
             let avgPercent = ((step.targetPowerPercent ?? step.targetHeartRatePercent ?? 0.0) + (step.endTargetPowerPercent ?? step.targetHeartRatePercent ?? 0.0)) / 2.0
             Text("\(Int(round(avgPercent * 100)))%")
                 .font(.system(size: 10, weight: .black, design: .monospaced))

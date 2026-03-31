@@ -3,21 +3,21 @@ import CoreTransferable
 import UniformTypeIdentifiers
 
 struct TransferableWorkoutStep: Codable, Transferable, Sendable {
-    let step: WorkoutStep
+    let steps: [WorkoutStep]
+    
+    // Helper for single step convenience
+    var step: WorkoutStep? { steps.first }
+    
+    init(step: WorkoutStep) {
+        self.steps = [step]
+    }
+    
+    init(steps: [WorkoutStep]) {
+        self.steps = steps
+    }
     
     static var transferRepresentation: some TransferRepresentation {
-        // Use a more standard data type for reliability
-        DataRepresentation(contentType: .data) { item in
-            try JSONEncoder().encode(item.step)
-        } importing: { data in
-            let step = try JSONDecoder().decode(WorkoutStep.self, from: data)
-            return TransferableWorkoutStep(step: step)
-        }
-    }
-}
-
-extension UTType {
-    static var workoutStep: UTType {
-        UTType(exportedAs: "com.fitnessdevicelab.workoutstep")
+        // Use standard 'data' type to avoid macOS registration requirements
+        CodableRepresentation(contentType: .data)
     }
 }

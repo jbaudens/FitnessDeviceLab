@@ -12,7 +12,6 @@ struct StepInspector: View {
     var onMoveLeftGroup: () -> Void = {}
     var onMoveRightGroup: () -> Void = {}
     
-    // Local state to prevent crashes during rapid deletions/updates
     @State private var localStep: WorkoutStep?
     
     var body: some View {
@@ -25,175 +24,150 @@ struct StepInspector: View {
                     onMoveLeft: onMoveLeftGroup,
                     onMoveRight: onMoveRightGroup
                 )
-                .padding(16)
-                .background(Color.secondarySystemGroupedBackground)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             } else if let editingStep = localStep {
-                VStack(alignment: .leading, spacing: 12) {
-                    // Header with Actions
+                VStack(alignment: .leading, spacing: 16) {
+                    // Action Header
                     HStack {
-                        Text("STEP INSPECTOR")
+                        Text("EDITING STEP")
                             .font(.system(size: 10, weight: .black))
                             .foregroundColor(.secondary)
                         
                         Spacer()
                         
-                        HStack(spacing: 16) {
-                            HStack(spacing: 8) {
-                                Button(action: onMoveLeft) {
-                                    Image(systemName: "arrow.left")
-                                }
-                                Button(action: onMoveRight) {
-                                    Image(systemName: "arrow.right")
-                                }
-                            }
-                            .font(.system(size: 12, weight: .bold))
-                            .buttonStyle(.plain)
-                            .foregroundColor(.blue)
-                            
-                            Divider().frame(height: 12)
-                            
-                            Button(action: onDuplicate) {
-                                Label("DUPLICATE", systemImage: "plus.square.on.square")
-                            }
-                            .font(.system(size: 10, weight: .bold))
-                            .buttonStyle(.plain)
-                            .foregroundColor(.blue)
-                            
-                            Button(action: onDelete) {
-                                Label("DELETE", systemImage: "trash")
-                            }
-                            .font(.system(size: 10, weight: .bold))
-                            .buttonStyle(.plain)
-                            .foregroundColor(.red)
-                        }
-                    }
-                    .padding(.bottom, 4)
-                    
-                    Divider()
-                    
-                    HStack(alignment: .top, spacing: 20) {
-                        // Duration Section
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("DURATION")
-                                .font(.system(size: 9, weight: .black))
-                                .foregroundColor(.secondary)
-                            
-                            HStack(spacing: 8) {
-                                durationField(value: durationMinutes, label: "m")
-                                durationField(value: durationSeconds, label: "s")
-                            }
-                        }
-                        
-                        // Target Section
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(editingStep.isRamp ? "START TARGET" : "TARGET %")
-                                .font(.system(size: 9, weight: .black))
-                                .foregroundColor(.secondary)
-                            
-                            HStack(spacing: 12) {
-                                Slider(value: targetPct, in: 0.1...2.5, step: 0.01)
-                                    .tint(editingStep.currentZone.color)
-                                
-                                TextField("%", value: targetPct, format: .percent.precision(.fractionLength(0)))
-                                    .textFieldStyle(.plain)
-                                    .frame(width: 45)
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.system(.body, design: .monospaced))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color.primary.opacity(0.05))
-                                    .cornerRadius(4)
-                            }
+                        HStack(spacing: 8) {
+                            actionIconButton(icon: "arrow.left", action: onMoveLeft)
+                            actionIconButton(icon: "arrow.right", action: onMoveRight)
+                            Divider().frame(height: 16).padding(.horizontal, 4)
+                            actionIconButton(icon: "plus.square.on.square", action: onDuplicate)
+                            actionIconButton(icon: "trash", color: .red, action: onDelete)
                         }
                     }
                     
-                    // Ramp Control
-                    HStack(alignment: .bottom, spacing: 20) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("RAMP")
-                                .font(.system(size: 9, weight: .black))
-                                .foregroundColor(.secondary)
-                            
-                            Toggle("", isOn: isRamp)
-                                .toggleStyle(.switch)
-                                .labelsHidden()
-                                .scaleEffect(0.8)
-                                .frame(width: 40, height: 24)
-                        }
+                    VStack(spacing: 12) {
+                        // Intensity Control
+                        inspectorSlider(
+                            title: editingStep.isRamp ? "START INTENSITY" : "INTENSITY",
+                            value: targetPct,
+                            range: 0.1...2.5,
+                            step: 0.01,
+                            color: editingStep.currentZone.color,
+                            formatter: { "\(Int(round($0 * 100)))%" },
+                            trailingView: {
+                                Toggle("RAMP", isOn: isRamp)
+                                    .labelsHidden()
+                                    .scaleEffect(0.7)
+                                    .frame(width: 35)
+                            }
+                        )
                         
+                        // End Intensity (Ramp only)
                         if editingStep.isRamp {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("END TARGET %")
-                                    .font(.system(size: 9, weight: .black))
-                                    .foregroundColor(.secondary)
-                                
-                                HStack(spacing: 12) {
-                                    Slider(value: endTargetPct, in: 0.1...2.5, step: 0.01)
-                                        .tint(editingStep.currentZone.color)
-                                    
-                                    TextField("%", value: endTargetPct, format: .percent.precision(.fractionLength(0)))
-                                        .textFieldStyle(.plain)
-                                        .frame(width: 45)
-                                        .multilineTextAlignment(.trailing)
-                                        .font(.system(.body, design: .monospaced))
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(Color.primary.opacity(0.05))
-                                        .cornerRadius(4)
-                                }
-                            }
-                        } else {
-                            Spacer()
+                            inspectorSlider(
+                                title: "END INTENSITY",
+                                value: endTargetPct,
+                                range: 0.1...2.5,
+                                step: 0.01,
+                                color: editingStep.currentZone.color,
+                                formatter: { "\(Int(round($0 * 100)))%" }
+                            )
                         }
+                        
+                        // Duration Control
+                        inspectorSlider(
+                            title: "DURATION",
+                            value: durationBinding,
+                            range: 15...7200,
+                            step: 15,
+                            color: .blue,
+                            formatter: { formatDuration($0) }
+                        )
                     }
                 }
                 .padding(16)
                 .background(Color.secondarySystemGroupedBackground)
+                .cornerRadius(12)
+                .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .onChange(of: step, initial: true) { _, newValue in
             localStep = newValue
         }
-        .animation(.spring(), value: step?.id ?? UUID())
-        .animation(.spring(), value: selectedIDs.count)
+        .animation(.spring(response: 0.3), value: step?.id ?? UUID())
+        .animation(.spring(response: 0.3), value: selectedIDs.count)
+        .animation(.spring(response: 0.3), value: localStep?.isRamp)
     }
     
-    private func durationField(value: Binding<Int>, label: String) -> some View {
-        HStack(spacing: 4) {
-            TextField("0", value: value, format: .number)
-                .textFieldStyle(.plain)
-                .frame(width: 25)
-                .multilineTextAlignment(.trailing)
-                .font(.system(.body, design: .monospaced))
-            Text(label)
-                .font(.caption2)
-                .foregroundColor(.secondary)
+    // MARK: - Components
+    
+    private func inspectorSlider<T: View>(
+        title: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        step: Double,
+        color: Color,
+        formatter: @escaping (Double) -> String,
+        @ViewBuilder trailingView: () -> T = { EmptyView() }
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 9, weight: .black))
+                    .foregroundColor(.secondary)
+                Spacer()
+                trailingView()
+            }
+            
+            HStack(spacing: 12) {
+                Slider(value: value, in: range, step: step)
+                    .tint(color)
+                
+                Text(formatter(value.wrappedValue))
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .frame(width: 85, alignment: .trailing)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.primary.opacity(0.05))
+                    .cornerRadius(6)
+            }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Color.primary.opacity(0.05))
-        .cornerRadius(4)
+    }
+    
+    private func actionIconButton(icon: String, color: Color = .blue, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(color)
+                .frame(width: 32, height: 32)
+                .background(color.opacity(0.1))
+                .cornerRadius(8)
+        }
+        .buttonStyle(.plain)
+    }
+    
+    // MARK: - Helpers
+    
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let hrs = Int(duration) / 3600
+        let mins = (Int(duration) % 3600) / 60
+        let secs = Int(duration) % 60
+        if hrs > 0 {
+            return String(format: "%dh %02dm", hrs, mins)
+        } else if mins > 0 {
+            return String(format: "%02dm %02ds", mins, secs)
+        } else {
+            return String(format: "%02ds", secs)
+        }
     }
     
     // MARK: - Safe Local Bindings
     
-    private var durationMinutes: Binding<Int> {
+    private var durationBinding: Binding<Double> {
         Binding(
-            get: { Int(localStep?.duration ?? 0) / 60 },
+            get: { localStep?.duration ?? 0.0 },
             set: { 
-                localStep?.duration = TimeInterval($0 * 60 + (Int(localStep?.duration ?? 0) % 60))
-                syncBack()
-            }
-        )
-    }
-    
-    private var durationSeconds: Binding<Int> {
-        Binding(
-            get: { Int(localStep?.duration ?? 0) % 60 },
-            set: { 
-                localStep?.duration = TimeInterval((Int(localStep?.duration ?? 0) / 60) * 60 + $0)
+                localStep?.duration = $0
                 syncBack()
             }
         )
@@ -255,40 +229,40 @@ struct GroupActionsView: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text("GROUP ACTIONS")
-                    .font(.system(size: 10, weight: .black))
+                    .font(.system(size: 8, weight: .black))
                     .foregroundColor(.secondary)
-                Text("\(count) items selected")
-                    .font(.caption)
-                    .fontWeight(.bold)
+                Text("\(count) selected")
+                    .font(.system(size: 12, weight: .bold))
             }
             
             Spacer()
             
             HStack(spacing: 8) {
-                Button(action: onMoveLeft) {
-                    Image(systemName: "arrow.left")
-                }
-                Button(action: onMoveRight) {
-                    Image(systemName: "arrow.right")
-                }
+                actionIconButton(icon: "arrow.left", action: onMoveLeft)
+                actionIconButton(icon: "arrow.right", action: onMoveRight)
+                Divider().frame(height: 16).padding(.horizontal, 4)
+                actionIconButton(icon: "plus.square.on.square.fill", action: onDuplicate)
+                actionIconButton(icon: "trash.fill", color: .red, action: onDelete)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            
-            Button(action: onDuplicate) {
-                Image(systemName: "plus.square.on.square.fill")
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
-            
-            Button(role: .destructive, action: onDelete) {
-                Image(systemName: "trash.fill")
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
         }
+        .padding()
+        .background(Color.secondarySystemGroupedBackground)
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+    }
+    
+    private func actionIconButton(icon: String, color: Color = .blue, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(color)
+                .frame(width: 32, height: 32)
+                .background(color.opacity(0.1))
+                .cornerRadius(8)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -304,4 +278,6 @@ struct GroupActionsView: View {
             onDeleteGroup: {}
         )
     }
+    .padding()
+    .background(Color.gray.opacity(0.1))
 }

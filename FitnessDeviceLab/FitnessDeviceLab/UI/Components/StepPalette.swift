@@ -12,26 +12,24 @@ struct StepPalette: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("STEP PALETTE (TAP TO ADD)")
+            Text("ADD BLOCKS")
                 .font(.system(size: 10, weight: .black))
                 .foregroundColor(.secondary)
-                .padding(.horizontal)
             
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(templates) { template in
-                        PaletteItem(template: template)
-                            .onTapGesture {
-                                viewModel.addStep(template.toWorkoutStep())
-                            }
-                            .draggable(TransferableWorkoutStep(step: template.toWorkoutStep()))
-                    }
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                ForEach(templates) { template in
+                    PaletteItem(template: template)
+                        .onTapGesture {
+                            viewModel.addStep(template.toWorkoutStep())
+                        }
+                        .draggable(TransferableWorkoutStep(step: template.toWorkoutStep()))
                 }
-                .padding(.horizontal)
             }
         }
-        .padding(.vertical, 8)
-        .background(Color.secondary.opacity(0.05))
+        .padding()
+        .background(Color.secondarySystemGroupedBackground)
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
     }
 }
 
@@ -58,24 +56,36 @@ struct PaletteItem: View {
     let template: WorkoutStepTemplate
     
     var body: some View {
-        VStack(spacing: 4) {
+        HStack(spacing: 8) {
             ZStack {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 6)
                     .fill(color(for: template.type).opacity(0.2))
-                    .frame(width: 80, height: 40)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(color(for: template.type), lineWidth: 1)
-                    )
+                    .frame(width: 32, height: 32)
                 
                 Image(systemName: icon(for: template.type))
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundColor(color(for: template.type))
             }
             
-            Text(template.name.uppercased())
-                .font(.system(size: 8, weight: .bold))
-                .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(template.name)
+                    .font(.system(size: 10, weight: .bold))
+                Text(formatDuration(template.duration))
+                    .font(.system(size: 8))
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer(minLength: 0)
         }
+        .padding(6)
+        .background(Color.primary.opacity(0.03))
+        .cornerRadius(8)
+        .contentShape(Rectangle())
+    }
+    
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let mins = Int(duration) / 60
+        return "\(mins)m"
     }
     
     private func color(for type: WorkoutStepType) -> Color {
