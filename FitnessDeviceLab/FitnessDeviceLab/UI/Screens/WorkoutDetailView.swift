@@ -4,6 +4,7 @@ struct WorkoutDetailView: View {
     let workout: StructuredWorkout
     let userFTP: Double
     let onSelect: (StructuredWorkout) -> Void
+    var onEdit: (() -> Void)? = nil
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
@@ -99,8 +100,10 @@ struct WorkoutDetailView: View {
         .navigationTitle(workout.name)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                NavigationLink(destination: WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout))) {
-                    Text("Edit")
+                if let onEdit = onEdit {
+                    Button("Edit") {
+                        onEdit()
+                    }
                 }
             }
         }

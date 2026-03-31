@@ -77,6 +77,9 @@ struct WorkoutLibraryView: View {
                                         userFTP: vm.settings.userFTP,
                                         onSelect: { selected in
                                             vm.selectWorkout(selected)
+                                        },
+                                        onEdit: {
+                                            editingWorkout = workout
                                         }
                                     )) {
                                         WorkoutRowView(workout: workout, userFTP: vm.settings.userFTP)
