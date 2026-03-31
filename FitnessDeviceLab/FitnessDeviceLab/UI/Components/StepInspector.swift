@@ -44,47 +44,46 @@ struct StepInspector: View {
                         }
                     }
                     
-                    VStack(spacing: 12) {
+                    VStack(spacing: 16) {
                         // Metric Selection
-                        HStack {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text("TARGET METRIC")
                                 .font(.system(size: 9, weight: .black))
                                 .foregroundColor(.secondary)
-                            Spacer()
+                            
                             Picker("Metric", selection: metricBinding) {
                                 Label("Power", systemImage: "bolt.fill").tag(StructuredWorkout.WorkoutMetric.power)
                                 Label("Heart Rate", systemImage: "heart.fill").tag(StructuredWorkout.WorkoutMetric.heartRate)
                             }
                             .pickerStyle(.segmented)
-                            .frame(width: 150)
+                            .frame(maxWidth: 200)
                         }
-                        .padding(.bottom, 4)
 
                         // Interval Type Selection
-                        HStack {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text("INTERVAL TYPE")
                                 .font(.system(size: 9, weight: .black))
                                 .foregroundColor(.secondary)
-                            Spacer()
+                            
                             Picker("Type", selection: typeBinding) {
                                 ForEach(WorkoutStepType.allCases, id: \.self) { type in
                                     Text(type.rawValue).tag(type)
                                 }
                             }
                             .pickerStyle(.segmented)
-                            .frame(width: 220)
+                            .frame(maxWidth: 300)
                         }
-                        .padding(.bottom, 4)
 
                         // Intensity Control
                         let isHR = editingStep.targetHeartRatePercent != nil
                         inspectorSlider(
                             title: editingStep.isRamp ? "START INTENSITY" : "INTENSITY",
+                            subtitle: isHR ? "% of LTHR" : "% of FTP",
                             value: isHR ? targetHRPct : targetPct,
                             range: 0.1...2.5,
                             step: 0.01,
                             color: editingStep.currentZone.color,
-                            formatter: { "\(Int(round($0 * 100)))\(isHR ? " HR" : "%")" },
+                            formatter: { "\(Int(round($0 * 100)))%" },
                             trailingView: {
                                 if !isHR {
                                     Toggle("RAMP", isOn: isRamp)
@@ -99,6 +98,7 @@ struct StepInspector: View {
                         if editingStep.isRamp && !isHR {
                             inspectorSlider(
                                 title: "END INTENSITY",
+                                subtitle: "% of FTP",
                                 value: endTargetPct,
                                 range: 0.1...2.5,
                                 step: 0.01,
@@ -137,6 +137,7 @@ struct StepInspector: View {
     
     private func inspectorSlider<T: View>(
         title: String,
+        subtitle: String? = nil,
         value: Binding<Double>,
         range: ClosedRange<Double>,
         step: Double,
@@ -146,9 +147,16 @@ struct StepInspector: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(title)
-                    .font(.system(size: 9, weight: .black))
-                    .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundColor(.secondary)
+                    if let subtitle = subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 8, weight: .medium))
+                            .foregroundColor(.secondary.opacity(0.8))
+                    }
+                }
                 Spacer()
                 trailingView()
             }
