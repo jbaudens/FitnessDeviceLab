@@ -55,12 +55,12 @@ public enum WorkoutStepType: String, Codable, Sendable {
 
 public struct WorkoutStep: Identifiable, Codable, Hashable, Sendable {
     public let id: UUID
-    public let duration: TimeInterval // seconds
-    public let targetPowerPercent: Double? // % of FTP (start of step)
-    public let endTargetPowerPercent: Double? // % of FTP (end of step)
-    public let targetHeartRatePercent: Double? // % of LTHR
-    public let targetCadence: Int?
-    public let type: WorkoutStepType
+    public var duration: TimeInterval // seconds
+    public var targetPowerPercent: Double? // % of FTP (start of step)
+    public var endTargetPowerPercent: Double? // % of FTP (end of step)
+    public var targetHeartRatePercent: Double? // % of LTHR
+    public var targetCadence: Int?
+    public var type: WorkoutStepType
     
     public init(id: UUID = UUID(), duration: TimeInterval, targetPowerPercent: Double? = nil, endTargetPowerPercent: Double? = nil, targetHeartRatePercent: Double? = nil, type: WorkoutStepType = .work, targetCadence: Int? = nil) {
         self.id = id

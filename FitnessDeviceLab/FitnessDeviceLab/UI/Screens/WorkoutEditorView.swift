@@ -18,30 +18,32 @@ struct WorkoutEditorView: View {
                 .padding()
                 .background(Color.secondary.opacity(0.05))
                 
+                // Visual Timeline
+                WorkoutTimelineCanvas(steps: $vm.steps, selectedStepID: $vm.selectedStepID)
+                    .frame(height: 160)
+                    .background(Color.black.opacity(0.1))
+                
+                // Step Palette
+                StepPalette()
+                
                 Form {
                     Section(header: Text("Basic Info")) {
                         TextField("Workout Name", text: $vm.name)
                         TextField("Description", text: $vm.description, axis: .vertical)
                             .lineLimit(3...5)
                     }
-                    
-                    Section(header: Text("Steps")) {
-                        if vm.steps.isEmpty {
-                            Text("No steps added yet.")
-                                .foregroundColor(.secondary)
-                                .italic()
-                        } else {
-                            ForEach(vm.steps) { step in
-                                Text("Step: \(Int(step.duration / 60)) min")
-                            }
-                        }
-                        
-                        Button(action: {
-                            // TODO: Add step logic in Task 3
-                        }) {
-                            Label("Add Step", systemImage: "plus.circle.fill")
-                        }
-                    }
+                }
+                
+                if let selectedID = vm.selectedStepID,
+                   let index = vm.steps.firstIndex(where: { $0.id == selectedID }) {
+                    StepInspector(
+                        step: Binding<WorkoutStep?>(
+                            get: { vm.steps[index] },
+                            set: { if let val = $0 { vm.steps[index] = val } }
+                        ),
+                        onDuplicate: { vm.duplicateStep(id: selectedID) },
+                        onDelete: { vm.deleteStep(id: selectedID) }
+                    )
                 }
             }
             .navigationTitle(vm.isNewWorkout ? "New Workout" : "Edit Workout")
