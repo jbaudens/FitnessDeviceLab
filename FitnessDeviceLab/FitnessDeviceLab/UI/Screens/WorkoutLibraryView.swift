@@ -52,12 +52,6 @@ struct WorkoutLibraryView: View {
                         FilterBadge(name: "Hybrid", color: .purple, isSelected: vm.selectedMetricFilter == .hybrid) {
                             vm.selectedMetricFilter = .hybrid
                         }
-                        
-                        Divider().frame(height: 20).padding(.horizontal, 4)
-                        
-                        FilterBadge(name: "App Testing", color: .gray, isSelected: vm.showTestingWorkoutsOnly) {
-                            vm.showTestingWorkoutsOnly.toggle()
-                        }
                     }
                     .padding(.horizontal)
                 }
