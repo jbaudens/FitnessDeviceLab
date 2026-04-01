@@ -97,13 +97,13 @@ struct WorkoutGraphView: View {
                                       endRelativeHeight: endPct * scale / maxPercent)
                                 .fill(color(for: step, scale: scale).opacity(0.3))
                                 .frame(width: max(2, stepWidth), height: height)
-                                .overlay(alignment: .top) {
+                                .overlay(alignment: .bottom) {
                                     if stepWidth > 30 {
                                         let avgPercent = (startPct + endPct) / 2.0 * scale
                                         Text("\(Int(round(avgPercent * 100)))%")
                                             .font(.system(size: 8, weight: .black, design: .monospaced))
                                             .foregroundColor(color(for: step, scale: scale).opacity(0.8))
-                                            .padding(.top, height - max(startHeight, endHeight) + 4)
+                                            .padding(.bottom, 2)
                                             .fixedSize()
                                     }
                                 }
@@ -414,7 +414,7 @@ struct WorkoutRowView: View {
             }
             
             WorkoutGraphView(workout: workout, userFTP: userFTP, showAxis: false)
-                .frame(height: 40)
+                .frame(height: 50)
         }
         .padding(.vertical, 8)
     }
