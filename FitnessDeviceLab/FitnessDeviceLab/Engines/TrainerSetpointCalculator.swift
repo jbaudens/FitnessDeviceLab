@@ -35,56 +35,129 @@ public class TrainerSetpointCalculator {
         }
     }
     
-    /// Internal state for HR control base wattage
-    private var hrControlBaseWatts: Double?
+    // MARK: - PID State
+    
+    private var currentControlWatts: Double?
+    private var integralSum: Double = 0
+    private var lastError: Double = 0
+    private var lastUpdate: Date?
+    private var filteredHR: Double?
+    private var activeHRTarget: Double? // Used to detect if target changed and reset PID
+    
+    // PID Coefficients (Optimized for Incremental/Velocity form)
+    private let Kp = 0.15  // Proportional: Reacts to change in error
+    private let Ki = 0.01  // Integral: Handles the slow "crawl" to match HR
+    private let Kd = 0.05  // Derivative: Dampens oscillations
+    private let hrEmaAlpha = 0.2
     
     public init() {}
     
     public func reset() {
-        hrControlBaseWatts = nil
+        currentControlWatts = nil
+        lastError = 0
+        lastUpdate = nil
+        filteredHR = nil
+        activeHRTarget = nil
     }
     
     public func calculateManualHR(targetHR: Double, currentHR: Int?, ftp: Double) -> Int? {
-        var base = hrControlBaseWatts ?? (ftp * 0.5)
+        let hr = Double(currentHR ?? 0)
+        guard hr > 0 else { return Int(round(currentControlWatts ?? ftp * 0.5)) }
         
-        if let hr = currentHR, hr > 0 {
-            let error = targetHR - Double(hr)
-            let adjustment = error * 0.15 // Simple proportional adjustment
-            base += adjustment
-            base = max(50, min(base, ftp * 1.5))
-        }
+        let error = targetHR - hr
+        var base = currentControlWatts ?? (ftp * 0.5)
         
-        hrControlBaseWatts = base
+        // Simple incremental adjustment for manual mode
+        let adjustment = error * 0.05 
+        base += adjustment
+        base = max(50, min(base, ftp * 1.5))
+        
+        currentControlWatts = base
         return Int(round(base))
     }
     
     public func calculate(input: Input) -> Int? {
         guard !input.isFinished else {
-            hrControlBaseWatts = nil
+            reset()
             return nil
         }
         
-        // 1. Calculate the "Goal" Strategy (Internal wattage needed for current goal)
-        let strategyWatts: Double
+        let now = Date()
+        let dt = lastUpdate != nil ? now.timeIntervalSince(lastUpdate!) : 1.0
+        lastUpdate = now
+        
+        // 1. Determine the "Goal" Strategy
         if let hrPercent = input.currentStep.targetHeartRatePercent {
-            // HR Mode: Setpoint comes from a simple controller
             let targetHR = hrPercent * input.difficultyScale * input.lthr
-            var base = hrControlBaseWatts ?? (input.ftp * 0.5)
+            let expectedPower = getInitialPowerForHR(hrPercent: hrPercent * input.difficultyScale, ftp: input.ftp)
             
-            if let hr = input.currentHR, hr > 0 {
-                let error = targetHR - Double(hr)
-                let adjustment = error * 0.15 // Simple proportional adjustment
-                base += adjustment
-                base = max(50, min(base, input.ftp * 1.5))
+            // Initialization / Target Change
+            if activeHRTarget != targetHR {
+                if activeHRTarget == nil {
+                    // Fresh start: Jump to expected power immediately
+                    currentControlWatts = expectedPower
+                }
+                activeHRTarget = targetHR
+                lastError = 0
             }
-            strategyWatts = base
-            hrControlBaseWatts = base
+            
+            if let hrRaw = input.currentHR, hrRaw > 0 {
+                let hr = filteredHR != nil ? (Double(hrRaw) * hrEmaAlpha + filteredHR! * (1.0 - hrEmaAlpha)) : Double(hrRaw)
+                filteredHR = hr
+                
+                let error = targetHR - hr
+                let errorChange = error - lastError
+                lastError = error
+                
+                // Incremental PID Logic
+                // dp = Kp * (e - e_last) + Ki * e * dt + Kd * (e - 2*e_last + e_last_last)
+                // We use a simplified version: P responds to error change, I to error level
+                
+                var pTerm = errorChange * Kp * (input.ftp / 10.0) // Scaled by fitness
+                let iTerm = error * Ki * dt * (input.ftp / 10.0)
+                
+                // Dynamic Damping:
+                // If power is already above "expected", and HR is still low, we move VERY slowly.
+                // This prevents the runaway wattage during the 30-60s HR lag.
+                var gainMultiplier = 1.0
+                let currentWatts = currentControlWatts ?? expectedPower
+                
+                if error > 0 && currentWatts > expectedPower {
+                    // We are pushing harder than "normal" to raise HR
+                    let overshoot = (currentWatts - expectedPower) / input.ftp
+                    if overshoot > 0.05 { // More than 5% over expected power
+                        gainMultiplier = 0.2 // Drop gain by 80% to "slow crawl"
+                    }
+                }
+                
+                // If we are significantly over target HR, react faster to drop power
+                if error < -2 {
+                    gainMultiplier = 1.5 
+                }
+                
+                let adjustment = (pTerm + iTerm) * gainMultiplier
+                var base = currentWatts + adjustment
+                
+                // Safety Caps
+                // 1. Absolute Max (150% FTP)
+                // 2. Relative Cap: Don't exceed expected power by more than 20% 
+                //    unless HR is still extremely low after a long time.
+                let relativeCap = expectedPower + (input.ftp * 0.2)
+                base = max(50, min(base, min(input.ftp * 1.5, relativeCap)))
+                
+                currentControlWatts = base
+            }
+            
+            return Int(round(currentControlWatts ?? expectedPower))
+            
         } else {
-            // Power Mode: Direct calculation from step definition
-            strategyWatts = (input.currentStep.powerAt(time: input.timeInStep) ?? 0) * input.difficultyScale * input.ftp
-            // Note: we don't clear hrControlBaseWatts here to allow for continuity if 
-            // the workout toggles back and forth, but it's not used for Power steps.
+            // Power Mode
+            activeHRTarget = nil
+            filteredHR = nil
+            let pwr = (input.currentStep.powerAt(time: input.timeInStep) ?? 0) * input.difficultyScale * input.ftp
+            return Int(round(pwr))
         }
+    }
         
         // 2. Apply Hardware Adjustments (Anticipatory Logic)
         var commandedWatts = strategyWatts
@@ -96,23 +169,7 @@ public class TrainerSetpointCalculator {
                 // Determine what the next step's starting power will be
                 let nextStartPower: Double
                 if let nextHRPercent = next.targetHeartRatePercent {
-                    // Approximate power for an HR goal using zone correlation
-                    // We find which HR zone the target is in, and use the mid-point of the equivalent power zone.
-                    let targetHR = nextHRPercent * input.difficultyScale
-                    let hrZone = WorkoutZone.forHRIntensity(targetHR)
-                    
-                    // Equivalent power intensities for zones (midpoints)
-                    let powerIntensity: Double
-                    switch hrZone {
-                    case .z1: powerIntensity = 0.50
-                    case .z2: powerIntensity = 0.65
-                    case .z3: powerIntensity = 0.82
-                    case .z4: powerIntensity = 0.97
-                    case .z5: powerIntensity = 1.12
-                    case .z6: powerIntensity = 1.35
-                    case .z7: powerIntensity = 1.60
-                    }
-                    nextStartPower = powerIntensity * input.ftp * input.difficultyScale
+                    nextStartPower = getInitialPowerForHR(hrPercent: nextHRPercent * input.difficultyScale, ftp: input.ftp)
                 } else {
                     nextStartPower = (next.targetPowerPercent ?? 0) * input.difficultyScale * input.ftp
                 }
@@ -124,5 +181,25 @@ public class TrainerSetpointCalculator {
         }
         
         return Int(round(commandedWatts))
+    }
+    
+    // MARK: - Private Helpers
+    
+    private func getInitialPowerForHR(hrPercent: Double, ftp: Double) -> Double {
+        let hrZone = WorkoutZone.forHRIntensity(hrPercent)
+        
+        // Equivalent power intensities for zones (midpoints)
+        let powerIntensity: Double
+        switch hrZone {
+        case .z1: powerIntensity = 0.50
+        case .z2: powerIntensity = 0.65
+        case .z3: powerIntensity = 0.82
+        case .z4: powerIntensity = 0.97
+        case .z5: powerIntensity = 1.12
+        case .z6: powerIntensity = 1.35
+        case .z7: powerIntensity = 1.60
+        }
+        
+        return powerIntensity * ftp
     }
 }
