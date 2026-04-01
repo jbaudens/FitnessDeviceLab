@@ -37,18 +37,24 @@ public struct WorkoutPhysicsEngine {
         return PowerMath.calculateTSS(durationSeconds: durationSeconds, np: np, ifValue: ifValue, ftp: 1.0)
     }
     
-    /// Determines the primary workout zone based on the duration of 'work' steps.
+    /// Determines the primary workout zone based on the intensity of 'work' steps.
+    /// If no 'work' steps are found, falls back to the workout's overall Intensity Factor (IF).
     public static func determinePrimaryZone(for steps: [WorkoutStep]) -> WorkoutZone {
         let workSteps = steps.filter { $0.type == .work }
-        if workSteps.isEmpty { return .z1 }
         
-        var zoneDurations: [WorkoutZone: TimeInterval] = [:]
-        for step in workSteps {
-            let zone = step.currentZone
-            zoneDurations[zone, default: 0] += step.duration
+        if !workSteps.isEmpty {
+            // Option A: Most duration within work steps
+            var zoneDurations: [WorkoutZone: TimeInterval] = [:]
+            for step in workSteps {
+                let zone = step.currentZone
+                zoneDurations[zone, default: 0] += step.duration
+            }
+            return zoneDurations.max(by: { $0.value < $1.value })?.key ?? .z1
+        } else {
+            // Fallback: Use overall Intensity Factor (IF)
+            let ifValue = calculateIntensityFactor(for: steps)
+            return WorkoutZone.forIntensity(ifValue)
         }
-        
-        return zoneDurations.max(by: { $0.value < $1.value })?.key ?? .z1
     }
     
     // MARK: - Private Helpers
