@@ -4,15 +4,17 @@ import Charts
 struct WorkoutGraphView: View {
     let workout: StructuredWorkout
     let userFTP: Double
+    let userLTHR: Double
     var showAxis: Bool = true
     var elapsedTime: TimeInterval? = nil
     var recorder: SessionRecorder? = nil
     var sessionStartTime: Date? = nil
     var scale: Double = 1.0
     
-    init(workout: StructuredWorkout, userFTP: Double, showAxis: Bool = true, elapsedTime: TimeInterval? = nil, recorder: SessionRecorder? = nil, sessionStartTime: Date? = nil, scale: Double = 1.0) {
+    init(workout: StructuredWorkout, userFTP: Double, userLTHR: Double, showAxis: Bool = true, elapsedTime: TimeInterval? = nil, recorder: SessionRecorder? = nil, sessionStartTime: Date? = nil, scale: Double = 1.0) {
         self.workout = workout
         self.userFTP = userFTP
+        self.userLTHR = userLTHR
         self.showAxis = showAxis
         self.elapsedTime = elapsedTime
         self.recorder = recorder
@@ -35,6 +37,7 @@ struct WorkoutGraphView: View {
                 let height = geometry.size.height
                 let totalDuration = workout.totalDuration
                 let ftp = userFTP
+                let lthr = userLTHR
                 // Max height is based on the highest interval or highest data point
                 let scale = scale
                 let maxTarget = workout.steps.map { ($0.targetPowerPercent ?? $0.targetHeartRatePercent ?? 0.0) * scale }.max() ?? 1.0
@@ -114,6 +117,8 @@ struct WorkoutGraphView: View {
                             recorder: recorder,
                             totalDuration: totalDuration,
                             maxPower: maxPercent * ftp,
+                            userFTP: ftp,
+                            userLTHR: lthr,
                             startTime: sessionStartTime
                         )
                         .frame(width: width, height: height)
@@ -165,6 +170,7 @@ struct RampShape: Shape {
 struct SessionGraphView: View {
     @Bindable var recorder: SessionRecorder
     let userFTP: Double
+    let userLTHR: Double
     var showAxis: Bool = true
     
     var body: some View {
@@ -185,6 +191,7 @@ struct SessionGraphView: View {
                 let recordedPoints = Double(recorder.trackpoints.count)
                 let totalDuration = max(300, recordedPoints * 1.1) // 10% buffer
                 let ftp = userFTP
+                let lthr = userLTHR
                 
                 let maxActual = recorder.trackpoints.compactMap { $0.power }.map { Double($0) / ftp }.max() ?? 0.0
                 
@@ -225,7 +232,9 @@ struct SessionGraphView: View {
                     GrowingPerformanceChart(
                         recorder: recorder,
                         totalDuration: totalDuration,
-                        maxPower: maxPercent * ftp
+                        maxPower: maxPercent * ftp,
+                        userFTP: ftp,
+                        userLTHR: lthr
                     )
                     .frame(width: width, height: height)
                 }
@@ -238,6 +247,8 @@ struct GrowingPerformanceChart: View {
     @Bindable var recorder: SessionRecorder
     let totalDuration: TimeInterval
     let maxPower: Double
+    let userFTP: Double
+    let userLTHR: Double
     
     private var downsampledTrackpoints: [Trackpoint] {
         let maxPoints = 500
@@ -282,7 +293,7 @@ struct GrowingPerformanceChart: View {
                 if let hr = pt.hr {
                     LineMark(
                         x: .value("Time", timeOffset),
-                        y: .value("HR", Double(hr)),
+                        y: .value("HR", (Double(hr) / userLTHR) * userFTP),
                         series: .value("Metric", "HR")
                     )
                     .foregroundStyle(Color.red)
@@ -301,6 +312,8 @@ struct PerformanceChart: View {
     @Bindable var recorder: SessionRecorder
     let totalDuration: TimeInterval
     let maxPower: Double
+    let userFTP: Double
+    let userLTHR: Double
     let startTime: Date?
     
     // Downsampling logic to maintain performance during long sessions
@@ -349,7 +362,7 @@ struct PerformanceChart: View {
                 if let hr = pt.hr {
                     LineMark(
                         x: .value("Time", timeOffset),
-                        y: .value("HR", Double(hr)),
+                        y: .value("HR", (Double(hr) / userLTHR) * userFTP),
                         series: .value("Metric", "HR")
                     )
                     .foregroundStyle(Color.red)
@@ -367,6 +380,7 @@ struct PerformanceChart: View {
 struct WorkoutRowView: View {
     let workout: StructuredWorkout
     let userFTP: Double
+    let userLTHR: Double
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -413,7 +427,7 @@ struct WorkoutRowView: View {
                     .foregroundColor(.secondary)
             }
             
-            WorkoutGraphView(workout: workout, userFTP: userFTP, showAxis: false)
+            WorkoutGraphView(workout: workout, userFTP: userFTP, userLTHR: userLTHR, showAxis: false)
                 .frame(height: 50)
         }
         .padding(.vertical, 8)
@@ -534,7 +548,7 @@ struct LegendItem: View {
     
     VStack(alignment: .leading) {
         Text("Free Ride Graph").font(.headline)
-        SessionGraphView(recorder: recorder, userFTP: 200)
+        SessionGraphView(recorder: recorder, userFTP: 200, userLTHR: 170)
             .frame(height: 140)
             .padding(8)
             .background(Color.secondary.opacity(0.05))
@@ -556,7 +570,7 @@ struct LegendItem: View {
     
     VStack(alignment: .leading) {
         Text("Structured Workout Graph").font(.headline)
-        WorkoutGraphView(workout: workout, userFTP: 250)
+        WorkoutGraphView(workout: workout, userFTP: 250, userLTHR: 170)
             .frame(height: 140)
             .padding(8)
             .background(Color.secondary.opacity(0.05))
@@ -578,7 +592,7 @@ struct LegendItem: View {
     )
     
     List {
-        WorkoutRowView(workout: workout, userFTP: 250)
+        WorkoutRowView(workout: workout, userFTP: 250, userLTHR: 170)
     }
 }
 

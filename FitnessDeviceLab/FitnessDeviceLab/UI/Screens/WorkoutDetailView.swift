@@ -3,11 +3,12 @@ import SwiftUI
 struct WorkoutDetailView: View {
     let workout: StructuredWorkout
     let userFTP: Double
+    let userLTHR: Double
     let onSelect: (StructuredWorkout) -> Void
     var onEdit: (() -> Void)? = nil
     @Environment(\.dismiss) var dismiss
     
-    @State private var editorWorkout: StructuredWorkout? = nil
+    @State private var showingEditor = false
     
     var body: some View {
         ScrollView {
@@ -40,7 +41,7 @@ struct WorkoutDetailView: View {
                             .cornerRadius(6)
                     }
                     
-                    WorkoutGraphView(workout: workout, userFTP: userFTP)
+                    WorkoutGraphView(workout: workout, userFTP: userFTP, userLTHR: userLTHR)
                         .frame(height: 200)
                         .padding()
                         .background(Color.secondary.opacity(0.05))
@@ -98,7 +99,7 @@ struct WorkoutDetailView: View {
                     
                     if onEdit != nil {
                         Button(action: {
-                            editorWorkout = workout
+                            showingEditor = true
                         }) {
                             Label("Edit Workout", systemImage: "pencil")
                                 .font(.headline)
@@ -113,7 +114,7 @@ struct WorkoutDetailView: View {
             .padding()
         }
         .navigationTitle(workout.name)
-        .navigationDestination(item: $editorWorkout) { workout in
+        .navigationDestination(isPresented: $showingEditor) {
             WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout))
         }
     }
@@ -131,6 +132,6 @@ struct WorkoutDetailView: View {
     )
     
     NavigationStack {
-        WorkoutDetailView(workout: workout, userFTP: 250, onSelect: { _ in })
+        WorkoutDetailView(workout: workout, userFTP: 250, userLTHR: 170, onSelect: { _ in })
     }
 }
