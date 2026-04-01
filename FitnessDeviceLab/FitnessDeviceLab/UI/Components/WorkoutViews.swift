@@ -93,20 +93,20 @@ struct WorkoutGraphView: View {
                             let startHeight = (CGFloat(startPct * scale) / CGFloat(maxPercent)) * height
                             let endHeight = (CGFloat(endPct * scale) / CGFloat(maxPercent)) * height
                             
-                            ZStack(alignment: .top) {
-                                RampShape(startRelativeHeight: startPct * scale / maxPercent,
-                                          endRelativeHeight: endPct * scale / maxPercent)
-                                    .fill(color(for: step, scale: scale).opacity(0.3))
-                                    .frame(width: max(2, stepWidth), height: height)
-                                
-                                if stepWidth > 30 {
-                                    let avgPercent = (startPct + endPct) / 2.0 * scale
-                                    Text("\(Int(round(avgPercent * 100)))%")
-                                        .font(.system(size: 8, weight: .black, design: .monospaced))
-                                        .foregroundColor(color(for: step, scale: scale).opacity(0.8))
-                                        .padding(.top, height - max(startHeight, endHeight) + 4)
+                            RampShape(startRelativeHeight: startPct * scale / maxPercent,
+                                      endRelativeHeight: endPct * scale / maxPercent)
+                                .fill(color(for: step, scale: scale).opacity(0.3))
+                                .frame(width: max(2, stepWidth), height: height)
+                                .overlay(alignment: .top) {
+                                    if stepWidth > 30 {
+                                        let avgPercent = (startPct + endPct) / 2.0 * scale
+                                        Text("\(Int(round(avgPercent * 100)))%")
+                                            .font(.system(size: 8, weight: .black, design: .monospaced))
+                                            .foregroundColor(color(for: step, scale: scale).opacity(0.8))
+                                            .padding(.top, height - max(startHeight, endHeight) + 4)
+                                            .fixedSize()
+                                    }
                                 }
-                            }
                         }
                     }
                     
