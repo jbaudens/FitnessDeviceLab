@@ -561,7 +561,13 @@ struct WorkoutPlayerContentView: View {
             Text(workout.name)
                 .font(.headline)
             
-            WorkoutGraphView(workout: workout, userFTP: viewModel.settings.userFTP, showAxis: false, scale: viewModel.workoutManager.workoutDifficultyScale)
+            WorkoutGraphView(
+                workout: workout,
+                userFTP: viewModel.settings.userFTP,
+                userLTHR: Double(viewModel.settings.userLTHR),
+                showAxis: false,
+                scale: viewModel.workoutManager.workoutDifficultyScale
+            )
                 .frame(height: 60)
                 .padding(.vertical, 4)
             

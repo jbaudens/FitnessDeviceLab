@@ -135,6 +135,7 @@ struct WorkoutLibraryView: View {
                                 NavigationLink(destination: WorkoutDetailView(
                                     workout: workout,
                                     userFTP: vm.settings.userFTP,
+                                    userLTHR: Double(vm.settings.userLTHR),
                                     onSelect: { selected in
                                         vm.selectWorkout(selected)
                                     },
@@ -142,7 +143,7 @@ struct WorkoutLibraryView: View {
                                         editingWorkout = workout
                                     }
                                 )) {
-                                    WorkoutRowView(workout: workout, userFTP: vm.settings.userFTP)
+                                    WorkoutRowView(workout: workout, userFTP: vm.settings.userFTP, userLTHR: Double(vm.settings.userLTHR))
                                         .contextMenu {
                                             Button {
                                                 editingWorkout = workout

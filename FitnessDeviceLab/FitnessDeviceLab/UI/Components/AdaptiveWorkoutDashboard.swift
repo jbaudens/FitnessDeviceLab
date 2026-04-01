@@ -183,6 +183,7 @@ struct AdaptiveWorkoutDashboard: View {
                 WorkoutGraphView(
                     workout: workout,
                     userFTP: viewModel.settings.userFTP,
+                    userLTHR: Double(viewModel.settings.userLTHR),
                     elapsedTime: viewModel.workoutManager.workoutElapsedTime,
                     recorder: recorder,
                     scale: viewModel.workoutManager.workoutDifficultyScale
@@ -195,7 +196,8 @@ struct AdaptiveWorkoutDashboard: View {
             } else {
                 SessionGraphView(
                     recorder: recorder,
-                    userFTP: viewModel.settings.userFTP
+                    userFTP: viewModel.settings.userFTP,
+                    userLTHR: Double(viewModel.settings.userLTHR)
                 )
                 .frame(height: 140)
                 .padding(8)
