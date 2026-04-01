@@ -44,17 +44,16 @@ public class TrainerSetpointCalculator {
     private var filteredHR: Double?
     private var activeHRTarget: Double? // Used to detect if target changed and reset PID
     
-    // PID Coefficients (tuned for slow HR response)
-    private let Kp = 0.40  // Proportional: Immediate response
-    private let Ki = 0.02  // Integral: Handles drift / steady-state error
-    private let Kd = 0.15  // Derivative: Damping to prevent overshoot
-    private let hrEmaAlpha = 0.2 // Smoothing for HR (EMA)
+    // PID Coefficients (Optimized for Incremental/Velocity form)
+    private let Kp = 0.15  // Proportional: Reacts to change in error
+    private let Ki = 0.01  // Integral: Handles the slow "crawl" to match HR
+    private let Kd = 0.05  // Derivative: Dampens oscillations
+    private let hrEmaAlpha = 0.2
     
     public init() {}
     
     public func reset() {
         currentControlWatts = nil
-        integralSum = 0
         lastError = 0
         lastUpdate = nil
         filteredHR = nil
@@ -62,13 +61,15 @@ public class TrainerSetpointCalculator {
     }
     
     public func calculateManualHR(targetHR: Double, currentHR: Int?, ftp: Double) -> Int? {
-        // Fallback to simple logic for manual HR or refactor to share PID logic if needed
         let hr = Double(currentHR ?? 0)
         guard hr > 0 else { return Int(round(currentControlWatts ?? ftp * 0.5)) }
         
         let error = targetHR - hr
         var base = currentControlWatts ?? (ftp * 0.5)
-        base += error * 0.15
+        
+        // Simple incremental adjustment for manual mode
+        let adjustment = error * 0.05 
+        base += adjustment
         base = max(50, min(base, ftp * 1.5))
         
         currentControlWatts = base
@@ -85,64 +86,78 @@ public class TrainerSetpointCalculator {
         let dt = lastUpdate != nil ? now.timeIntervalSince(lastUpdate!) : 1.0
         lastUpdate = now
         
-        // 1. Determine the "Goal" Strategy (Internal wattage needed for current goal)
-        let strategyWatts: Double
-        
+        // 1. Determine the "Goal" Strategy
         if let hrPercent = input.currentStep.targetHeartRatePercent {
             let targetHR = hrPercent * input.difficultyScale * input.lthr
+            let expectedPower = getInitialPowerForHR(hrPercent: hrPercent * input.difficultyScale, ftp: input.ftp)
             
-            // Detect target changes to reset integral/derivative components
+            // Initialization / Target Change
             if activeHRTarget != targetHR {
-                // If we were already in HR mode but target changed, just reset PID state
-                // If we are just starting, initialize control watts from feed-forward
                 if activeHRTarget == nil {
-                    currentControlWatts = getInitialPowerForHR(hrPercent: hrPercent * input.difficultyScale, ftp: input.ftp)
+                    // Fresh start: Jump to expected power immediately
+                    currentControlWatts = expectedPower
                 }
                 activeHRTarget = targetHR
-                integralSum = 0
                 lastError = 0
             }
             
             if let hrRaw = input.currentHR, hrRaw > 0 {
-                // Smooth HR to avoid overreacting to noise
                 let hr = filteredHR != nil ? (Double(hrRaw) * hrEmaAlpha + filteredHR! * (1.0 - hrEmaAlpha)) : Double(hrRaw)
                 filteredHR = hr
                 
                 let error = targetHR - hr
-                
-                // Proportional
-                let pTerm = error * Kp
-                
-                // Integral (with anti-windup)
-                integralSum += error * dt
-                let maxIntegral = input.ftp * 0.3 // Cap integral contribution to 30% of FTP
-                integralSum = max(-maxIntegral / Ki, min(integralSum, maxIntegral / Ki))
-                let iTerm = integralSum * Ki
-                
-                // Derivative (Damping)
-                let dTerm = ((error - lastError) / dt) * Kd
+                let errorChange = error - lastError
                 lastError = error
                 
-                // Calculate adjustment in Watts
-                // Note: PID output is change in power
-                var base = currentControlWatts ?? getInitialPowerForHR(hrPercent: hrPercent * input.difficultyScale, ftp: input.ftp)
-                base += (pTerm + iTerm + dTerm)
+                // Incremental PID Logic
+                // dp = Kp * (e - e_last) + Ki * e * dt + Kd * (e - 2*e_last + e_last_last)
+                // We use a simplified version: P responds to error change, I to error level
                 
-                // Safety bounds: 50W to 150% of FTP
-                base = max(50, min(base, input.ftp * 1.5))
+                var pTerm = errorChange * Kp * (input.ftp / 10.0) // Scaled by fitness
+                let iTerm = error * Ki * dt * (input.ftp / 10.0)
+                
+                // Dynamic Damping:
+                // If power is already above "expected", and HR is still low, we move VERY slowly.
+                // This prevents the runaway wattage during the 30-60s HR lag.
+                var gainMultiplier = 1.0
+                let currentWatts = currentControlWatts ?? expectedPower
+                
+                if error > 0 && currentWatts > expectedPower {
+                    // We are pushing harder than "normal" to raise HR
+                    let overshoot = (currentWatts - expectedPower) / input.ftp
+                    if overshoot > 0.05 { // More than 5% over expected power
+                        gainMultiplier = 0.2 // Drop gain by 80% to "slow crawl"
+                    }
+                }
+                
+                // If we are significantly over target HR, react faster to drop power
+                if error < -2 {
+                    gainMultiplier = 1.5 
+                }
+                
+                let adjustment = (pTerm + iTerm) * gainMultiplier
+                var base = currentWatts + adjustment
+                
+                // Safety Caps
+                // 1. Absolute Max (150% FTP)
+                // 2. Relative Cap: Don't exceed expected power by more than 20% 
+                //    unless HR is still extremely low after a long time.
+                let relativeCap = expectedPower + (input.ftp * 0.2)
+                base = max(50, min(base, min(input.ftp * 1.5, relativeCap)))
+                
                 currentControlWatts = base
             }
             
-            strategyWatts = currentControlWatts ?? (input.ftp * 0.5)
+            return Int(round(currentControlWatts ?? expectedPower))
             
         } else {
-            // Power Mode: Direct calculation from step definition
-            strategyWatts = (input.currentStep.powerAt(time: input.timeInStep) ?? 0) * input.difficultyScale * input.ftp
-            
-            // Clean up HR PID state while in Power mode to ensure fresh start later
+            // Power Mode
             activeHRTarget = nil
             filteredHR = nil
+            let pwr = (input.currentStep.powerAt(time: input.timeInStep) ?? 0) * input.difficultyScale * input.ftp
+            return Int(round(pwr))
         }
+    }
         
         // 2. Apply Hardware Adjustments (Anticipatory Logic)
         var commandedWatts = strategyWatts

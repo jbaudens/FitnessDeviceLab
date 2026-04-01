@@ -273,6 +273,11 @@ public class WorkoutSessionManager {
                     
                     if let targetWatts = setpointCalculator.calculate(input: input) {
                         trainerController.setTargetPower(targetWatts)
+                        
+                        // If we are in HR mode, we still want to track the commanded power for the UI
+                        if step.targetHeartRatePercent != nil {
+                            currentTargetPower = targetWatts
+                        }
                     }
                 } else {
                     // Resistance Mode: Send manual resistance level
@@ -302,9 +307,9 @@ public class WorkoutSessionManager {
                     ftp: ftp
                 ) {
                     trainerController.setTargetPower(targetWatts)
+                    currentTargetPower = targetWatts
                 }
                 currentTargetHR = manualTargetHR
-                currentTargetPower = nil
             }
         }
     }
