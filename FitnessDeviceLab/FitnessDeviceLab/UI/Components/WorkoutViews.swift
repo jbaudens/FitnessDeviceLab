@@ -40,7 +40,8 @@ struct WorkoutGraphView: View {
                 let maxTarget = workout.steps.map { ($0.targetPowerPercent ?? $0.targetHeartRatePercent ?? 0.0) * scale }.max() ?? 1.0
                 let maxActual = recorder?.trackpoints.compactMap { $0.power }.map { Double($0) / ftp }.max() ?? 0.0
 
-                let maxPercent = max(1.0, max(maxTarget, maxActual)) * 1.1
+                // Ensure high-intensity targets are visible, but cap actual data scaling to 150% to avoid squeezing the UI
+                let maxPercent = max(maxTarget, min(1.5, maxActual)) * 1.1
                 
                 ZStack(alignment: .bottomLeading) {
                     // Background grid lines and labels
@@ -186,7 +187,9 @@ struct SessionGraphView: View {
                 let ftp = userFTP
                 
                 let maxActual = recorder.trackpoints.compactMap { $0.power }.map { Double($0) / ftp }.max() ?? 0.0
-                let maxPercent = max(1.0, maxActual) * 1.1
+                
+                // Cap scaling to 150% of FTP to avoid squeezing the UI during massive sprints
+                let maxPercent = min(1.5, max(1.0, maxActual)) * 1.1
                 
                 ZStack(alignment: .bottomLeading) {
                     if showAxis {
