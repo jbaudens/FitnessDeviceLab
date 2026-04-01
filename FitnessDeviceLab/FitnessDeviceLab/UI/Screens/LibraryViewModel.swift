@@ -10,9 +10,16 @@ public class LibraryViewModel {
     
     public var searchText = ""
     public var selectedZoneFilter: WorkoutZone? = nil
-    public var selectedMetricFilter: StructuredWorkout.WorkoutMetric? = nil
+    public var selectedMetricFilter: MetricFilter? = nil
     public var showTestingWorkoutsOnly: Bool = false
     public var sortOrder: SortOrder = .name
+    
+    public enum MetricFilter: String, CaseIterable, Identifiable {
+        case power = "Power Only"
+        case heartRate = "HR Only"
+        case hybrid = "Hybrid"
+        public var id: String { rawValue }
+    }
     
     public enum SortOrder: String, CaseIterable, Identifiable {
         case name = "Name"
@@ -44,8 +51,17 @@ public class LibraryViewModel {
         }
         
         // Metric Filter
-        if let metric = selectedMetricFilter {
-            workouts = workouts.filter { $0.primaryMetric == metric }
+        if let filter = selectedMetricFilter {
+            workouts = workouts.filter { workout in
+                switch filter {
+                case .power:
+                    return workout.hasPower && !workout.hasHR
+                case .heartRate:
+                    return workout.hasHR && !workout.hasPower
+                case .hybrid:
+                    return workout.isHybrid
+                }
+            }
         }
         
         // Testing Filter
@@ -70,5 +86,19 @@ public class LibraryViewModel {
     
     public func selectWorkout(_ workout: StructuredWorkout) {
         workoutManager.selectedWorkout = workout
+    }
+    
+    public func duplicateWorkout(_ workout: StructuredWorkout) {
+        let newWorkout = StructuredWorkout(
+            id: UUID(),
+            name: "\(workout.name) (Copy)",
+            description: workout.description,
+            steps: workout.steps
+        )
+        repository.add(newWorkout)
+    }
+    
+    public func deleteWorkout(_ workout: StructuredWorkout) {
+        repository.delete(workout)
     }
 }

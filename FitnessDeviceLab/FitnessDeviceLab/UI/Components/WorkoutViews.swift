@@ -390,8 +390,19 @@ struct WorkoutRowView: View {
                         Text("•")
                         Text("IF \(String(format: "%.2f", workout.intensityFactor))")
                         Text("•")
-                        Label(workout.primaryMetric.rawValue, systemImage: workout.primaryMetric == .power ? "bolt.fill" : "heart.fill")
+                        
+                        if workout.isHybrid {
+                            HStack(spacing: 4) {
+                                Image(systemName: "bolt.fill").foregroundColor(.yellow)
+                                Image(systemName: "heart.fill").foregroundColor(.red)
+                                Text("Hybrid")
+                            }
                             .imageScale(.small)
+                        } else {
+                            Label(workout.primaryMetric.rawValue, systemImage: workout.primaryMetric == .power ? "bolt.fill" : "heart.fill")
+                                .foregroundColor(workout.primaryMetric == .power ? .yellow : .red)
+                                .imageScale(.small)
+                        }
                     }
                     .font(.caption)
                     .foregroundColor(.secondary)

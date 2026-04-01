@@ -269,7 +269,6 @@ struct WorkoutPlayerContentView: View {
                     Spacer()
                 }
                 .navigationTitle("Session Summary")
-                .hideNavigationBarOnMobile()
                 .sheet(isPresented: $viewModel.showingComparison) {
                     DualPowerComparisonView(
                         recorderA: viewModel.workoutManager.recorderA,
@@ -289,12 +288,10 @@ struct WorkoutPlayerContentView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .navigationTitle("Saving...")
-                .hideNavigationBarOnMobile()
             } else if viewModel.isActiveState {
                 activeView
             } else {
                 setupView
-                    .hideNavigationBarOnMobile()
             }
         }
     }
@@ -335,9 +332,7 @@ struct WorkoutPlayerContentView: View {
             .background(Color.systemBackground)
         }
         .navigationTitle(viewModel.workoutManager.selectedWorkout?.name ?? "Free Ride")
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
+        .inlineNavigationBarTitle()
     }
     
     private var activeControls: some View {
