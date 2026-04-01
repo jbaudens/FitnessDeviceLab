@@ -3,7 +3,7 @@ import SwiftUI
 struct WorkoutEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State var viewModel: WorkoutEditorViewModel
+    var viewModel: WorkoutEditorViewModel
     
     var body: some View {
         @Bindable var vm = viewModel

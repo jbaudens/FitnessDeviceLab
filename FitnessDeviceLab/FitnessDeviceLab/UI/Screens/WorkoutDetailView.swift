@@ -94,10 +94,8 @@ struct WorkoutDetailView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(workout.primaryZone.color)
                     
-                    if let onEdit = onEdit {
-                        Button(action: {
-                            onEdit()
-                        }) {
+                    if onEdit != nil {
+                        NavigationLink(destination: WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout))) {
                             Label("Edit Workout", systemImage: "pencil")
                                 .font(.headline)
                                 .frame(maxWidth: .infinity)

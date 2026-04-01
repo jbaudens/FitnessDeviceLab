@@ -90,9 +90,6 @@ struct WorkoutGraphView: View {
                             let startPct = step.targetPowerPercent ?? step.targetHeartRatePercent ?? 0.0
                             let endPct = step.endTargetPowerPercent ?? step.targetHeartRatePercent ?? 0.0
                             
-                            let startHeight = (CGFloat(startPct * scale) / CGFloat(maxPercent)) * height
-                            let endHeight = (CGFloat(endPct * scale) / CGFloat(maxPercent)) * height
-                            
                             RampShape(startRelativeHeight: startPct * scale / maxPercent,
                                       endRelativeHeight: endPct * scale / maxPercent)
                                 .fill(color(for: step, scale: scale).opacity(0.3))
