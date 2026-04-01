@@ -111,7 +111,7 @@ struct WorkoutGraphView: View {
                                 .frame(width: max(2, stepWidth), height: height)
                                 .overlay(alignment: .bottom) {
                                     if stepWidth > 30 {
-                                        let avgPercent = (isHR ? step.targetHeartRatePercent! : (step.targetPowerPercent ?? 0.0 + (step.endTargetPowerPercent ?? step.targetPowerPercent ?? 0.0)) / 2.0) * workoutScale
+                                        let avgPercent = (isHR ? step.targetHeartRatePercent! : ((step.targetPowerPercent ?? 0.0) + (step.endTargetPowerPercent ?? step.targetPowerPercent ?? 0.0)) / 2.0) * workoutScale
                                         Text("\(Int(round(avgPercent * 100)))%")
                                             .font(.system(size: 8, weight: .black, design: .monospaced))
                                             .foregroundColor(color(for: step, scale: workoutScale).opacity(0.8))
@@ -272,9 +272,9 @@ struct GrowingPerformanceChart: View {
     
     var body: some View {
         Chart {
-            ForEach(Array(downsampledTrackpoints.enumerated()), id: \.element.id) { index, pt in
-                let originalIndex = recorder.trackpoints.firstIndex(where: { $0.id == pt.id }) ?? index
-                let timeOffset = Double(originalIndex)
+            ForEach(downsampledTrackpoints) { pt in
+                let index = recorder.trackpoints.firstIndex(where: { $0.id == pt.id }) ?? 0
+                let timeOffset = Double(index)
                 
                 if let pwr = pt.power {
                     LineMark(
@@ -336,9 +336,9 @@ struct PerformanceChart: View {
     
     var body: some View {
         Chart {
-            ForEach(Array(downsampledTrackpoints.enumerated()), id: \.element.id) { index, pt in
-                let originalIndex = recorder.trackpoints.firstIndex(where: { $0.id == pt.id }) ?? index
-                let timeOffset = Double(originalIndex)
+            ForEach(downsampledTrackpoints) { pt in
+                let index = recorder.trackpoints.firstIndex(where: { $0.id == pt.id }) ?? 0
+                let timeOffset = Double(index)
                 
                 if let pwr = pt.power {
                     LineMark(
@@ -443,7 +443,11 @@ struct DFAAlpha1ChartView: View {
         let points = recorder.trackpoints
         guard points.count > maxPoints else { return points }
         let stride = points.count / maxPoints
-        return points.enumerated().compactMap { $0.offset % stride == 0 ? $0.element : nil }
+        var result: [Trackpoint] = []
+        for i in Swift.stride(from: 0, to: points.count, by: stride) {
+            result.append(points[i])
+        }
+        return result
     }
     
     var body: some View {

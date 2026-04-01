@@ -3,135 +3,171 @@ import SwiftUI
 struct InteractionCockpit: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Bindable var workoutManager: WorkoutSessionManager
+    var onStop: (() -> Void)? = nil
     
     private var isRegular: Bool { horizontalSizeClass == .regular }
     
     var body: some View {
-        VStack(spacing: 8) {
-            if workoutManager.selectedWorkout == nil {
-                // Free Ride Controls
-                VStack(spacing: 8) {
-                    Picker("Mode", selection: $workoutManager.freeRideControlMode) {
-                        ForEach(WorkoutSessionManager.FreeRideControlMode.allCases) { mode in
-                            Text(mode.rawValue).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .scaleEffect(isRegular ? 1.0 : 1.0)
-                    
-                    adjustmentRow(
-                        value: currentValueString,
-                        label: currentLabelString,
-                        coarseAmount: workoutManager.freeRideControlMode == .power ? 10 : 5
-                    )
-                }
-            } else {
-                // Structured Workout Controls
-                VStack(spacing: 8) {
-                    Picker("Mode", selection: $workoutManager.ergModeEnabled) {
-                        Text("Resistance").tag(false)
-                        Text("ERG Mode").tag(true)
-                    }
-                    .pickerStyle(.segmented)
-                    .disabled(!workoutManager.canEnableErgMode)
-                    .scaleEffect(isRegular ? 1.0 : 1.0)
-                    
-                    adjustmentRow(
-                        value: workoutManager.ergModeEnabled ? "\(Int(round(workoutManager.workoutDifficultyScale * 100)))%" : "\(Int(workoutManager.resistanceLevel))%",
-                        label: workoutManager.ergModeEnabled ? "INTENSITY" : "LEVEL",
-                        coarseAmount: 5
-                    )
-                }
+        VStack(spacing: 12) {
+            HStack(spacing: 16) {
+                // 1. Mode Selection
+                modePicker
+                
+                Divider().frame(height: 32)
+                
+                // 2. Incremental Adjustments (Restored +/- 1 and +/- 5/10)
+                adjustmentGroup
+                
+                Spacer()
+                
+                Divider().frame(height: 32)
+                
+                // 3. Primary Session Controls (Consistent Circular Style)
+                sessionControls
             }
         }
-        .padding(12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
         .background(Color.secondary.opacity(0.1))
         .cornerRadius(16)
         .foregroundColor(.blue)
     }
     
     @ViewBuilder
-    private func adjustmentRow(value: String, label: String, coarseAmount: Int) -> some View {
-        let buttonSize: CGFloat = isRegular ? 60 : 60
-        let fineIconSize: CGFloat = isRegular ? 44 : 44
-        let coarseIconSize: CGFloat = isRegular ? 24 : 24
-        
-        HStack(spacing: 0) {
-            // Coarse Decrease (Subdued & Shielded)
-            Button(action: { workoutManager.adjustManualTarget(amount: -coarseAmount) }) {
-                VStack(spacing: 2) {
-                    Image(systemName: "minus.square.fill")
-                        .font(.system(size: coarseIconSize))
-                    Text("-\(coarseAmount)")
-                        .font(.system(size: 8, weight: .black))
+    private var modePicker: some View {
+        if workoutManager.selectedWorkout == nil {
+            Picker("Mode", selection: $workoutManager.freeRideControlMode) {
+                ForEach(WorkoutSessionManager.FreeRideControlMode.allCases) { mode in
+                    Text(mode.rawValue).tag(mode)
                 }
-                .foregroundColor(.secondary.opacity(0.6))
-                .frame(width: buttonSize, height: buttonSize)
-                .background(Color.secondary.opacity(0.1))
-                .cornerRadius(12)
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("coarse_decrease")
+            .pickerStyle(.segmented)
+            .frame(width: 180)
+        } else {
+            Picker("Mode", selection: $workoutManager.ergModeEnabled) {
+                Text("RES").tag(false)
+                Text("ERG").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .disabled(!workoutManager.canEnableErgMode)
+            .frame(width: 120)
+        }
+    }
+    
+    @ViewBuilder
+    private var adjustmentGroup: some View {
+        HStack(spacing: 8) {
+            let coarseAmount = (workoutManager.selectedWorkout == nil && workoutManager.freeRideControlMode == .power) ? 10 : 5
             
-            Spacer().frame(width: 12) // Safety Gutter
+            // Coarse Down
+            Button(action: { workoutManager.adjustManualTarget(amount: -coarseAmount) }) {
+                Image(systemName: "minus.square.fill")
+                    .font(.title3)
+                    .foregroundColor(.secondary.opacity(0.7))
+            }
             
-            // Fine Decrease (Prominent & Central)
+            // Fine Down
             Button(action: { workoutManager.adjustManualTarget(amount: -1) }) {
                 Image(systemName: "minus.circle.fill")
-                    .font(.system(size: fineIconSize))
-                    .foregroundColor(.blue)
-                    .frame(width: buttonSize, height: buttonSize)
+                    .font(.title2)
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("fine_decrease")
             
-            Spacer()
-            
-            // Center Value Hero
+            // Value
             VStack(spacing: 0) {
-                Text(value)
-                    .font(.system(size: 28, weight: .bold, design: .monospaced))
+                Text(currentValueString)
+                    .font(.system(size: 20, weight: .bold, design: .monospaced))
                     .foregroundColor(.primary)
-                Text(label)
-                    .font(.system(size: 10, weight: .black))
+                Text(currentLabelString)
+                    .font(.system(size: 8, weight: .black))
                     .foregroundColor(.secondary)
             }
-            .frame(minWidth: 80)
+            .frame(minWidth: 60)
             
-            Spacer()
-            
-            // Fine Increase (Prominent & Central)
+            // Fine Up
             Button(action: { workoutManager.adjustManualTarget(amount: 1) }) {
                 Image(systemName: "plus.circle.fill")
-                    .font(.system(size: fineIconSize))
-                    .foregroundColor(.blue)
-                    .frame(width: buttonSize, height: buttonSize)
+                    .font(.title2)
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("fine_increase")
             
-            Spacer().frame(width: 12) // Safety Gutter
-            
-            // Coarse Increase (Subdued & Shielded)
+            // Coarse Up
             Button(action: { workoutManager.adjustManualTarget(amount: coarseAmount) }) {
-                VStack(spacing: 2) {
-                    Image(systemName: "plus.square.fill")
-                        .font(.system(size: coarseIconSize))
-                    Text("+\(coarseAmount)")
-                        .font(.system(size: 8, weight: .black))
-                }
-                .foregroundColor(.secondary.opacity(0.6))
-                .frame(width: buttonSize, height: buttonSize)
-                .background(Color.secondary.opacity(0.1))
-                .cornerRadius(12)
+                Image(systemName: "plus.square.fill")
+                    .font(.title3)
+                    .foregroundColor(.secondary.opacity(0.7))
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("coarse_increase")
         }
-        .padding(.horizontal, 4)
+    }
+    
+    @ViewBuilder
+    private var sessionControls: some View {
+        HStack(spacing: 16) {
+            if !workoutManager.isRecording {
+                // Cancel
+                Button(action: {
+                    workoutManager.isLoaded = false
+                    workoutManager.isRecording = false
+                }) {
+                    circularControl(icon: "xmark", color: .gray)
+                }
+                
+                // Start (The only one with a label for extra clarity)
+                Button(action: {
+                    workoutManager.startRecording()
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "play.fill")
+                        Text("START").font(.system(size: 12, weight: .black))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.green)
+                    .foregroundColor(.white)
+                    .cornerRadius(20)
+                }
+            } else {
+                // Lap
+                Button(action: { workoutManager.manualLap() }) {
+                    circularControl(icon: "circle.circle.fill", color: .blue)
+                }
+                .disabled(workoutManager.isPaused)
+                
+                // Pause/Resume
+                Button(action: {
+                    if workoutManager.isPaused {
+                        workoutManager.resumeWorkout()
+                    } else {
+                        workoutManager.pauseWorkout()
+                    }
+                }) {
+                    circularControl(
+                        icon: workoutManager.isPaused ? "play.fill" : "pause.fill",
+                        color: .orange,
+                        size: 44
+                    )
+                }
+                
+                // Stop
+                Button(action: { onStop?() }) {
+                    circularControl(icon: "stop.fill", color: .red)
+                }
+            }
+        }
+    }
+    
+    private func circularControl(icon: String, color: Color, size: CGFloat = 36) -> some View {
+        Image(systemName: icon)
+            .font(.system(size: size * 0.5, weight: .bold))
+            .foregroundColor(.white)
+            .frame(width: size, height: size)
+            .background(color.gradient)
+            .clipShape(Circle())
+            .shadow(radius: 2)
     }
     
     private var currentValueString: String {
+        if let _ = workoutManager.selectedWorkout {
+            return workoutManager.ergModeEnabled ? "\(Int(round(workoutManager.workoutDifficultyScale * 100)))%" : "\(Int(workoutManager.resistanceLevel))%"
+        }
         switch workoutManager.freeRideControlMode {
         case .heartRate: return "\(workoutManager.manualTargetHR)"
         case .power: return "\(workoutManager.manualTargetPower)"
@@ -140,6 +176,9 @@ struct InteractionCockpit: View {
     }
     
     private var currentLabelString: String {
+        if let _ = workoutManager.selectedWorkout {
+            return workoutManager.ergModeEnabled ? "INTENSITY" : "LEVEL"
+        }
         switch workoutManager.freeRideControlMode {
         case .heartRate: return "BPM"
         case .power: return "WATTS"

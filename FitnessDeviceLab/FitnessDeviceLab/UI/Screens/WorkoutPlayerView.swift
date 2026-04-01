@@ -322,93 +322,25 @@ struct WorkoutPlayerContentView: View {
             VStack(spacing: 0) {
                 Divider()
                 
-                // Cockpit Zone (Bottom Interaction)
-                InteractionCockpit(workoutManager: viewModel.workoutManager)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                
-                activeControls
+                // Cockpit Zone (Bottom Interaction) - Now includes integrated Session Controls
+                InteractionCockpit(workoutManager: viewModel.workoutManager) {
+                    viewModel.showingStopConfirmation = true
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
             }
             .background(Color.systemBackground)
+            .alert("Stop Workout?", isPresented: $viewModel.showingStopConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Stop & Save", role: .destructive) {
+                    viewModel.workoutManager.stopWorkout()
+                }
+            } message: {
+                Text("This will end the current session and save the data.")
+            }
         }
         .navigationTitle(viewModel.workoutManager.selectedWorkout?.name ?? "Free Ride")
         .inlineNavigationBarTitle()
-    }
-    
-    private var activeControls: some View {
-        HStack(spacing: 16) {
-            if !viewModel.workoutManager.isRecording {
-                Button(action: {
-                    viewModel.workoutManager.isLoaded = false
-                    viewModel.workoutManager.isRecording = false
-                }) {
-                    Label("Cancel", systemImage: "xmark.circle")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                }
-                .buttonStyle(.bordered)
-                .tint(.secondary)
-                
-                Button(action: {
-                    viewModel.workoutManager.startRecording()
-                }) {
-                    Label("Start Recording", systemImage: "play.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-            } else {
-                Button(action: {
-                    viewModel.workoutManager.manualLap()
-                }) {
-                    Label("Lap", systemImage: "circle.circle")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                }
-                .buttonStyle(.bordered)
-                .tint(.blue)
-                .disabled(viewModel.workoutManager.isPaused)
-                
-                Button(action: {
-                    if viewModel.workoutManager.isPaused {
-                        viewModel.workoutManager.resumeWorkout()
-                    } else {
-                        viewModel.workoutManager.pauseWorkout()
-                    }
-                }) {
-                    Label(viewModel.workoutManager.isPaused ? "Resume" : "Pause", systemImage: viewModel.workoutManager.isPaused ? "play.fill" : "pause.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                }
-                .buttonStyle(.bordered)
-                .tint(.orange)
-                
-                Button(action: {
-                    viewModel.showingStopConfirmation = true
-                }) {
-                    Label("Stop", systemImage: "stop.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.red)
-                .alert("Stop Workout?", isPresented: $viewModel.showingStopConfirmation) {
-                    Button("Cancel", role: .cancel) { }
-                    Button("Stop & Save", role: .destructive) {
-                        viewModel.workoutManager.stopWorkout()
-                    }
-                } message: {
-                    Text("This will end the current session and save the data.")
-                }
-            }
-        }
-        .padding()
     }
     
     private var setupView: some View {
