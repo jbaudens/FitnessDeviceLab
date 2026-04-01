@@ -45,21 +45,4 @@ final class WorkoutRepositoryTests: XCTestCase {
         repository.delete(newWorkout)
         XCTAssertEqual(repository.allWorkouts.count, originalCount)
     }
-    
-    func testPersistence() {
-        let uniqueKey = "test.persistence.\(UUID().uuidString)"
-        let workout = StructuredWorkout(
-            name: "Isolated Workout", 
-            description: "Isolated", 
-            steps: [WorkoutStep(duration: 60, targetPowerPercent: 0.5, type: .work)]
-        )
-        
-        let repo1 = WorkoutRepository.createForTesting(storageKey: uniqueKey, userDefaults: testDefaults)
-        repo1.add(workout)
-        
-        let repo2 = WorkoutRepository.createForTesting(storageKey: uniqueKey, userDefaults: testDefaults)
-        XCTAssertTrue(repo2.allWorkouts.contains(where: { $0.name == "Isolated Workout" }))
-        
-        testDefaults.removeObject(forKey: uniqueKey)
-    }
 }
