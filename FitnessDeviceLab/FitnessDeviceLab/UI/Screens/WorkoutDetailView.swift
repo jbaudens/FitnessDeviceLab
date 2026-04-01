@@ -7,6 +7,8 @@ struct WorkoutDetailView: View {
     var onEdit: (() -> Void)? = nil
     @Environment(\.dismiss) var dismiss
     
+    @State private var editorWorkout: StructuredWorkout? = nil
+    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -95,7 +97,9 @@ struct WorkoutDetailView: View {
                     .tint(workout.primaryZone.color)
                     
                     if onEdit != nil {
-                        NavigationLink(destination: WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout))) {
+                        Button(action: {
+                            editorWorkout = workout
+                        }) {
                             Label("Edit Workout", systemImage: "pencil")
                                 .font(.headline)
                                 .frame(maxWidth: .infinity)
@@ -109,6 +113,9 @@ struct WorkoutDetailView: View {
             .padding()
         }
         .navigationTitle(workout.name)
+        .navigationDestination(item: $editorWorkout) { workout in
+            WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout))
+        }
     }
 }
 
