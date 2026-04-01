@@ -38,7 +38,6 @@ public class TrainerSetpointCalculator {
     // MARK: - PID State
     
     private var currentControlWatts: Double?
-    private var integralSum: Double = 0
     private var lastError: Double = 0
     private var lastUpdate: Date?
     private var filteredHR: Double?
@@ -87,6 +86,8 @@ public class TrainerSetpointCalculator {
         lastUpdate = now
         
         // 1. Determine the "Goal" Strategy
+        let strategyWatts: Double
+        
         if let hrPercent = input.currentStep.targetHeartRatePercent {
             let targetHR = hrPercent * input.difficultyScale * input.lthr
             let expectedPower = getInitialPowerForHR(hrPercent: hrPercent * input.difficultyScale, ftp: input.ftp)
@@ -110,27 +111,20 @@ public class TrainerSetpointCalculator {
                 lastError = error
                 
                 // Incremental PID Logic
-                // dp = Kp * (e - e_last) + Ki * e * dt + Kd * (e - 2*e_last + e_last_last)
-                // We use a simplified version: P responds to error change, I to error level
-                
                 var pTerm = errorChange * Kp * (input.ftp / 10.0) // Scaled by fitness
                 let iTerm = error * Ki * dt * (input.ftp / 10.0)
                 
-                // Dynamic Damping:
-                // If power is already above "expected", and HR is still low, we move VERY slowly.
-                // This prevents the runaway wattage during the 30-60s HR lag.
+                // Dynamic Damping
                 var gainMultiplier = 1.0
                 let currentWatts = currentControlWatts ?? expectedPower
                 
                 if error > 0 && currentWatts > expectedPower {
-                    // We are pushing harder than "normal" to raise HR
                     let overshoot = (currentWatts - expectedPower) / input.ftp
-                    if overshoot > 0.05 { // More than 5% over expected power
-                        gainMultiplier = 0.2 // Drop gain by 80% to "slow crawl"
+                    if overshoot > 0.05 {
+                        gainMultiplier = 0.2
                     }
                 }
                 
-                // If we are significantly over target HR, react faster to drop power
                 if error < -2 {
                     gainMultiplier = 1.5 
                 }
@@ -138,26 +132,20 @@ public class TrainerSetpointCalculator {
                 let adjustment = (pTerm + iTerm) * gainMultiplier
                 var base = currentWatts + adjustment
                 
-                // Safety Caps
-                // 1. Absolute Max (150% FTP)
-                // 2. Relative Cap: Don't exceed expected power by more than 20% 
-                //    unless HR is still extremely low after a long time.
                 let relativeCap = expectedPower + (input.ftp * 0.2)
                 base = max(50, min(base, min(input.ftp * 1.5, relativeCap)))
                 
                 currentControlWatts = base
             }
             
-            return Int(round(currentControlWatts ?? expectedPower))
+            strategyWatts = currentControlWatts ?? expectedPower
             
         } else {
             // Power Mode
             activeHRTarget = nil
             filteredHR = nil
-            let pwr = (input.currentStep.powerAt(time: input.timeInStep) ?? 0) * input.difficultyScale * input.ftp
-            return Int(round(pwr))
+            strategyWatts = (input.currentStep.powerAt(time: input.timeInStep) ?? 0) * input.difficultyScale * input.ftp
         }
-    }
         
         // 2. Apply Hardware Adjustments (Anticipatory Logic)
         var commandedWatts = strategyWatts

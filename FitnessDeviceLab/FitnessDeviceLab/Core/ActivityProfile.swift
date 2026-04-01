@@ -26,8 +26,8 @@ public struct ActivityProfile: Identifiable, Codable, Hashable {
             // Page 1: General
             DataPage(fields: [
                 // instant
-                .currentPower, .power3s, .slPower, .slPower3s, .powerBalance,
-                .currentHR, .dfaAlpha1, .speed, .cadence,
+                .power3s, .slPower, .slPower3s, .powerBalance,
+                .dfaAlpha1, .speed, .cadence,
                 //lap
                 .lapAvgPower, .lapNP, .lapAvgHR, .lapAvgCadence,
                 //overall

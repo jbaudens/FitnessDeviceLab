@@ -8,28 +8,35 @@ struct AdaptiveWorkoutDashboard: View {
     var body: some View {
         GeometryReader { geo in
             if geo.size.width > 800 && horizontalSizeClass != .compact {
-                // Landscape Lab Mode
+                // Landscape Lab Mode (Stacked)
                 HStack(spacing: 0) {
                     ScrollView {
-                        VStack(spacing: 24) {
+                        VStack(spacing: 32) {
                             if viewModel.workoutManager.recorderA.hasAnySensor && viewModel.workoutManager.recorderB.hasAnySensor {
                                 comparisonHeader
                                     .padding(.top, 8)
                             }
                             
                             ForEach(viewModel.workoutManager.activeProfile.pages) { page in
-                                HStack(spacing: 0) {
+                                VStack(spacing: 32) {
                                     if viewModel.workoutManager.recorderA.hasAnySensor {
-                                        sensorSetColumn(title: "SET A", color: .blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
+                                        sensorSetStackedSection(title: "SET A", color: .blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
+                                    }
+                                    
+                                    if viewModel.workoutManager.recorderA.hasAnySensor && viewModel.workoutManager.recorderB.hasAnySensor {
+                                        Divider().padding(.horizontal)
                                     }
                                     
                                     if viewModel.workoutManager.recorderB.hasAnySensor {
-                                        sensorSetColumn(title: "SET B", color: .purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
+                                        sensorSetStackedSection(title: "SET B", color: .purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
                                     }
                                 }
                                 
                                 if page.id != viewModel.workoutManager.activeProfile.pages.last?.id {
-                                    Divider().padding(.horizontal)
+                                    Rectangle()
+                                        .fill(Color.secondary.opacity(0.2))
+                                        .frame(height: 8)
+                                        .padding(.vertical)
                                 }
                             }
                         }
@@ -38,15 +45,14 @@ struct AdaptiveWorkoutDashboard: View {
                     
                     Divider()
                     
-                    // Laps History in a sidebar-like column for Lab Mode
+                    // Laps History sidebar
                     LapsHistoryView(workoutManager: viewModel.workoutManager, settings: viewModel.settings)
                         .frame(width: 300)
                         .background(Color.secondary.opacity(0.05))
                 }
             } else {
-                // Portrait/Mobile Mode (Existing layout)
+                // Portrait/Mobile Mode
                 TabView {
-                    // Data Pages
                     ForEach(viewModel.workoutManager.activeProfile.pages) { page in
                         ScrollView {
                             VStack(spacing: 32) {
@@ -65,8 +71,6 @@ struct AdaptiveWorkoutDashboard: View {
                             .padding(.vertical)
                         }
                     }
-                    
-                    // Laps View
                     LapsHistoryView(workoutManager: viewModel.workoutManager, settings: viewModel.settings)
                 }
                 #if os(iOS)
@@ -79,32 +83,18 @@ struct AdaptiveWorkoutDashboard: View {
     private var comparisonHeader: some View {
         HStack(spacing: 20) {
             Spacer()
-            
-            // Power Delta Badge
             let pwrA = Double(viewModel.workoutManager.recorderA.powerSource?.cyclingPower ?? 0)
             let pwrB = Double(viewModel.workoutManager.recorderB.powerSource?.cyclingPower ?? 0)
             let pwrDelta = pwrA - pwrB
             let pwrPct = pwrB > 0 ? (pwrDelta / pwrB) * 100 : 0
             
-            comparisonBadge(
-                label: "PWR Δ",
-                value: "\(Int(abs(pwrDelta)))W",
-                percent: String(format: "%.1f%%", abs(pwrPct)),
-                color: pwrColor(percent: pwrPct)
-            )
+            comparisonBadge(label: "PWR Δ", value: "\(Int(abs(pwrDelta)))W", percent: String(format: "%.1f%%", abs(pwrPct)), color: pwrColor(percent: pwrPct))
             
-            // HR Delta Badge
             let hrA = Double(viewModel.workoutManager.recorderA.hrSource?.heartRate ?? 0)
             let hrB = Double(viewModel.workoutManager.recorderB.hrSource?.heartRate ?? 0)
             let hrDelta = hrA - hrB
             
-            comparisonBadge(
-                label: "HR Δ",
-                value: "\(Int(abs(hrDelta)))",
-                percent: "BPM",
-                color: hrColor(delta: hrDelta)
-            )
-            
+            comparisonBadge(label: "HR Δ", value: "\(Int(abs(hrDelta)))", percent: "BPM", color: hrColor(delta: hrDelta))
             Spacer()
         }
         .padding(.horizontal)
@@ -113,25 +103,14 @@ struct AdaptiveWorkoutDashboard: View {
     @ViewBuilder
     private func comparisonBadge(label: String, value: String, percent: String, color: Color) -> some View {
         HStack(spacing: 8) {
-            Text(label)
-                .font(.system(size: 8, weight: .black))
-                .foregroundColor(.secondary)
-            
+            Text(label).font(.system(size: 8, weight: .black)).foregroundColor(.secondary)
             HStack(alignment: .lastTextBaseline, spacing: 4) {
-                Text(value)
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
-                Text(percent)
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundColor(.secondary)
+                Text(value).font(.system(size: 16, weight: .bold, design: .monospaced))
+                Text(percent).font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundColor(.secondary)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(color.opacity(0.1))
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(color.opacity(0.3), lineWidth: 1)
-            )
+            .padding(.horizontal, 10).padding(.vertical, 4)
+            .background(color.opacity(0.1)).cornerRadius(8)
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(color.opacity(0.3), lineWidth: 1))
         }
     }
     
@@ -148,13 +127,73 @@ struct AdaptiveWorkoutDashboard: View {
         if absDelta < 6.0 { return .orange }
         return .red
     }
-    
-    private func sensorSetColumn(title: String, color: Color, recorder: SessionRecorder, fields: [DataFieldType]) -> some View {
-        VStack(spacing: 0) {
-            // Re-use sensorSetSection logic but optimized for column
-            sensorSetSection(title: title, color: color, recorder: recorder, fields: fields)
+
+    private func sensorSetStackedSection(title: String, color: Color, recorder: SessionRecorder, fields: [DataFieldType]) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header Row: Info + Primary Metrics
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Label(title, systemImage: title == "SET A" ? "1.circle.fill" : "2.circle.fill")
+                        .font(.caption.weight(.black))
+                        .foregroundColor(color)
+                    Text(viewModel.deviceNames(recorder: recorder))
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                // Primary Quick-Glance Data
+                HStack(spacing: 24) {
+                    quickMetric(label: "PWR", value: "\(recorder.powerSource?.cyclingPower ?? 0)", unit: "W", color: .yellow)
+                    quickMetric(label: "HR", value: "\(recorder.hrSource?.heartRate ?? 0)", unit: "BPM", color: .red)
+                    quickMetric(label: "CAD", value: "\(recorder.cadenceSource?.cadence ?? 0)", unit: "RPM", color: .blue)
+                }
+            }
+            .padding(.horizontal)
+            
+            // Full Width Graph
+            VStack(spacing: 8) {
+                if let workout = viewModel.workoutManager.selectedWorkout {
+                    WorkoutGraphView(
+                        workout: workout,
+                        userFTP: viewModel.settings.userFTP,
+                        userLTHR: Double(viewModel.settings.userLTHR),
+                        elapsedTime: viewModel.workoutManager.workoutElapsedTime,
+                        recorder: recorder,
+                        scale: viewModel.workoutManager.workoutDifficultyScale
+                    )
+                    .frame(height: 160) // Slightly taller for better stacked resolution
+                } else {
+                    SessionGraphView(
+                        recorder: recorder,
+                        userFTP: viewModel.settings.userFTP,
+                        userLTHR: Double(viewModel.settings.userLTHR)
+                    )
+                    .frame(height: 160)
+                }
+                
+                if viewModel.workoutManager.activeProfile.name == "DFA Analysis" {
+                    DFAAlpha1ChartView(recorder: recorder)
+                        .frame(height: 80)
+                        .padding(8)
+                        .background(Color.purple.opacity(0.05))
+                        .cornerRadius(12)
+                }
+            }
+            .padding(12)
+            .background(Color.secondary.opacity(0.05))
+            .cornerRadius(16)
+            .padding(.horizontal)
+            
+            // Detailed Data Grid
+            DataFieldGrid(
+                engine: recorder.engine,
+                fields: fields,
+                settings: viewModel.settings
+            )
+            .padding(.horizontal)
         }
-        .frame(maxWidth: .infinity)
     }
 
     private func sensorSetSection(title: String, color: Color, recorder: SessionRecorder, fields: [DataFieldType]) -> some View {
@@ -212,6 +251,17 @@ struct AdaptiveWorkoutDashboard: View {
                 settings: viewModel.settings
             )
             .padding(.horizontal)
+        }
+    }
+    
+    private func quickMetric(label: String, value: String, unit: String, color: Color) -> some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            Text(label).font(.system(size: 8, weight: .black)).foregroundColor(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value).font(.system(size: 20, weight: .bold, design: .rounded))
+                Text(unit).font(.system(size: 8, weight: .black)).foregroundColor(.secondary)
+            }
+            .foregroundColor(color)
         }
     }
 }
