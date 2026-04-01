@@ -351,8 +351,8 @@ public class DataFieldEngine {
         calculationTask?.cancel()
         
         let metricsSettings = settings.metricsSettings
-        // Provide enough history for time-based windowing (e.g., last 300 trackpoints)
-        let relevantPoints = trackpoints.suffix(300)
+        // Provide enough history for time-based windowing (e.g., last 600 trackpoints for 10 min buffer)
+        let relevantPoints = trackpoints.suffix(600)
         let beats = relevantPoints.flatMap { pt in
             pt.rrIntervals.map { rr in Beat(time: pt.time, rr: rr) }
         }

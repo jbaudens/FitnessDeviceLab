@@ -13,9 +13,9 @@ nonisolated public struct HRVConfig {
     public var mode: HRVMeasurementMode
     
     public static let hrvLoggerExercise = HRVConfig(
-        windowSizeSeconds: 120,
+        windowSizeSeconds: 120, // 2 minutes
         stepSizeSeconds: 5,
-        artifactCorrectionThreshold: 0.20,
+        artifactCorrectionThreshold: 0.15, // Tightened for exercise
         mode: .exercise
     )
     
@@ -57,39 +57,30 @@ public struct HRVEngine {
     
     nonisolated public static func calculateMetrics(beats: [Beat], config: HRVConfig = .hrvLoggerExercise) -> HRVMetrics {
         // 1. Wall-clock time-based windowing
-        // We filter beats that occurred within the windowSizeSeconds relative to the last beat.
         guard let latestTime = beats.last?.time else { return HRVMetrics() }
         let startTime = latestTime.addingTimeInterval(-Double(config.windowSizeSeconds))
         
         let windowedBeats = beats.filter { $0.time >= startTime }
         let rawRRIntervals = windowedBeats.map { $0.rr }
         
-        // 2. Artifact removal & filtering on the windowed data
-        var filteredRR: [Double] = []
-        for rr in rawRRIntervals {
-            if rr < 0.3 || rr > 2.0 { continue }
-            if let last = filteredRR.last {
-                let diff = abs(rr - last) / last
-                if diff > config.artifactCorrectionThreshold { continue }
-            }
-            filteredRR.append(rr)
-        }
+        // 2. Artifact Correction (Moving Median Filter + Threshold)
+        let correctedRR = correctArtifacts(rawRRIntervals, threshold: config.artifactCorrectionThreshold)
         
-        let N = filteredRR.count
-        // For DFA a1 we need a decent number of points even in exercise
-        let minIntervals = config.mode == .exercise ? 50 : 150
+        let N = correctedRR.count
+        // For exercise, we need at least 60 samples for DFA Alpha 1 to be somewhat stable
+        let minIntervals = config.mode == .exercise ? 60 : 150
         guard N >= minIntervals else { return HRVMetrics() }
         
-        // 1. Time Domain
-        let meanRR = filteredRR.reduce(0, +) / Double(N)
-        let variance = filteredRR.map { pow($0 - meanRR, 2) }.reduce(0, +) / Double(N - 1)
+        // 3. Time Domain Metrics
+        let meanRR = correctedRR.reduce(0, +) / Double(N)
+        let variance = correctedRR.map { pow($0 - meanRR, 2) }.reduce(0, +) / Double(N - 1)
         let sdnn = sqrt(variance)
         
         var diffSqSum: Double = 0
         var nn50Count: Int = 0
         
         for i in 1..<N {
-            let diff = abs(filteredRR[i] - filteredRR[i-1])
+            let diff = abs(correctedRR[i] - correctedRR[i-1])
             diffSqSum += (diff * diff)
             if diff > 0.05 { // 50 ms
                 nn50Count += 1
@@ -99,8 +90,8 @@ public struct HRVEngine {
         let rmssd = sqrt(diffSqSum / Double(N - 1))
         let pnn50 = (Double(nn50Count) / Double(N - 1)) * 100.0
         
-        // 2. DFA Alpha 1
-        let dfa = calculateDFAAlpha1(rrIntervals: filteredRR, meanRR: meanRR, N: N)
+        // 4. DFA Alpha 1 with Overlapping Windows and Improved Regression
+        let dfa = calculateDFAAlpha1(rrIntervals: correctedRR)
         
         return HRVMetrics(
             avnn: meanRR * 1000.0,
@@ -111,7 +102,33 @@ public struct HRVEngine {
         )
     }
     
-    nonisolated private static func calculateDFAAlpha1(rrIntervals: [Double], meanRR: Double, N: Int) -> Double? {
+    nonisolated private static func correctArtifacts(_ rr: [Double], threshold: Double) -> [Double] {
+        guard rr.count > 5 else { return rr }
+        var result = [Double]()
+        
+        for i in 0..<rr.count {
+            let val = rr[i]
+            // Basic physiological range check (300ms to 2000ms -> 30bpm to 200bpm)
+            if val < 0.3 || val > 2.0 { continue }
+            
+            // Moving median check (window of 5)
+            let start = max(0, i - 2)
+            let end = min(rr.count, i + 3)
+            let neighbors = Array(rr[start..<end]).sorted()
+            let median = neighbors[neighbors.count / 2]
+            
+            if abs(val - median) / median < threshold {
+                result.append(val)
+            }
+        }
+        return result
+    }
+    
+    nonisolated private static func calculateDFAAlpha1(rrIntervals: [Double]) -> Double? {
+        let N = rrIntervals.count
+        let meanRR = rrIntervals.reduce(0, +) / Double(N)
+        
+        // Integrated series y(k)
         var y = [Double]()
         y.reserveCapacity(N)
         var sum: Double = 0
@@ -120,20 +137,24 @@ public struct HRVEngine {
             y.append(sum)
         }
         
+        // Short-term Alpha 1 (standard range 4 to 16)
         let boxSizes = [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16]
         var logN = [Double]()
         var logF = [Double]()
         
         for n in boxSizes {
-            if n > N / 2 { continue }
+            // Ensure we have enough points for this box size
+            if n > N / 4 { continue }
             
-            let numBoxes = N / n
+            // Overlapping boxes for better stability
+            let overlap = n / 2
+            let step = max(1, n - overlap)
             var totalFluctuation: Double = 0
+            var boxCount: Int = 0
             
-            for box in 0..<numBoxes {
-                let start = box * n
+            var start = 0
+            while start + n <= N {
                 let end = start + n
-                
                 let xBox = (0..<n).map { Double($0) }
                 let yBox = Array(y[start..<end])
                 
@@ -145,21 +166,27 @@ public struct HRVEngine {
                     let diff = yBox[i] - trendY
                     boxFluctuation += diff * diff
                 }
-                totalFluctuation += boxFluctuation
+                totalFluctuation += boxFluctuation / Double(n)
+                boxCount += 1
+                start += step
             }
             
-            let Fn = sqrt(totalFluctuation / Double(numBoxes * n))
-            if Fn > 0 {
-                logN.append(log10(Double(n)))
-                logF.append(log10(Fn))
+            if boxCount > 0 {
+                let Fn = sqrt(totalFluctuation / Double(boxCount))
+                if Fn > 0 {
+                    logN.append(log10(Double(n)))
+                    logF.append(log10(Fn))
+                }
             }
         }
         
-        guard logN.count > 1 else { return nil }
+        // We need at least 4 data points in the log-log plot to trust the alpha1 slope
+        guard logN.count >= 4 else { return nil }
         
         let (alpha1, _) = linearRegression(x: logN, y: logF)
         
-        if alpha1.isFinite && alpha1 > 0.0 && alpha1 < 2.0 {
+        // Physiological bounds check (Alpha 1 is typically between 0.3 and 1.7)
+        if alpha1.isFinite && alpha1 > 0.2 && alpha1 < 1.8 {
             return alpha1
         }
         return nil
@@ -168,14 +195,14 @@ public struct HRVEngine {
     nonisolated private static func linearRegression(x: [Double], y: [Double]) -> (slope: Double, intercept: Double) {
         guard x.count == y.count && x.count > 1 else { return (0, 0) }
         
+        let n = Double(x.count)
         let sumX = x.reduce(0, +)
         let sumY = y.reduce(0, +)
-        let sumXY = zip(x, y).map(*).reduce(0, +)
         let sumX2 = x.map { $0 * $0 }.reduce(0, +)
-        let n = Double(x.count)
+        let sumXY = zip(x, y).map(*).reduce(0, +)
         
         let denominator = (n * sumX2 - sumX * sumX)
-        guard denominator != 0 else { return (0, 0) }
+        guard abs(denominator) > 1e-10 else { return (0, 0) }
         
         let slope = (n * sumXY - sumX * sumY) / denominator
         let intercept = (sumY - slope * sumX) / n
