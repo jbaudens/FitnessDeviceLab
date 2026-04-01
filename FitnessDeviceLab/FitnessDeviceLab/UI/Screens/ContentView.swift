@@ -53,7 +53,8 @@ struct ContentView: View {
                 WorkoutLibraryView(
                     repository: WorkoutRepository.shared,
                     workoutManager: workoutManager,
-                    settings: settingsManager
+                    settings: settingsManager,
+                    navigationManager: navigationManager
                 )
             }
             .tabItem {
@@ -118,7 +119,8 @@ struct ContentView: View {
                 WorkoutLibraryView(
                     repository: WorkoutRepository.shared,
                     workoutManager: workoutManager,
-                    settings: settingsManager
+                    settings: settingsManager,
+                    navigationManager: navigationManager
                 )
             }
         case .workout:

@@ -6,12 +6,14 @@ import SwiftUI
 public class LibraryViewModel {
     private let repository: WorkoutRepository
     private let workoutManager: WorkoutSessionManager
+    private let navigationManager: NavigationManager
     public let settings: SettingsManager
     
     public var searchText = ""
     public var selectedZoneFilter: WorkoutZone? = nil
     public var selectedMetricFilter: MetricFilter? = nil
     public var sortOrder: SortOrder = .name
+    public var sortAscending: Bool = true
     
     public enum MetricFilter: String, CaseIterable, Identifiable {
         case power = "Power Only"
@@ -27,10 +29,11 @@ public class LibraryViewModel {
         public var id: String { rawValue }
     }
     
-    public init(repository: WorkoutRepository, workoutManager: WorkoutSessionManager, settings: SettingsManager) {
+    public init(repository: WorkoutRepository, workoutManager: WorkoutSessionManager, settings: SettingsManager, navigationManager: NavigationManager) {
         self.repository = repository
         self.workoutManager = workoutManager
         self.settings = settings
+        self.navigationManager = navigationManager
     }
     
     public var filteredWorkouts: [StructuredWorkout] {
@@ -64,13 +67,20 @@ public class LibraryViewModel {
         }
         
         // Sort
-        switch sortOrder {
-        case .name:
-            workouts.sort { $0.name < $1.name }
-        case .duration:
-            workouts.sort { $0.totalDuration < $1.totalDuration }
-        case .intensity:
-            workouts.sort { $0.intensityFactor > $1.intensityFactor }
+        let order = sortOrder
+        let ascending = sortAscending
+        
+        workouts.sort { a, b in
+            let result: Bool
+            switch order {
+            case .name:
+                result = a.name < b.name
+            case .duration:
+                result = a.totalDuration < b.totalDuration
+            case .intensity:
+                result = a.intensityFactor < b.intensityFactor
+            }
+            return ascending ? result : !result
         }
         
         return workouts
@@ -78,6 +88,7 @@ public class LibraryViewModel {
     
     public func selectWorkout(_ workout: StructuredWorkout) {
         workoutManager.selectedWorkout = workout
+        navigationManager.selectedTab = .workout
     }
     
     public func duplicateWorkout(_ workout: StructuredWorkout) {

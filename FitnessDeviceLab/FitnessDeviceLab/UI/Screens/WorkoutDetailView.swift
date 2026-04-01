@@ -81,32 +81,36 @@ struct WorkoutDetailView: View {
                         .font(.body)
                 }
                 
-                Spacer()
-                
-                Button(action: {
-                    onSelect(workout)
-                    dismiss()
-                }) {
-                    Text("Select Workout")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
+                VStack(spacing: 12) {
+                    Button(action: {
+                        onSelect(workout)
+                        dismiss()
+                    }) {
+                        Label("Select Workout", systemImage: "checkmark.circle.fill")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(workout.primaryZone.color)
+                    
+                    if let onEdit = onEdit {
+                        Button(action: {
+                            onEdit()
+                        }) {
+                            Label("Edit Workout", systemImage: "pencil")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.primary)
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(workout.primaryZone.color)
             }
             .padding()
         }
         .navigationTitle(workout.name)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                if let onEdit = onEdit {
-                    Button("Edit") {
-                        onEdit()
-                    }
-                }
-            }
-        }
     }
 }
 

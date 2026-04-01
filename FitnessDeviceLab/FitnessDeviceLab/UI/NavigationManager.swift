@@ -1,14 +1,14 @@
 import SwiftUI
 
-enum AppTab: String, CaseIterable, Identifiable {
+public enum AppTab: String, CaseIterable, Identifiable {
     case devices = "Devices"
     case library = "Library"
     case workout = "Workout"
     case settings = "Settings"
     
-    var id: String { rawValue }
+    public var id: String { rawValue }
     
-    var icon: String {
+    public var icon: String {
         switch self {
         case .devices: return "antenna.radiowaves.left.and.right"
         case .library: return "books.vertical"
@@ -19,13 +19,15 @@ enum AppTab: String, CaseIterable, Identifiable {
 }
 
 @Observable
-class NavigationManager {
-    var selectedTab: AppTab? = .devices
-    var sidebarVisibility: NavigationSplitViewVisibility = .automatic
-    var isSidebarCollapsed: Bool = false
+public class NavigationManager {
+    public var selectedTab: AppTab? = .devices
+    public var sidebarVisibility: NavigationSplitViewVisibility = .automatic
+    public var isSidebarCollapsed: Bool = false
+    
+    public init() {}
     
     // Track workout state to auto-collapse sidebar
-    var isWorkoutActive: Bool = false {
+    public var isWorkoutActive: Bool = false {
         didSet {
             if isWorkoutActive {
                 sidebarVisibility = .detailOnly
