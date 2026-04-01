@@ -23,6 +23,31 @@ public enum WorkoutZone: Int, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
     
+    public func powerRange(ftp: Double) -> (min: Int, max: Int?) {
+        switch self {
+        case .z1: return (0, Int(round(ftp * 0.55)))
+        case .z2: return (Int(round(ftp * 0.55)) + 1, Int(round(ftp * 0.75)))
+        case .z3: return (Int(round(ftp * 0.75)) + 1, Int(round(ftp * 0.90)))
+        case .z4: return (Int(round(ftp * 0.90)) + 1, Int(round(ftp * 1.05)))
+        case .z5: return (Int(round(ftp * 1.05)) + 1, Int(round(ftp * 1.20)))
+        case .z6: return (Int(round(ftp * 1.20)) + 1, Int(round(ftp * 1.50)))
+        case .z7: return (Int(round(ftp * 1.50)) + 1, nil)
+        }
+    }
+    
+    public func hrRange(lthr: Int) -> (min: Int, max: Int?) {
+        let l = Double(lthr)
+        switch self {
+        case .z1: return (0, Int(round(l * 0.82)))
+        case .z2: return (Int(round(l * 0.82)) + 1, Int(round(l * 0.89)))
+        case .z3: return (Int(round(l * 0.89)) + 1, Int(round(l * 0.94)))
+        case .z4: return (Int(round(l * 0.94)) + 1, Int(round(l * 1.00)))
+        case .z5: return (Int(round(l * 1.00)) + 1, Int(round(l * 1.03)))
+        case .z6: return (Int(round(l * 1.03)) + 1, Int(round(l * 1.06)))
+        case .z7: return (Int(round(l * 1.06)) + 1, nil)
+        }
+    }
+    
     // Determine zone based on intensity (% FTP)
     public static func forIntensity(_ intensity: Double) -> WorkoutZone {
         if intensity <= 0.55 { return .z1 }

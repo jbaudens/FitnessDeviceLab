@@ -16,19 +16,19 @@ public protocol SettingsProvider: AnyObject, Observation.Observable {
 public class SettingsManager: SettingsProvider {
     private let defaults = UserDefaults.standard
 
-    public private(set) var userFTP: Double {
+    public var userFTP: Double {
         didSet { defaults.set(userFTP, forKey: "userFTP") }
     }
 
-    public private(set) var maxHR: Int {
+    public var maxHR: Int {
         didSet { defaults.set(maxHR, forKey: "maxHeartRate") }
     }
 
-    public private(set) var userLTHR: Int {
+    public var userLTHR: Int {
         didSet { defaults.set(userLTHR, forKey: "userLTHR") }
     }
 
-    public private(set) var altitudeOverride: Double? {
+    public var altitudeOverride: Double? {
         didSet { 
             if let val = altitudeOverride {
                 defaults.set(val, forKey: "altitudeOverride")
@@ -38,11 +38,11 @@ public class SettingsManager: SettingsProvider {
         }
     }
 
-    public private(set) var userWeight: Double {
+    public var userWeight: Double {
         didSet { defaults.set(userWeight, forKey: "userWeight") }
     }
 
-    public private(set) var ftpAltitude: Double {
+    public var ftpAltitude: Double {
         didSet { defaults.set(ftpAltitude, forKey: "ftpAltitude") }
     }
 
