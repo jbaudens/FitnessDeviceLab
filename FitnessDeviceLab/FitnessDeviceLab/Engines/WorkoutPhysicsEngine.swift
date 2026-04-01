@@ -41,18 +41,17 @@ public struct WorkoutPhysicsEngine {
     /// If no 'work' steps are found, falls back to the workout's overall Intensity Factor (IF).
     public static func determinePrimaryZone(for steps: [WorkoutStep]) -> WorkoutZone {
         let workSteps = steps.filter { $0.type == .work }
+        let targetSteps = workSteps.isEmpty ? steps : workSteps
         
-        if !workSteps.isEmpty {
-            // Option A: Most duration within work steps
-            var zoneDurations: [WorkoutZone: TimeInterval] = [:]
-            for step in workSteps {
-                let zone = step.currentZone
-                zoneDurations[zone, default: 0] += step.duration
-            }
-            return zoneDurations.max(by: { $0.value < $1.value })?.key ?? .z1
+        let ifValue = calculateIntensityFactor(for: targetSteps)
+        
+        // Determine if we should use Power or HR thresholds for classification
+        let hrCount = targetSteps.filter { $0.targetHeartRatePercent != nil }.count
+        let powerCount = targetSteps.filter { $0.targetPowerPercent != nil }.count
+        
+        if hrCount > powerCount {
+            return WorkoutZone.forHRIntensity(ifValue)
         } else {
-            // Fallback: Use overall Intensity Factor (IF)
-            let ifValue = calculateIntensityFactor(for: steps)
             return WorkoutZone.forIntensity(ifValue)
         }
     }
