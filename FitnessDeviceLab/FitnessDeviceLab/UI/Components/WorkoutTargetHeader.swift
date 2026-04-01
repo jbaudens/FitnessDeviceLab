@@ -15,7 +15,7 @@ struct WorkoutTargetHeader: View {
             HStack(alignment: .center) {
                 // Time in Interval
                 if let step = workoutManager.currentWorkoutStep {
-                    let isFinished = workoutManager.currentTargetPower == nil && workoutManager.isRecording
+                    let isFinished = workoutManager.currentTargetPower == nil && workoutManager.currentTargetHR == nil && workoutManager.isRecording
                     
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(alignment: .lastTextBaseline, spacing: 4) {
@@ -126,12 +126,20 @@ struct WorkoutTargetHeader: View {
             if workoutManager.currentStepIndex < workout.steps.count - 1 {
                 let nextStep = workout.steps[workoutManager.currentStepIndex + 1]
                 let scale = workoutManager.workoutDifficultyScale
-                let nextWatts = Int(round((nextStep.targetPowerPercent ?? 0.0) * scale * workoutManager.settings.userFTP))
+                
                 HStack {
                     Spacer()
-                    Text("Next: \(nextWatts)W (\(Int(round((nextStep.targetPowerPercent ?? 0.0) * scale * 100)))%) for \(Int(nextStep.duration / 60))m")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                    if let hrPct = nextStep.targetHeartRatePercent {
+                        let nextHR = Int(round(hrPct * scale * Double(workoutManager.settings.userLTHR)))
+                        Text("Next: \(nextHR)bpm (\(Int(round(hrPct * scale * 100)))%) for \(Int(nextStep.duration / 60))m")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    } else {
+                        let nextWatts = Int(round((nextStep.targetPowerPercent ?? 0.0) * scale * workoutManager.settings.userFTP))
+                        Text("Next: \(nextWatts)W (\(Int(round((nextStep.targetPowerPercent ?? 0.0) * scale * 100)))%) for \(Int(nextStep.duration / 60))m")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
         }
