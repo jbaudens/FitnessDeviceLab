@@ -3,17 +3,18 @@ import SwiftUI
 struct WorkoutLibraryView: View {
     @State private var viewModel: LibraryViewModel
     @State private var editingWorkout: StructuredWorkout? = nil
-    @State private var showingNewWorkoutEditor = false
+    @State private var creatingNewWorkout = false
     @State private var workoutToDelete: StructuredWorkout? = nil
     
-    init(repository: WorkoutRepository, workoutManager: WorkoutSessionManager, settings: SettingsManager) {
-        _viewModel = State(initialValue: LibraryViewModel(repository: repository, workoutManager: workoutManager, settings: settings))
+    init(repository: WorkoutRepository, workoutManager: WorkoutSessionManager, settings: SettingsManager, navigationManager: NavigationManager) {
+        _viewModel = State(initialValue: LibraryViewModel(repository: repository, workoutManager: workoutManager, settings: settings, navigationManager: navigationManager))
     }
     
     var body: some View {
         @Bindable var vm = viewModel
         VStack(spacing: 0) {
-                // Filters Header
+            // Filters & Actions Header
+            VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 12) {
                     // Zone Badges
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -55,58 +56,118 @@ struct WorkoutLibraryView: View {
                     }
                     .padding(.horizontal)
                 }
-                .padding(.vertical, 12)
-                .background(Color.secondary.opacity(0.05))
                 
-                List {
-                    if vm.filteredWorkouts.isEmpty {
-                        Section {
-                            ContentUnavailableView("No Workouts Found", systemImage: "magnifyingglass", description: Text("Try adjusting your filters or search terms."))
+                // Actions: Create & Sort
+                HStack(spacing: 12) {
+                    Button(action: {
+                        creatingNewWorkout = true
+                    }) {
+                        Label("Create Workout", systemImage: "plus.square.fill")
+                            .font(.subheadline.bold())
+                            .padding(.horizontal, 4)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.blue)
+                    
+                    Menu {
+                        Section("Order") {
+                            Button {
+                                vm.sortAscending = true
+                            } label: {
+                                Label("Ascending", systemImage: vm.sortAscending ? "checkmark" : "")
+                            }
+                            
+                            Button {
+                                vm.sortAscending = false
+                            } label: {
+                                Label("Descending", systemImage: !vm.sortAscending ? "checkmark" : "")
+                            }
                         }
-                    } else {
-                        let grouped = Dictionary(grouping: vm.filteredWorkouts) { $0.primaryZone }
-                        let sortedZones = WorkoutZone.allCases.filter { grouped[$0] != nil }
                         
-                        ForEach(sortedZones) { zone in
-                            Section(header: Text("Zone \(zone.rawValue) - \(zone.name)")) {
-                                ForEach(grouped[zone] ?? []) { workout in
-                                    NavigationLink(destination: WorkoutDetailView(
-                                        workout: workout,
-                                        userFTP: vm.settings.userFTP,
-                                        onSelect: { selected in
-                                            vm.selectWorkout(selected)
-                                        },
-                                        onEdit: {
-                                            editingWorkout = workout
+                        Section("Sort By") {
+                            ForEach(LibraryViewModel.SortOrder.allCases) { order in
+                                Button {
+                                    vm.sortOrder = order
+                                } label: {
+                                    HStack {
+                                        Text(order.rawValue)
+                                        if vm.sortOrder == order {
+                                            Image(systemName: "checkmark")
                                         }
-                                    )) {
-                                        WorkoutRowView(workout: workout, userFTP: vm.settings.userFTP)
-                                            .contextMenu {
-                                                Button {
-                                                    editingWorkout = workout
-                                                } label: {
-                                                    Label("Edit", systemImage: "pencil")
-                                                }
-                                                
-                                                Button {
-                                                    vm.duplicateWorkout(workout)
-                                                } label: {
-                                                    Label("Duplicate", systemImage: "plus.square.on.square")
-                                                }
-                                                
-                                                Button(role: .destructive) {
-                                                    workoutToDelete = workout
-                                                } label: {
-                                                    Label("Delete", systemImage: "trash")
-                                                }
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "line.3.horizontal.decrease.circle")
+                            Text("Sort: \(vm.sortOrder.rawValue)")
+                                .font(.subheadline.bold())
+                            Image(systemName: vm.sortAscending ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 10))
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+                    .foregroundColor(.primary)
+                    
+                    Spacer()
+                }
+                .padding(.horizontal)
+            }
+            .padding(.vertical, 16)
+            .background(Color.secondary.opacity(0.05))
+            
+            List {
+                if vm.filteredWorkouts.isEmpty {
+                    Section {
+                        ContentUnavailableView("No Workouts Found", systemImage: "magnifyingglass", description: Text("Try adjusting your filters or search terms."))
+                    }
+                } else {
+                    let grouped = Dictionary(grouping: vm.filteredWorkouts) { $0.primaryZone }
+                    let sortedZones = WorkoutZone.allCases.filter { grouped[$0] != nil }
+                    
+                    ForEach(sortedZones) { zone in
+                        Section(header: Text("Zone \(zone.rawValue) - \(zone.name)")) {
+                            ForEach(grouped[zone] ?? []) { workout in
+                                NavigationLink(destination: WorkoutDetailView(
+                                    workout: workout,
+                                    userFTP: vm.settings.userFTP,
+                                    onSelect: { selected in
+                                        vm.selectWorkout(selected)
+                                    },
+                                    onEdit: {
+                                        editingWorkout = workout
+                                    }
+                                )) {
+                                    WorkoutRowView(workout: workout, userFTP: vm.settings.userFTP)
+                                        .contextMenu {
+                                            Button {
+                                                editingWorkout = workout
+                                            } label: {
+                                                Label("Edit", systemImage: "pencil")
                                             }
-                                    }
-                                }
-                                .onDelete { offsets in
-                                    if let items = grouped[zone] {
-                                        offsets.forEach { index in
-                                            vm.deleteWorkout(items[index])
+                                            
+                                            Button {
+                                                vm.duplicateWorkout(workout)
+                                            } label: {
+                                                Label("Duplicate", systemImage: "plus.square.on.square")
+                                            }
+                                            
+                                            Button(role: .destructive) {
+                                                workoutToDelete = workout
+                                            } label: {
+                                                Label("Delete", systemImage: "trash")
+                                            }
                                         }
+                                }
+                            }
+                            .onDelete { offsets in
+                                if let items = grouped[zone] {
+                                    offsets.forEach { index in
+                                        vm.deleteWorkout(items[index])
                                     }
                                 }
                             }
@@ -114,49 +175,34 @@ struct WorkoutLibraryView: View {
                     }
                 }
             }
-            .navigationTitle("Workout Library")
-            .searchable(text: $vm.searchText, prompt: "Search workouts...")
-            .navigationDestination(item: $editingWorkout) { workout in
-                WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout))
+        }
+        .navigationTitle("Workout Library")
+        .searchable(text: $vm.searchText, prompt: "Search workouts...")
+        .navigationDestination(item: $editingWorkout) { workout in
+            WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout))
+        }
+        .navigationDestination(isPresented: $creatingNewWorkout) {
+            WorkoutEditorView(viewModel: WorkoutEditorViewModel())
+        }
+        .confirmationDialog(
+            "Delete Workout",
+            isPresented: Binding(
+                get: { workoutToDelete != nil },
+                set: { if !$0 { workoutToDelete = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: workoutToDelete
+        ) { workout in
+            Button("Delete \"\(workout.name)\"", role: .destructive) {
+                vm.deleteWorkout(workout)
+                workoutToDelete = nil
             }
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    HStack {
-                        NavigationLink(destination: WorkoutEditorView(viewModel: WorkoutEditorViewModel())) {
-                            Image(systemName: "plus")
-                        }
-                        
-                        Menu {
-                            Picker("Sort By", selection: $vm.sortOrder) {
-                                ForEach(LibraryViewModel.SortOrder.allCases) { order in
-                                    Text("Sort by \(order.rawValue)").tag(order)
-                                }
-                            }
-                        } label: {
-                            Label("Sort", systemImage: "arrow.up.arrow.down")
-                        }
-                    }
-                }
+            Button("Cancel", role: .cancel) {
+                workoutToDelete = nil
             }
-            .confirmationDialog(
-                "Delete Workout",
-                isPresented: Binding(
-                    get: { workoutToDelete != nil },
-                    set: { if !$0 { workoutToDelete = nil } }
-                ),
-                titleVisibility: .visible,
-                presenting: workoutToDelete
-            ) { workout in
-                Button("Delete \"\(workout.name)\"", role: .destructive) {
-                    vm.deleteWorkout(workout)
-                    workoutToDelete = nil
-                }
-                Button("Cancel", role: .cancel) {
-                    workoutToDelete = nil
-                }
-            } message: { workout in
-                Text("Are you sure you want to permanently delete this workout?")
-            }
+        } message: { workout in
+            Text("Are you sure you want to permanently delete this workout?")
+        }
     }
 }
 
@@ -176,9 +222,12 @@ struct WorkoutLibraryView: View {
         errorManager: errorManager
     )
     
+    let navigationManager = NavigationManager()
+    
     WorkoutLibraryView(
         repository: WorkoutRepository.shared,
         workoutManager: manager,
-        settings: settings
+        settings: settings,
+        navigationManager: navigationManager
     )
 }
