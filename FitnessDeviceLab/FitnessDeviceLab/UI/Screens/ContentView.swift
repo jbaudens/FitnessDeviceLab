@@ -49,19 +49,12 @@ struct ContentView: View {
             .accessibilityIdentifier("tab_devices")
 
             // Tab 2: Library
-            NavigationStack {
-                WorkoutLibraryView(
-                    repository: WorkoutRepository.shared,
-                    workoutManager: workoutManager,
-                    settings: settingsManager,
-                    navigationManager: navigationManager
-                )
-            }
-            .tabItem {
-                Label("Library", systemImage: "books.vertical")
-            }
-            .tag(AppTab.library)
-            .accessibilityIdentifier("tab_library")
+            libraryTab
+                .tabItem {
+                    Label("Library", systemImage: "books.vertical")
+                }
+                .tag(AppTab.library)
+                .accessibilityIdentifier("tab_library")
 
             // Tab 3: Workout
             NavigationStack {
@@ -115,14 +108,7 @@ struct ContentView: View {
                 DevicesTabView(viewModel: devicesViewModel)
             }
         case .library:
-            NavigationStack {
-                WorkoutLibraryView(
-                    repository: WorkoutRepository.shared,
-                    workoutManager: workoutManager,
-                    settings: settingsManager,
-                    navigationManager: navigationManager
-                )
-            }
+            libraryTab
         case .workout:
             NavigationStack {
                 WorkoutPlayerView(viewModel: workoutPlayerViewModel)
@@ -130,6 +116,39 @@ struct ContentView: View {
         case .settings:
             NavigationStack {
                 SettingsView(settings: settingsManager)
+            }
+        }
+    }
+    
+    private var libraryTab: some View {
+        NavigationStack(path: $navigationManager.libraryPath) {
+            WorkoutLibraryView(
+                repository: WorkoutRepository.shared,
+                workoutManager: workoutManager,
+                settings: settingsManager,
+                navigationManager: navigationManager
+            )
+            .navigationDestination(for: WorkoutNavigationRoute.self) { route in
+                switch route {
+                case .detail(let workoutID):
+                    WorkoutDetailView(
+                        workoutID: workoutID,
+                        repository: WorkoutRepository.shared,
+                        userFTP: settingsManager.userFTP,
+                        userLTHR: Double(settingsManager.userLTHR),
+                        onSelect: { selected in
+                            workoutManager.selectedWorkout = selected
+                            navigationManager.selectedTab = .workout
+                        },
+                        onEdit: {
+                            let workout = WorkoutRepository.shared.allWorkouts.first(where: { $0.id == workoutID })
+                            navigationManager.navigateToWorkoutEditor(workout)
+                        }
+                    )
+                case .editor(let workoutID):
+                    let workout = workoutID.flatMap { id in WorkoutRepository.shared.allWorkouts.first(where: { $0.id == id }) }
+                    WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout))
+                }
             }
         }
     }

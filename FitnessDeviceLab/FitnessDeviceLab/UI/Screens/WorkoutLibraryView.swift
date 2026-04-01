@@ -2,11 +2,11 @@ import SwiftUI
 
 struct WorkoutLibraryView: View {
     @State private var viewModel: LibraryViewModel
-    @State private var editingWorkout: StructuredWorkout? = nil
-    @State private var creatingNewWorkout = false
     @State private var workoutToDelete: StructuredWorkout? = nil
+    let navigationManager: NavigationManager
     
     init(repository: WorkoutRepository, workoutManager: WorkoutSessionManager, settings: SettingsManager, navigationManager: NavigationManager) {
+        self.navigationManager = navigationManager
         _viewModel = State(initialValue: LibraryViewModel(repository: repository, workoutManager: workoutManager, settings: settings, navigationManager: navigationManager))
     }
     
@@ -60,7 +60,7 @@ struct WorkoutLibraryView: View {
                 // Actions: Create & Sort
                 HStack(spacing: 12) {
                     Button(action: {
-                        creatingNewWorkout = true
+                        navigationManager.navigateToWorkoutEditor()
                     }) {
                         Label("Create Workout", systemImage: "plus.square.fill")
                             .font(.subheadline.bold())
@@ -132,37 +132,30 @@ struct WorkoutLibraryView: View {
                     ForEach(sortedZones) { zone in
                         Section(header: Text("Zone \(zone.rawValue) - \(zone.name)")) {
                             ForEach(grouped[zone] ?? []) { workout in
-                                NavigationLink(destination: WorkoutDetailView(
-                                    workout: workout,
-                                    userFTP: vm.settings.userFTP,
-                                    userLTHR: Double(vm.settings.userLTHR),
-                                    onSelect: { selected in
-                                        vm.selectWorkout(selected)
-                                    },
-                                    onEdit: {
-                                        editingWorkout = workout
-                                    }
-                                )) {
+                                Button {
+                                    navigationManager.navigateToWorkoutDetail(workout)
+                                } label: {
                                     WorkoutRowView(workout: workout, userFTP: vm.settings.userFTP, userLTHR: Double(vm.settings.userLTHR))
-                                        .contextMenu {
-                                            Button {
-                                                editingWorkout = workout
-                                            } label: {
-                                                Label("Edit", systemImage: "pencil")
-                                            }
-                                            
-                                            Button {
-                                                vm.duplicateWorkout(workout)
-                                            } label: {
-                                                Label("Duplicate", systemImage: "plus.square.on.square")
-                                            }
-                                            
-                                            Button(role: .destructive) {
-                                                workoutToDelete = workout
-                                            } label: {
-                                                Label("Delete", systemImage: "trash")
-                                            }
-                                        }
+                                }
+                                .foregroundColor(.primary)
+                                .contextMenu {
+                                    Button {
+                                        navigationManager.navigateToWorkoutEditor(workout)
+                                    } label: {
+                                        Label("Edit", systemImage: "pencil")
+                                    }
+                                    
+                                    Button {
+                                        vm.duplicateWorkout(workout)
+                                    } label: {
+                                        Label("Duplicate", systemImage: "plus.square.on.square")
+                                    }
+                                    
+                                    Button(role: .destructive) {
+                                        workoutToDelete = workout
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
                                 }
                             }
                             .onDelete { offsets in
@@ -179,12 +172,6 @@ struct WorkoutLibraryView: View {
         }
         .navigationTitle("Workout Library")
         .searchable(text: $vm.searchText, prompt: "Search workouts...")
-        .navigationDestination(item: $editingWorkout) { workout in
-            WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout))
-        }
-        .navigationDestination(isPresented: $creatingNewWorkout) {
-            WorkoutEditorView(viewModel: WorkoutEditorViewModel())
-        }
         .confirmationDialog(
             "Delete Workout",
             isPresented: Binding(
