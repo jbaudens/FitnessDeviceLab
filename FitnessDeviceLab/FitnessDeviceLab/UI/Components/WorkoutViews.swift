@@ -38,21 +38,32 @@ struct WorkoutGraphView: View {
                 let totalDuration = workout.totalDuration
                 let ftp = userFTP
                 let lthr = userLTHR
-                // Max height is based on the highest interval or highest data point
-                let scale = scale
-                let maxTarget = workout.steps.map { ($0.targetPowerPercent ?? $0.targetHeartRatePercent ?? 0.0) * scale }.max() ?? 1.0
-                let maxActual = recorder?.trackpoints.compactMap { $0.power }.map { Double($0) / ftp }.max() ?? 0.0
-
-                // Ensure high-intensity targets are visible, but cap actual data scaling to 150% to avoid squeezing the UI
-                let maxPercent = max(maxTarget, min(1.5, maxActual)) * 1.1
+                let workoutScale = scale
+                
+                // Calculate max value in absolute units (Watts or BPM)
+                let maxTargetValue = workout.steps.map { step in
+                    if let hrPct = step.targetHeartRatePercent {
+                        return hrPct * Double(lthr) * workoutScale
+                    } else {
+                        return (step.targetPowerPercent ?? 0.0) * ftp * workoutScale
+                    }
+                }.max() ?? ftp
+                
+                let maxActualPower = recorder?.trackpoints.compactMap { $0.power }.map { Double($0) }.max() ?? 0.0
+                let maxActualHR = recorder?.trackpoints.compactMap { $0.hr }.map { Double($0) }.max() ?? 0.0
+                
+                // Final domain max (capped power scaling at 1.5 * FTP if no high target exists)
+                let maxPossiblePower = max(maxActualPower, ftp * 1.5)
+                let maxValue = max(maxTargetValue, min(maxPossiblePower, max(maxActualPower, maxActualHR))) * 1.1
                 
                 ZStack(alignment: .bottomLeading) {
                     // Background grid lines and labels
                     if showAxis {
                         let increments: [Double] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5]
                         ForEach(increments, id: \.self) { pct in
-                            if pct < maxPercent {
-                                let y = height * (1.0 - (pct / maxPercent))
+                            let wattVal = pct * ftp
+                            if wattVal < maxValue {
+                                let y = height * (1.0 - (wattVal / maxValue))
                                 
                                 // Grid line
                                 Path { path in
@@ -61,21 +72,20 @@ struct WorkoutGraphView: View {
                                 }
                                 .stroke(Color.secondary.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [2]))
                                 
-                                // Left label (Watts)
-                                Text("\(Int(pct * ftp))")
+                                // Labels
+                                Text("\(Int(wattVal))")
                                     .font(.system(size: 8, weight: .bold, design: .monospaced))
                                     .foregroundColor(.secondary)
                                     .position(x: 20, y: y - 6)
                                 
-                                // Right label (Watts)
-                                Text("\(Int(pct * ftp))")
+                                Text("\(Int(wattVal))")
                                     .font(.system(size: 8, weight: .bold, design: .monospaced))
                                     .foregroundColor(.secondary)
                                     .position(x: width - 20, y: y - 6)
                             }
                         }
                         
-                        // Time X-axis increments
+                        // Time X-axis
                         let timeStep: TimeInterval = totalDuration > 3600 ? 900 : (totalDuration > 1800 ? 600 : 300)
                         ForEach(Array(Swift.stride(from: timeStep, to: totalDuration, by: timeStep)), id: \.self) { t in
                             let x = (CGFloat(t) / CGFloat(totalDuration)) * width
@@ -91,19 +101,20 @@ struct WorkoutGraphView: View {
                         ForEach(workout.steps) { step in
                             let stepWidth = (CGFloat(step.duration) / CGFloat(totalDuration)) * (width - CGFloat(workout.steps.count))
                             
-                            let startPct = step.targetPowerPercent ?? step.targetHeartRatePercent ?? 0.0
-                            let endPct = step.endTargetPowerPercent ?? step.targetHeartRatePercent ?? 0.0
+                            let isHR = step.targetHeartRatePercent != nil
+                            let startVal = isHR ? (step.targetHeartRatePercent! * Double(lthr)) : ((step.targetPowerPercent ?? 0.0) * ftp)
+                            let endVal = isHR ? (step.targetHeartRatePercent! * Double(lthr)) : ((step.endTargetPowerPercent ?? step.targetPowerPercent ?? 0.0) * ftp)
                             
-                            RampShape(startRelativeHeight: startPct * scale / maxPercent,
-                                      endRelativeHeight: endPct * scale / maxPercent)
-                                .fill(color(for: step, scale: scale).opacity(0.3))
+                            RampShape(startRelativeHeight: startVal * workoutScale / maxValue,
+                                      endRelativeHeight: endVal * workoutScale / maxValue)
+                                .fill(color(for: step, scale: workoutScale).opacity(0.3))
                                 .frame(width: max(2, stepWidth), height: height)
                                 .overlay(alignment: .bottom) {
                                     if stepWidth > 30 {
-                                        let avgPercent = (startPct + endPct) / 2.0 * scale
+                                        let avgPercent = (isHR ? step.targetHeartRatePercent! : (step.targetPowerPercent ?? 0.0 + (step.endTargetPowerPercent ?? step.targetPowerPercent ?? 0.0)) / 2.0) * workoutScale
                                         Text("\(Int(round(avgPercent * 100)))%")
                                             .font(.system(size: 8, weight: .black, design: .monospaced))
-                                            .foregroundColor(color(for: step, scale: scale).opacity(0.8))
+                                            .foregroundColor(color(for: step, scale: workoutScale).opacity(0.8))
                                             .padding(.bottom, 2)
                                             .fixedSize()
                                     }
@@ -116,9 +127,7 @@ struct WorkoutGraphView: View {
                         PerformanceChart(
                             recorder: recorder,
                             totalDuration: totalDuration,
-                            maxPower: maxPercent * ftp,
-                            userFTP: ftp,
-                            userLTHR: lthr,
+                            maxPower: maxValue,
                             startTime: sessionStartTime
                         )
                         .frame(width: width, height: height)
@@ -187,23 +196,23 @@ struct SessionGraphView: View {
                 let width = geometry.size.width
                 let height = geometry.size.height
                 
-                // Dynamically determine duration based on points, with a minimum of 5 minutes
                 let recordedPoints = Double(recorder.trackpoints.count)
-                let totalDuration = max(300, recordedPoints * 1.1) // 10% buffer
+                let totalDuration = max(300, recordedPoints * 1.1)
                 let ftp = userFTP
                 let lthr = userLTHR
                 
-                let maxActual = recorder.trackpoints.compactMap { $0.power }.map { Double($0) / ftp }.max() ?? 0.0
+                let maxActualPower = recorder.trackpoints.compactMap { $0.power }.map { Double($0) }.max() ?? 0.0
+                let maxActualHR = recorder.trackpoints.compactMap { $0.hr }.map { Double($0) }.max() ?? 0.0
                 
-                // Cap scaling to 150% of FTP to avoid squeezing the UI during massive sprints
-                let maxPercent = min(1.5, max(1.0, maxActual)) * 1.1
+                let maxValue = max(ftp * 1.5, max(maxActualPower, maxActualHR)) * 1.1
                 
                 ZStack(alignment: .bottomLeading) {
                     if showAxis {
                         let increments: [Double] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5]
                         ForEach(increments, id: \.self) { pct in
-                            if pct < maxPercent {
-                                let y = height * (1.0 - (pct / maxPercent))
+                            let wattVal = pct * ftp
+                            if wattVal < maxValue {
+                                let y = height * (1.0 - (wattVal / maxValue))
                                 
                                 Path { path in
                                     path.move(to: CGPoint(x: 0, y: y))
@@ -211,14 +220,13 @@ struct SessionGraphView: View {
                                 }
                                 .stroke(Color.secondary.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [2]))
                                 
-                                Text("\(Int(pct * ftp))")
+                                Text("\(Int(wattVal))")
                                     .font(.system(size: 8, weight: .bold, design: .monospaced))
                                     .foregroundColor(.secondary)
                                     .position(x: 20, y: y - 6)
                             }
                         }
                         
-                        // Time X-axis increments
                         let timeStep: TimeInterval = totalDuration > 3600 ? 900 : (totalDuration > 1800 ? 600 : 300)
                         ForEach(Array(Swift.stride(from: timeStep, to: totalDuration, by: timeStep)), id: \.self) { t in
                             let x = (CGFloat(t) / CGFloat(totalDuration)) * width
@@ -232,9 +240,7 @@ struct SessionGraphView: View {
                     GrowingPerformanceChart(
                         recorder: recorder,
                         totalDuration: totalDuration,
-                        maxPower: maxPercent * ftp,
-                        userFTP: ftp,
-                        userLTHR: lthr
+                        maxPower: maxValue
                     )
                     .frame(width: width, height: height)
                 }
@@ -247,8 +253,6 @@ struct GrowingPerformanceChart: View {
     @Bindable var recorder: SessionRecorder
     let totalDuration: TimeInterval
     let maxPower: Double
-    let userFTP: Double
-    let userLTHR: Double
     
     private var downsampledTrackpoints: [Trackpoint] {
         let maxPoints = 500
@@ -293,7 +297,7 @@ struct GrowingPerformanceChart: View {
                 if let hr = pt.hr {
                     LineMark(
                         x: .value("Time", timeOffset),
-                        y: .value("HR", (Double(hr) / userLTHR) * userFTP),
+                        y: .value("HR", Double(hr)),
                         series: .value("Metric", "HR")
                     )
                     .foregroundStyle(Color.red)
@@ -312,13 +316,10 @@ struct PerformanceChart: View {
     @Bindable var recorder: SessionRecorder
     let totalDuration: TimeInterval
     let maxPower: Double
-    let userFTP: Double
-    let userLTHR: Double
     let startTime: Date?
     
-    // Downsampling logic to maintain performance during long sessions
     private var downsampledTrackpoints: [Trackpoint] {
-        let maxPoints = 500 // Swift Charts sweet spot for performance
+        let maxPoints = 500
         let totalPoints = recorder.trackpoints.count
         guard totalPoints > maxPoints else { return recorder.trackpoints }
         
@@ -327,7 +328,6 @@ struct PerformanceChart: View {
         for i in Swift.stride(from: 0, to: totalPoints, by: strideValue) {
             result.append(recorder.trackpoints[i])
         }
-        // Always include the latest point
         if let last = recorder.trackpoints.last, result.last?.id != last.id {
             result.append(last)
         }
@@ -337,14 +337,13 @@ struct PerformanceChart: View {
     var body: some View {
         Chart {
             ForEach(Array(downsampledTrackpoints.enumerated()), id: \.element.id) { index, pt in
-                // Find the original index to use as the time offset (1pt = 1s)
                 let originalIndex = recorder.trackpoints.firstIndex(where: { $0.id == pt.id }) ?? index
                 let timeOffset = Double(originalIndex)
                 
                 if let pwr = pt.power {
                     LineMark(
                         x: .value("Time", timeOffset),
-                        y: .value("Power", min(Double(pwr), 1600)), // Don't clip at 600, allow spikes
+                        y: .value("Power", min(Double(pwr), 1600)),
                         series: .value("Metric", "Power")
                     )
                     .foregroundStyle(Color.yellow)
@@ -362,7 +361,7 @@ struct PerformanceChart: View {
                 if let hr = pt.hr {
                     LineMark(
                         x: .value("Time", timeOffset),
-                        y: .value("HR", (Double(hr) / userLTHR) * userFTP),
+                        y: .value("HR", Double(hr)),
                         series: .value("Metric", "HR")
                     )
                     .foregroundStyle(Color.red)
@@ -373,7 +372,7 @@ struct PerformanceChart: View {
         .chartYScale(domain: 0...maxPower)
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
-        .animation(.none, value: recorder.trackpoints.count) // Disable chart animation for performance
+        .animation(.none, value: recorder.trackpoints.count)
     }
 }
 
@@ -532,7 +531,7 @@ struct LegendItem: View {
 #Preview("Session Graph") {
     let recorder = SessionRecorder(settings: SettingsManager())
     
-    // Add 1000 points to ensure we have enough duration for labels
+    // Add 1000 points
     let _ = {
         let now = Date()
         for i in 0..<1000 {
@@ -582,25 +581,15 @@ struct LegendItem: View {
 #Preview("Workout Row") {
     let workout = StructuredWorkout(
         name: "Tabata Sprints",
-        description: "20s on, 10s off for building top-end power.",
+        description: "20s on, 10s off.",
         steps: [
             WorkoutStep(duration: 300, targetPowerPercent: 0.5),
             WorkoutStep(duration: 20, targetPowerPercent: 1.5),
-            WorkoutStep(duration: 10, targetPowerPercent: 0.4),
-            WorkoutStep(duration: 20, targetPowerPercent: 1.5)
+            WorkoutStep(duration: 10, targetPowerPercent: 0.4)
         ]
     )
     
     List {
         WorkoutRowView(workout: workout, userFTP: 250, userLTHR: 170)
-    }
-}
-
-#Preview("Graph Components") {
-    VStack(spacing: 20) {
-        GraphLegend()
-        LegendItem(label: "Power", icon: "bolt.fill", color: .yellow)
-        LegendItem(label: "Cadence", icon: "bicycle", color: .blue)
-        LegendItem(label: "HR", icon: "heart.fill", color: .red)
     }
 }
