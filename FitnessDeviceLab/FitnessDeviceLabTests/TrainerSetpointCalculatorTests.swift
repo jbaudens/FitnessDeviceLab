@@ -84,10 +84,12 @@ struct TrainerSetpointCalculatorTests {
     @Test func testHRControlAdjustment() async throws {
         let calculator = TrainerSetpointCalculator()
         let step = WorkoutStep(duration: 60, targetHeartRatePercent: 0.8) // 80% LTHR = 136 BPM
-        
+
         // 1st tick: Initial base (100W)
-        // Target HR = 136. Current HR = 130. Error = 6. Adjustment = 6 * 0.15 = 0.9.
-        // New base = 100.9
+        // Target HR = 136. Current HR = 130. Error = 6. ErrorChange = 6.
+        // pTerm = 6 * 0.15 * (200 / 10) = 18.0
+        // iTerm = 6 * 0.01 * 1.0 * 20 = 1.2
+        // Adjustment = 19.2. New base = 119.2 -> 119
         let input1 = TrainerSetpointCalculator.Input(
             currentStep: step,
             nextStep: nil,
@@ -99,11 +101,16 @@ struct TrainerSetpointCalculatorTests {
             currentHR: 130 
         )
         let setpoint1 = calculator.calculate(input: input1)
-        #expect(setpoint1 == 101) // round(100.9)
-        
+        #expect(setpoint1 == 119) // round(119.2)
+
+        // Sleep to ensure dt is approx 1.0 for the second tick to make iTerm predictable
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+
         // 2nd tick: 
-        // Current base = 100.9. Error = 6. Adjustment = 0.9.
-        // New base = 100.9 + 0.9 = 101.8
+        // Current base = 119.2. Error = 6. ErrorChange = 0.
+        // pTerm = 0
+        // iTerm = 6 * 0.01 * 1.0 * 20 = 1.2 (approx)
+        // Adjustment = 1.2. New base = 119.2 + 1.2 = 120.4 -> 120
         let input2 = TrainerSetpointCalculator.Input(
             currentStep: step,
             nextStep: nil,
@@ -112,12 +119,15 @@ struct TrainerSetpointCalculatorTests {
             ftp: 200,
             lthr: 170,
             difficultyScale: 1.0,
-            currentHR: 130
+            currentHR: 130 
         )
         let setpoint2 = calculator.calculate(input: input2)
-        #expect(setpoint2 == 102) // round(101.8)
-    }
-    
+        if let s2 = setpoint2 {
+            #expect((119...121).contains(s2))
+        } else {
+            #expect(setpoint2 != nil)
+        }
+    }    
     @Test func testLookaheadAnticipation() async throws {
         let calculator = TrainerSetpointCalculator()
         let currentStep = WorkoutStep(duration: 60, targetPowerPercent: 0.5) // 100W
