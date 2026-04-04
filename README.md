@@ -1,6 +1,6 @@
 # FitnessDeviceLab
 
-A professional-grade iOS lab for cycling performance analysis and workout execution. This app is designed for power-meter-based training, featuring dual-power comparison, heart-rate-controlled workouts, and advanced cycling dynamics.
+A professional-grade iOS and macOS lab for cycling performance analysis and workout execution. This app is designed for power-meter-based training, featuring dual-power comparison, heart-rate-controlled workouts, and advanced cycling dynamics.
 
 ## 🚀 Features
 
