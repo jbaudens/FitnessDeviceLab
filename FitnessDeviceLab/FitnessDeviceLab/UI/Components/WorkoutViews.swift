@@ -199,8 +199,7 @@ struct SessionGraphView: View {
                 let recordedPoints = Double(recorder.trackpoints.count)
                 let totalDuration = max(300, recordedPoints * 1.1)
                 let ftp = userFTP
-                let lthr = userLTHR
-                
+
                 let maxActualPower = recorder.trackpoints.compactMap { $0.power }.map { Double($0) }.max() ?? 0.0
                 let maxActualHR = recorder.trackpoints.compactMap { $0.hr }.map { Double($0) }.max() ?? 0.0
                 

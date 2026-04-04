@@ -111,7 +111,7 @@ public class TrainerSetpointCalculator {
                 lastError = error
                 
                 // Incremental PID Logic
-                var pTerm = errorChange * Kp * (input.ftp / 10.0) // Scaled by fitness
+                let pTerm = errorChange * Kp * (input.ftp / 10.0) // Scaled by fitness
                 let iTerm = error * Ki * dt * (input.ftp / 10.0)
                 
                 // Dynamic Damping
