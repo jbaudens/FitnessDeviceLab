@@ -11,3 +11,9 @@
 - **Error Handling:** `ErrorManager` provides robust, centralized error reporting for Bluetooth states (powered off, unauthorized, connection failures).
 - **Data Parsing Safety:** `SensorDataParser` relies heavily on `guard` statements for bounds checking. While generally safe, the complexity of FTMS and Cycling Power flags necessitates meticulous verification against minimum byte lengths to prevent index out-of-range crashes.
 - **Recommendation:** Refactor `DiscoveredPeripheral` to accept its handlers via a factory or dependency injection. Expand exhaustive unit testing for `SensorDataParser` against truncated or malformed BLE packets.
+
+## Phase 3: Features & ViewModels
+- **State Management & Separation:** The codebase successfully utilizes the modern Swift `@Observable` macro for efficient UI updates, strictly separating UI from business logic. Business logic is heavily centralized within the `Features` layer (e.g., `WorkoutSessionManager`).
+- **Fat Components:** `WorkoutSessionManager` has grown into a "fat" manager. It orchestrates state tracking, hardware control, timer management, and workout step logic, violating the Single Responsibility Principle. This complexity makes it harder to test in isolation.
+- **ViewModels:** The ViewModels (like `WorkoutPlayerViewModel` and `WorkoutEditorViewModel`) are generally well-structured as lean conduits connecting the UI to the underlying Managers.
+- **Recommendation:** Decompose `WorkoutSessionManager` into smaller, focused service components (e.g., a `WorkoutStateMachine` for step logic and a `HardwareOrchestrator` for trainer/sensor commands).
