@@ -9,6 +9,7 @@ A professional-grade iOS lab for cycling performance analysis and workout execut
 - **Structured Workout Player:** Execute complex ERG and Heart-Rate-controlled workouts with anticipatory ramp blending.
 - **Advanced Physics Engine:** Real-time calculation of Normalized Power (NP®), TSS®, IF®, and HRV metrics (DFA Alpha 1) for professional-grade physiological monitoring.
 - **Multi-Sensor Bluetooth Hub:** Concurrent support for FTMS (Fitness Machine), Heart Rate, and Cycling Power sensors with high-frequency data parsing (up to 4Hz).
+- **Cross-Platform Support:** Runs on iOS (iPhone/iPad) and macOS (Apple Silicon), providing a consistent lab experience across all your Apple devices.
 - **Workout Editor:** A drag-and-drop visual interface for creating and modifying structured workouts.
 - **Data Export:** Export your sessions in high-fidelity `.fit` and `.tcx` formats for analysis in platforms like TrainingPeaks or Strava.
 
