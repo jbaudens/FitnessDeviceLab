@@ -23,3 +23,18 @@
 - **Heavy View Calculations:** Views like `WorkoutGraphView` and `AdaptiveWorkoutDashboard` perform heavy mathematical calculations (scaling domains, calculating layout deltas) directly in their `body` property. Since the body runs every second during a workout, this is highly inefficient.
 - **Accessibility & HIG:** Custom components lack explicit accessibility labels and traits. Flexible layouts for Dynamic Type could be improved.
 - **Recommendation:** Extract heavy calculations from `View.body` into `ViewModel` properties or `Task` operations. Introduce `EquatableView` or granular state bindings (`@Observable` split into finer sub-objects) to prevent the entire `WorkoutPlayerView` hierarchy from redrawing on every 1Hz data tick.
+
+## Phase 5: Test Coverage
+- **Engine Coverage:** Engine-level logic (data parsing, physics math, HRV calculations) and the core session management lifecycle are well-covered with high-quality unit tests using the Swift Testing framework.
+- **ViewModel Coverage:** There is a significant gap in testing at the presentation layer. ViewModels like `WorkoutPlayerViewModel` have no dedicated unit tests, relying entirely on indirect coverage from UI testing or manual verification.
+- **Recommendation:** Introduce dedicated unit tests for all ViewModels, ensuring that UI state transitions, sensor filtering logic, and error handling paths are strictly validated before integration.
+
+## Action Plan
+Based on the comprehensive codebase review, the following sub-tasks should be prioritized for future implementation plans:
+
+1. **Concurrency Refactoring:** Replace ad-hoc `Task.detached` calls in `DataFieldEngine` with a formalized `ComputationActor` to manage complex metric processing safely.
+2. **Dependency Injection:** Update `DiscoveredPeripheral` to accept its internal BLE handlers via a factory pattern or direct injection to unblock isolated testing.
+3. **Decompose Fat Managers:** Split `WorkoutSessionManager` into a `WorkoutStateMachine` (for workout logic/timer) and a `HardwareOrchestrator` (for managing FTMS/sensors).
+4. **UI Performance Optimization:** Refactor `WorkoutGraphView` and `AdaptiveWorkoutDashboard` to move mathematical calculations out of the `View.body`. Implement `EquatableView` or fine-grained `@Observable` properties to reduce 1Hz redraw impact on `WorkoutPlayerView`.
+5. **ViewModel Test Suite:** Write comprehensive unit test suites for `WorkoutPlayerViewModel` and `WorkoutEditorViewModel`.
+6. **Accessibility Sweep:** Add `accessibilityLabel`, `accessibilityValue`, and `accessibilityHint` modifiers to all custom data tiles and control components in the UI to comply with Apple's HIG.
