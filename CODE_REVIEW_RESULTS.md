@@ -17,3 +17,9 @@
 - **Fat Components:** `WorkoutSessionManager` has grown into a "fat" manager. It orchestrates state tracking, hardware control, timer management, and workout step logic, violating the Single Responsibility Principle. This complexity makes it harder to test in isolation.
 - **ViewModels:** The ViewModels (like `WorkoutPlayerViewModel` and `WorkoutEditorViewModel`) are generally well-structured as lean conduits connecting the UI to the underlying Managers.
 - **Recommendation:** Decompose `WorkoutSessionManager` into smaller, focused service components (e.g., a `WorkoutStateMachine` for step logic and a `HardwareOrchestrator` for trainer/sensor commands).
+
+## Phase 4: UI Components & Screens
+- **SwiftUI Performance:** The UI utilizes modern tools (`NavigationStack`, `@Observable`) and demonstrates strong modular patterns (`DataFieldType` enum). However, performance bottlenecks exist due to the 1Hz hardware update tick triggering large, indiscriminate redraws of complex view hierarchies (`WorkoutPlayerView`, `AdaptiveWorkoutDashboard`).
+- **Heavy View Calculations:** Views like `WorkoutGraphView` and `AdaptiveWorkoutDashboard` perform heavy mathematical calculations (scaling domains, calculating layout deltas) directly in their `body` property. Since the body runs every second during a workout, this is highly inefficient.
+- **Accessibility & HIG:** Custom components lack explicit accessibility labels and traits. Flexible layouts for Dynamic Type could be improved.
+- **Recommendation:** Extract heavy calculations from `View.body` into `ViewModel` properties or `Task` operations. Introduce `EquatableView` or granular state bindings (`@Observable` split into finer sub-objects) to prevent the entire `WorkoutPlayerView` hierarchy from redrawing on every 1Hz data tick.
