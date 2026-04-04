@@ -40,3 +40,4 @@ fastlane/test_output
 *.crash
 
 GEMINI.md
+.worktrees/
