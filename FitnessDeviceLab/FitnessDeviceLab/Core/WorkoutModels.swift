@@ -7,17 +7,19 @@ public struct Trackpoint: Identifiable, Sendable, Codable {
     public let power: Int?
     public let cadence: Int?
     public let altitude: Double?
+    public let speed: Double?
     public let powerBalance: Double?
     public let dfaAlpha1: Double?
     public let rrIntervals: [Double]
 
-    public init(id: UUID = UUID(), time: Date, hr: Int? = nil, power: Int? = nil, cadence: Int? = nil, altitude: Double? = nil, powerBalance: Double? = nil, dfaAlpha1: Double? = nil, rrIntervals: [Double] = []) {
+    public init(id: UUID = UUID(), time: Date, hr: Int? = nil, power: Int? = nil, cadence: Int? = nil, altitude: Double? = nil, speed: Double? = nil, powerBalance: Double? = nil, dfaAlpha1: Double? = nil, rrIntervals: [Double] = []) {
         self.id = id
         self.time = time
         self.hr = hr
         self.power = power
         self.cadence = cadence
         self.altitude = altitude
+        self.speed = speed
         self.powerBalance = powerBalance
         self.dfaAlpha1 = dfaAlpha1
         self.rrIntervals = rrIntervals
