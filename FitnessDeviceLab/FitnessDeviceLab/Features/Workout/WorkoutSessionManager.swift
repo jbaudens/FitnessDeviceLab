@@ -207,28 +207,34 @@ public class WorkoutSessionManager {
         let altitude = locationProvider.currentAltitude ?? settings.altitudeOverride
         
         // 1. Capture shared sensor data (like RR intervals) once
-        let rrIntervals = recorderA.hrSource?.latestRRIntervals ?? []
-        recorderA.hrSource?.latestRRIntervals.removeAll()
+        let primaryHRSource = recorderA.hrSource ?? recorderB.hrSource
+        let rrIntervals = primaryHRSource?.latestRRIntervals ?? []
+        primaryHRSource?.latestRRIntervals.removeAll()
         
         // 2. Pulse both recorders (This captures data and auto-updates engines)
         let lapStart = lapManager.currentLap?.startTime
         recorderA.pulse(time: now, altitude: altitude, rrIntervals: rrIntervals, lapStartTime: lapStart)
         recorderB.pulse(time: now, altitude: altitude, rrIntervals: rrIntervals, lapStartTime: lapStart)
         
-        guard isRecording else { return }
-        guard !isPaused else { return }
+        guard isLoaded else { return }
+        
+        if isRecording && !isPaused {
+            lapManager.recordTick()
+        }
         
         let totalElapsed = workoutElapsedTime
-        lapManager.recordTick()
+        let currentHR = primaryHRSource?.heartRate
         
         if let workout = selectedWorkout {
             var accumulated: TimeInterval = 0
             var foundStep = false
             for (index, step) in workout.steps.enumerated() {
                 if totalElapsed < accumulated + step.duration {
-                    if currentStepIndex != index {
+                    if isRecording && !isPaused && currentStepIndex != index {
                         currentStepIndex = index
                         lapManager.startNewLap(type: step.type)
+                    } else if !isRecording || isPaused {
+                        currentStepIndex = index
                     }
                     timeInStep = totalElapsed - accumulated
                     foundStep = true
@@ -238,7 +244,9 @@ public class WorkoutSessionManager {
             }
             
             if !foundStep && !workout.steps.isEmpty {
-                stopWorkout()
+                if isRecording {
+                    stopWorkout()
+                }
                 return
             }
             
@@ -268,7 +276,7 @@ public class WorkoutSessionManager {
                         ftp: ftp,
                         lthr: lthr,
                         difficultyScale: workoutDifficultyScale,
-                        currentHR: recorderA.hrSource?.heartRate
+                        currentHR: currentHR
                     )
                     
                     if let targetWatts = setpointCalculator.calculate(input: input) {
@@ -303,7 +311,7 @@ public class WorkoutSessionManager {
             case .heartRate:
                 if let targetWatts = setpointCalculator.calculateManualHR(
                     targetHR: Double(manualTargetHR),
-                    currentHR: recorderA.hrSource?.heartRate,
+                    currentHR: currentHR,
                     ftp: ftp
                 ) {
                     trainerController.setTargetPower(targetWatts)
