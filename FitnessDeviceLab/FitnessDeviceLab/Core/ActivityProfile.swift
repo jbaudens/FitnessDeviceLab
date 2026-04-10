@@ -1,11 +1,43 @@
 import SwiftUI
 
+public enum GraphType: Codable, Identifiable, Hashable {
+    case workout
+    case dfaAlpha1
+    case metric(DataFieldType)
+    
+    public var id: String {
+        switch self {
+        case .workout: return "workout"
+        case .dfaAlpha1: return "dfaAlpha1"
+        case .metric(let field): return "metric-\(field.rawValue)"
+        }
+    }
+    
+    public var title: String {
+        switch self {
+        case .workout: return "WORKOUT"
+        case .dfaAlpha1: return "DFA a1"
+        case .metric(let field): return field.rawValue.uppercased()
+        }
+    }
+}
+
 public struct ActivityProfile: Identifiable, Codable, Hashable {
     public var id = UUID()
     public var name: String
     public var iconName: String
     public var colorName: String
     public var pages: [DataPage]
+    public var graphs: [GraphType]
+    
+    public init(id: UUID = UUID(), name: String, iconName: String, colorName: String, pages: [DataPage], graphs: [GraphType]) {
+        self.id = id
+        self.name = name
+        self.iconName = iconName
+        self.colorName = colorName
+        self.pages = pages
+        self.graphs = graphs
+    }
     
     public var color: Color {
         switch colorName.lowercased() {
@@ -33,7 +65,8 @@ public struct ActivityProfile: Identifiable, Codable, Hashable {
                 //overall
                 .avgPower, .normalizedPower, .slAvgPower, .slNP, .distance
             ]),
-        ]
+        ],
+        graphs: [.workout]
     )
     
     public static let dfaAnalysisProfile = ActivityProfile(
@@ -46,7 +79,8 @@ public struct ActivityProfile: Identifiable, Codable, Hashable {
                 .avgHR, .avgPower, .rmssd, .sdnn,
                 .lapAvgHR, .lapAvgPower, .lapTime, .distance
             ])
-        ]
+        ],
+        graphs: [.workout, .dfaAlpha1]
     )
     
     public static let availableProfiles: [ActivityProfile] = [
