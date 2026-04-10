@@ -697,7 +697,9 @@ struct SwipeableGraphContainer: View {
                     .tag(index)
                 }
             }
+            #if os(iOS)
             .tabViewStyle(.page(indexDisplayMode: .always))
+            #endif
             
             if selection < graphs.count {
                 Text(graphs[selection].title)
