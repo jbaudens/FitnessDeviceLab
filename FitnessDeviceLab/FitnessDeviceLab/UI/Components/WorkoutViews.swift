@@ -596,3 +596,117 @@ struct LegendItem: View {
         WorkoutRowView(workout: workout, userFTP: 250, userLTHR: 170)
     }
 }
+
+struct GenericMetricGraphView: View {
+    let field: DataFieldType
+    @Bindable var recorder: SessionRecorder
+    let userFTP: Double
+    let userLTHR: Double
+    
+    var body: some View {
+        Chart {
+            ForEach(recorder.trackpoints) { pt in
+                if let value = valueForField(pt) {
+                    LineMark(
+                        x: .value("Time", pt.time),
+                        y: .value(field.rawValue, value)
+                    )
+                    .foregroundStyle(field.color)
+                }
+            }
+        }
+        .chartXAxis(.hidden)
+        .chartYAxis {
+            AxisMarks(position: .leading) { _ in
+                AxisGridLine()
+                AxisValueLabel().font(.system(size: 8, design: .monospaced))
+            }
+        }
+    }
+    
+    private func valueForField(_ pt: Trackpoint) -> Double? {
+        switch field {
+        case .currentHR: return Double(pt.hr ?? 0)
+        case .currentPower: return Double(pt.power ?? 0)
+        case .cadence: return Double(pt.cadence ?? 0)
+        case .speed: return pt.speed
+        default: return nil
+        }
+    }
+}
+
+struct GraphFactoryView: View {
+    let type: GraphType
+    @Bindable var recorder: SessionRecorder
+    let workoutManager: WorkoutSessionManager
+    let settings: any SettingsProvider
+    
+    var body: some View {
+        Group {
+            switch type {
+            case .workout:
+                if let workout = workoutManager.selectedWorkout {
+                    WorkoutGraphView(
+                        workout: workout,
+                        userFTP: settings.userFTP,
+                        userLTHR: Double(settings.userLTHR),
+                        elapsedTime: workoutManager.workoutElapsedTime,
+                        recorder: recorder,
+                        scale: workoutManager.workoutDifficultyScale
+                    )
+                } else {
+                    SessionGraphView(
+                        recorder: recorder,
+                        userFTP: settings.userFTP,
+                        userLTHR: Double(settings.userLTHR)
+                    )
+                }
+            case .dfaAlpha1:
+                DFAAlpha1ChartView(recorder: recorder)
+            case .metric(let field):
+                GenericMetricGraphView(
+                    field: field,
+                    recorder: recorder,
+                    userFTP: settings.userFTP,
+                    userLTHR: Double(settings.userLTHR)
+                )
+            }
+        }
+        .padding(8)
+    }
+}
+
+struct SwipeableGraphContainer: View {
+    let graphs: [GraphType]
+    @Bindable var recorder: SessionRecorder
+    let workoutManager: WorkoutSessionManager
+    let settings: any SettingsProvider
+    
+    @State private var selection = 0
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            TabView(selection: $selection) {
+                ForEach(0..<graphs.count, id: \.self) { index in
+                    GraphFactoryView(
+                        type: graphs[index],
+                        recorder: recorder,
+                        workoutManager: workoutManager,
+                        settings: settings
+                    )
+                    .tag(index)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .always))
+            
+            if selection < graphs.count {
+                Text(graphs[selection].title)
+                    .font(.system(size: 8, weight: .black))
+                    .foregroundColor(.secondary)
+                    .padding(.bottom, 4)
+            }
+        }
+        .background(Color.secondary.opacity(0.05))
+        .cornerRadius(16)
+    }
+}
