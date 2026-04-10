@@ -171,4 +171,55 @@ struct WorkoutSessionManagerTests {
         sut.adjustManualTarget(amount: 5)
         #expect(sut.resistanceLevel == 55.0)
     }
+
+    @Test func testControlBeforeRecording() async throws {
+        let (sut, timer, _, _) = makeSUT()
+        let mockTrainer = MockTrainer()
+        let controllable = ControllableTrainer(peripheral: mockTrainer)!
+        
+        sut.startWorkout(recA: sut.recorderA, recB: sut.recorderB, control: controllable)
+        
+        // Set target power AFTER startWorkout, as startWorkout resets defaults
+        sut.selectedWorkout = nil
+        sut.freeRideControlMode = .power
+        sut.manualTargetPower = 200
+        
+        // NOT STARTING RECORDING YET
+        #expect(sut.isRecording == false)
+        #expect(sut.isLoaded == true)
+        
+        timer.advanceOneSecond()
+        
+        #expect(mockTrainer.lastSetTargetPower == 200, "Trainer should receive target power even before recording starts")
+    }
+
+    @Test func testHRSourceFallbackToRecorderB() async throws {
+        let (sut, timer, settings, _) = makeSUT()
+        settings.userFTP = 200
+        let mockTrainer = MockTrainer()
+        let controllable = ControllableTrainer(peripheral: mockTrainer)!
+        
+        // Setup Free Ride HR Mode
+        sut.selectedWorkout = nil
+        sut.freeRideControlMode = .heartRate
+        sut.manualTargetHR = 150
+        
+        // HRM is on recorder B
+        let hrmPeripheral = MockTrainer()
+        hrmPeripheral.capabilities = [.heartRate]
+        hrmPeripheral.heartRate = 140
+        sut.recorderB.hrSource = HeartRateSensor(peripheral: hrmPeripheral)
+        
+        sut.startWorkout(recA: sut.recorderA, recB: sut.recorderB, control: controllable)
+        sut.startRecording()
+        
+        timer.advanceOneSecond()
+        
+        // If it correctly falls back to Recorder B, it should calculate a target power based on 140 bpm.
+        // If it only looks at Recorder A (which has no HR), it will default to 100W (ftp * 0.5).
+        
+        // In this case, 140 bpm < 150 bpm, so it should INCREASE power from the initial 100W (or whatever default).
+        #expect(sut.currentTargetPower != nil)
+        #expect(sut.currentTargetPower! > 100, "Should have adjusted power based on HR from Recorder B")
+    }
 }

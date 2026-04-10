@@ -630,12 +630,26 @@ struct FreeRideHeader: View {
             
             VStack(alignment: .trailing, spacing: 2) {
                 if workoutManager.freeRideControlMode == .heartRate {
-                    Text("\(workoutManager.manualTargetHR)")
-                        .font(.system(size: 40, weight: .bold, design: .rounded))
-                        .foregroundColor(.red)
-                    Text("GOAL BPM")
-                        .font(.system(size: 10, weight: .black))
-                        .foregroundColor(.secondary)
+                    HStack(spacing: 8) {
+                        if let commandedWatts = workoutManager.currentTargetPower {
+                            VStack(alignment: .trailing, spacing: 0) {
+                                Text("\(commandedWatts)")
+                                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                                    .foregroundColor(.secondary)
+                                Text("TARGET W")
+                                    .font(.system(size: 8, weight: .black))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        VStack(alignment: .trailing, spacing: 0) {
+                            Text("\(workoutManager.manualTargetHR)")
+                                .font(.system(size: 40, weight: .bold, design: .rounded))
+                                .foregroundColor(.red)
+                            Text("GOAL BPM")
+                                .font(.system(size: 10, weight: .black))
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 } else if workoutManager.freeRideControlMode == .power {
                     Text("\(workoutManager.manualTargetPower)")
                         .font(.system(size: 40, weight: .bold, design: .rounded))
