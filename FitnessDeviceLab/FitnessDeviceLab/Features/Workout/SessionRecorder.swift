@@ -39,6 +39,7 @@ public class SessionRecorder {
             power: powerSource?.cyclingPower,
             cadence: cadenceSource?.cadence,
             altitude: altitude,
+            speed: engine.currentSpeed,
             powerBalance: powerSource?.powerBalance,
             dfaAlpha1: engine.hrvMetrics.dfaAlpha1,
             rrIntervals: rrIntervals
