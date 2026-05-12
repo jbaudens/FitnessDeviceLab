@@ -52,31 +52,105 @@ struct AdaptiveWorkoutDashboard: View {
                 }
             } else {
                 // Portrait/Mobile Mode
+                #if os(macOS)
+                macOSCustomPaging
+                #else
                 TabView {
                     ForEach(viewModel.workoutManager.activeProfile.pages) { page in
-                        ScrollView {
-                            VStack(spacing: 32) {
-                                if viewModel.workoutManager.recorderA.hasAnySensor {
-                                    sensorSetSection(title: "SET A", color: Color.blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
-                                }
-                                
-                                if viewModel.workoutManager.recorderA.hasAnySensor && viewModel.workoutManager.recorderB.hasAnySensor {
-                                    Divider().padding(.horizontal)
-                                }
-                                
-                                if viewModel.workoutManager.recorderB.hasAnySensor {
-                                    sensorSetSection(title: "SET B", color: Color.purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
-                                }
-                            }
-                            .padding(.vertical)
-                        }
+                        dashboardPage(page: page)
                     }
                     LapsHistoryView(workoutManager: viewModel.workoutManager, settings: viewModel.settings)
                 }
-                #if os(iOS)
                 .tabViewStyle(.page(indexDisplayMode: .always))
                 #endif
             }
+        }
+    }
+
+    #if os(macOS)
+    @State private var dashboardSelection = 0
+    @State private var dashboardHovering = false
+
+    private var macOSCustomPaging: some View {
+        let totalPages = viewModel.workoutManager.activeProfile.pages.count + 1 // +1 for LapsHistoryView
+        return VStack(spacing: 0) {
+            ZStack {
+                if dashboardSelection < viewModel.workoutManager.activeProfile.pages.count {
+                    dashboardPage(page: viewModel.workoutManager.activeProfile.pages[dashboardSelection])
+                        .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
+                        .id(dashboardSelection)
+                } else {
+                    LapsHistoryView(workoutManager: viewModel.workoutManager, settings: viewModel.settings)
+                        .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
+                        .id(dashboardSelection)
+                }
+
+                if totalPages > 1 && dashboardHovering {
+                    HStack {
+                        if dashboardSelection > 0 {
+                            Button {
+                                withAnimation(.easeInOut) { dashboardSelection -= 1 }
+                            } label: {
+                                Image(systemName: "chevron.left.circle.fill")
+                                    .font(.largeTitle)
+                                    .foregroundStyle(.secondary)
+                                    .background(Circle().fill(.background))
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.leading, 16)
+                        }
+
+                        Spacer()
+
+                        if dashboardSelection < totalPages - 1 {
+                            Button {
+                                withAnimation(.easeInOut) { dashboardSelection += 1 }
+                            } label: {
+                                Image(systemName: "chevron.right.circle.fill")
+                                    .font(.largeTitle)
+                                    .foregroundStyle(.secondary)
+                                    .background(Circle().fill(.background))
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.trailing, 16)
+                        }
+                    }
+                }
+            }
+            .onHover { dashboardHovering = $0 }
+
+            HStack(spacing: 8) {
+                ForEach(0..<totalPages, id: \.self) { index in
+                    Circle()
+                        .fill(index == dashboardSelection ? Color.primary : Color.secondary.opacity(0.3))
+                        .frame(width: 6, height: 6)
+                        .onTapGesture {
+                            withAnimation { dashboardSelection = index }
+                        }
+                }
+            }
+            .padding(.vertical, 12)
+        }
+    }
+    #endif
+
+    @ViewBuilder
+    private func dashboardPage(page: DataPage) -> some View {
+        ScrollView {
+            VStack(spacing: 32) {
+                if viewModel.workoutManager.recorderA.hasAnySensor {
+                    sensorSetSection(title: "SET A", color: Color.blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
+                }
+                
+                if viewModel.workoutManager.recorderA.hasAnySensor && viewModel.workoutManager.recorderB.hasAnySensor {
+                    Divider().padding(.horizontal)
+                }
+                
+                if viewModel.workoutManager.recorderB.hasAnySensor {
+                    sensorSetSection(title: "SET B", color: Color.purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
+                }
+            }
+            .padding(.vertical)
         }
     }
     
@@ -153,37 +227,13 @@ struct AdaptiveWorkoutDashboard: View {
             .padding(.horizontal)
             
             // Full Width Graph
-            VStack(spacing: 8) {
-                if let workout = viewModel.workoutManager.selectedWorkout {
-                    WorkoutGraphView(
-                        workout: workout,
-                        userFTP: viewModel.settings.userFTP,
-                        userLTHR: Double(viewModel.settings.userLTHR),
-                        elapsedTime: viewModel.workoutManager.workoutElapsedTime,
-                        recorder: recorder,
-                        scale: viewModel.workoutManager.workoutDifficultyScale
-                    )
-                    .frame(height: 160) // Slightly taller for better stacked resolution
-                } else {
-                    SessionGraphView(
-                        recorder: recorder,
-                        userFTP: viewModel.settings.userFTP,
-                        userLTHR: Double(viewModel.settings.userLTHR)
-                    )
-                    .frame(height: 160)
-                }
-                
-                if viewModel.workoutManager.activeProfile.name == "DFA Analysis" {
-                    DFAAlpha1ChartView(recorder: recorder)
-                        .frame(height: 80)
-                        .padding(8)
-                        .background(Color.purple.opacity(0.05))
-                        .cornerRadius(12)
-                }
-            }
-            .padding(12)
-            .background(Color.secondary.opacity(0.05))
-            .cornerRadius(16)
+            SwipeableGraphContainer(
+                graphs: viewModel.workoutManager.activeProfile.graphs,
+                recorder: recorder,
+                workoutManager: viewModel.workoutManager,
+                settings: viewModel.settings
+            )
+            .frame(height: 180)
             .padding(.horizontal)
             
             // Detailed Data Grid
@@ -209,41 +259,14 @@ struct AdaptiveWorkoutDashboard: View {
             .foregroundColor(color)
             .padding(.horizontal)
             
-            if viewModel.workoutManager.activeProfile.name == "DFA Analysis" {
-                DFAAlpha1ChartView(recorder: recorder)
-                    .frame(height: 100)
-                    .padding(8)
-                    .background(Color.purple.opacity(0.05))
-                    .cornerRadius(12)
-                    .padding(.horizontal)
-            }
-            
-            if let workout = viewModel.workoutManager.selectedWorkout {
-                WorkoutGraphView(
-                    workout: workout,
-                    userFTP: viewModel.settings.userFTP,
-                    userLTHR: Double(viewModel.settings.userLTHR),
-                    elapsedTime: viewModel.workoutManager.workoutElapsedTime,
-                    recorder: recorder,
-                    scale: viewModel.workoutManager.workoutDifficultyScale
-                )
-                .frame(height: 140)
-                .padding(8)
-                .background(Color.secondary.opacity(0.05))
-                .cornerRadius(12)
-                .padding(.horizontal)
-            } else {
-                SessionGraphView(
-                    recorder: recorder,
-                    userFTP: viewModel.settings.userFTP,
-                    userLTHR: Double(viewModel.settings.userLTHR)
-                )
-                .frame(height: 140)
-                .padding(8)
-                .background(Color.secondary.opacity(0.05))
-                .cornerRadius(12)
-                .padding(.horizontal)
-            }
+            SwipeableGraphContainer(
+                graphs: viewModel.workoutManager.activeProfile.graphs,
+                recorder: recorder,
+                workoutManager: viewModel.workoutManager,
+                settings: viewModel.settings
+            )
+            .frame(height: 180)
+            .padding(.horizontal)
             
             DataFieldGrid(
                 engine: recorder.engine,
