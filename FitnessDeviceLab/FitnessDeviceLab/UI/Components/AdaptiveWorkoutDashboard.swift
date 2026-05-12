@@ -153,37 +153,13 @@ struct AdaptiveWorkoutDashboard: View {
             .padding(.horizontal)
             
             // Full Width Graph
-            VStack(spacing: 8) {
-                if let workout = viewModel.workoutManager.selectedWorkout {
-                    WorkoutGraphView(
-                        workout: workout,
-                        userFTP: viewModel.settings.userFTP,
-                        userLTHR: Double(viewModel.settings.userLTHR),
-                        elapsedTime: viewModel.workoutManager.workoutElapsedTime,
-                        recorder: recorder,
-                        scale: viewModel.workoutManager.workoutDifficultyScale
-                    )
-                    .frame(height: 160) // Slightly taller for better stacked resolution
-                } else {
-                    SessionGraphView(
-                        recorder: recorder,
-                        userFTP: viewModel.settings.userFTP,
-                        userLTHR: Double(viewModel.settings.userLTHR)
-                    )
-                    .frame(height: 160)
-                }
-                
-                if viewModel.workoutManager.activeProfile.name == "DFA Analysis" {
-                    DFAAlpha1ChartView(recorder: recorder)
-                        .frame(height: 80)
-                        .padding(8)
-                        .background(Color.purple.opacity(0.05))
-                        .cornerRadius(12)
-                }
-            }
-            .padding(12)
-            .background(Color.secondary.opacity(0.05))
-            .cornerRadius(16)
+            SwipeableGraphContainer(
+                graphs: viewModel.workoutManager.activeProfile.graphs,
+                recorder: recorder,
+                workoutManager: viewModel.workoutManager,
+                settings: viewModel.settings
+            )
+            .frame(height: 180)
             .padding(.horizontal)
             
             // Detailed Data Grid
@@ -209,41 +185,14 @@ struct AdaptiveWorkoutDashboard: View {
             .foregroundColor(color)
             .padding(.horizontal)
             
-            if viewModel.workoutManager.activeProfile.name == "DFA Analysis" {
-                DFAAlpha1ChartView(recorder: recorder)
-                    .frame(height: 100)
-                    .padding(8)
-                    .background(Color.purple.opacity(0.05))
-                    .cornerRadius(12)
-                    .padding(.horizontal)
-            }
-            
-            if let workout = viewModel.workoutManager.selectedWorkout {
-                WorkoutGraphView(
-                    workout: workout,
-                    userFTP: viewModel.settings.userFTP,
-                    userLTHR: Double(viewModel.settings.userLTHR),
-                    elapsedTime: viewModel.workoutManager.workoutElapsedTime,
-                    recorder: recorder,
-                    scale: viewModel.workoutManager.workoutDifficultyScale
-                )
-                .frame(height: 140)
-                .padding(8)
-                .background(Color.secondary.opacity(0.05))
-                .cornerRadius(12)
-                .padding(.horizontal)
-            } else {
-                SessionGraphView(
-                    recorder: recorder,
-                    userFTP: viewModel.settings.userFTP,
-                    userLTHR: Double(viewModel.settings.userLTHR)
-                )
-                .frame(height: 140)
-                .padding(8)
-                .background(Color.secondary.opacity(0.05))
-                .cornerRadius(12)
-                .padding(.horizontal)
-            }
+            SwipeableGraphContainer(
+                graphs: viewModel.workoutManager.activeProfile.graphs,
+                recorder: recorder,
+                workoutManager: viewModel.workoutManager,
+                settings: viewModel.settings
+            )
+            .frame(height: 180)
+            .padding(.horizontal)
             
             DataFieldGrid(
                 engine: recorder.engine,

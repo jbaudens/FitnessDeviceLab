@@ -596,3 +596,182 @@ struct LegendItem: View {
         WorkoutRowView(workout: workout, userFTP: 250, userLTHR: 170)
     }
 }
+
+struct GenericMetricGraphView: View {
+    let field: DataFieldType
+    @Bindable var recorder: SessionRecorder
+    let userFTP: Double
+    let userLTHR: Double
+    
+    var body: some View {
+        Chart {
+            ForEach(recorder.trackpoints) { pt in
+                if let value = valueForField(pt) {
+                    LineMark(
+                        x: .value("Time", pt.time),
+                        y: .value(field.rawValue, value)
+                    )
+                    .foregroundStyle(field.color)
+                }
+            }
+        }
+        .chartXAxis(.hidden)
+        .chartYAxis {
+            AxisMarks(position: .leading) { _ in
+                AxisGridLine()
+                AxisValueLabel().font(.system(size: 8, design: .monospaced))
+            }
+        }
+    }
+    
+    private func valueForField(_ pt: Trackpoint) -> Double? {
+        switch field {
+        case .currentHR: return Double(pt.hr ?? 0)
+        case .currentPower: return Double(pt.power ?? 0)
+        case .cadence: return Double(pt.cadence ?? 0)
+        case .speed: return pt.speed
+        default: return nil
+        }
+    }
+}
+
+struct GraphFactoryView: View {
+    let type: GraphType
+    @Bindable var recorder: SessionRecorder
+    let workoutManager: WorkoutSessionManager
+    let settings: any SettingsProvider
+    
+    var body: some View {
+        Group {
+            switch type {
+            case .workout:
+                if let workout = workoutManager.selectedWorkout {
+                    WorkoutGraphView(
+                        workout: workout,
+                        userFTP: settings.userFTP,
+                        userLTHR: Double(settings.userLTHR),
+                        elapsedTime: workoutManager.workoutElapsedTime,
+                        recorder: recorder,
+                        scale: workoutManager.workoutDifficultyScale
+                    )
+                } else {
+                    SessionGraphView(
+                        recorder: recorder,
+                        userFTP: settings.userFTP,
+                        userLTHR: Double(settings.userLTHR)
+                    )
+                }
+            case .dfaAlpha1:
+                DFAAlpha1ChartView(recorder: recorder)
+            case .metric(let field):
+                GenericMetricGraphView(
+                    field: field,
+                    recorder: recorder,
+                    userFTP: settings.userFTP,
+                    userLTHR: Double(settings.userLTHR)
+                )
+            }
+        }
+        .padding(8)
+    }
+}
+
+struct SwipeableGraphContainer: View {
+    let graphs: [GraphType]
+    @Bindable var recorder: SessionRecorder
+    let workoutManager: WorkoutSessionManager
+    let settings: any SettingsProvider
+    
+    @State private var selection = 0
+    @State private var isHovering = false
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            ZStack {
+                #if os(iOS)
+                TabView(selection: $selection) {
+                    ForEach(0..<graphs.count, id: \.self) { index in
+                        graphContent(at: index)
+                            .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                #else
+                graphContent(at: selection)
+                    .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
+                    .id(selection)
+                
+                if graphs.count > 1 && isHovering {
+                    HStack {
+                        if selection > 0 {
+                            Button {
+                                withAnimation(.easeInOut) { selection -= 1 }
+                            } label: {
+                                Image(systemName: "chevron.left.circle.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(.secondary)
+                                    .background(Circle().fill(.background))
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.leading, 8)
+                        }
+                        
+                        Spacer()
+                        
+                        if selection < graphs.count - 1 {
+                            Button {
+                                withAnimation(.easeInOut) { selection += 1 }
+                            } label: {
+                                Image(systemName: "chevron.right.circle.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(.secondary)
+                                    .background(Circle().fill(.background))
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.trailing, 8)
+                        }
+                    }
+                }
+                #endif
+            }
+            .onHover { isHovering = $0 }
+            
+            HStack(spacing: 6) {
+                if graphs.count > 1 {
+                    ForEach(0..<graphs.count, id: \.self) { index in
+                        Circle()
+                            .fill(index == selection ? Color.primary : Color.secondary.opacity(0.3))
+                            .frame(width: 4, height: 4)
+                            .onTapGesture {
+                                withAnimation { selection = index }
+                            }
+                    }
+                    
+                    Spacer()
+                }
+                
+                if selection < graphs.count {
+                    Text(graphs[selection].title)
+                        .font(.system(size: 8, weight: .black))
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 6)
+        }
+        .background(Color.secondary.opacity(0.05))
+        .cornerRadius(16)
+    }
+
+    @ViewBuilder
+    private func graphContent(at index: Int) -> some View {
+        if index < graphs.count {
+            GraphFactoryView(
+                type: graphs[index],
+                recorder: recorder,
+                workoutManager: workoutManager,
+                settings: settings
+            )
+        }
+    }
+}
