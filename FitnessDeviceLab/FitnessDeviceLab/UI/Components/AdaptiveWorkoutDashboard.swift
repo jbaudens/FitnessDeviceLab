@@ -52,31 +52,105 @@ struct AdaptiveWorkoutDashboard: View {
                 }
             } else {
                 // Portrait/Mobile Mode
+                #if os(macOS)
+                macOSCustomPaging
+                #else
                 TabView {
                     ForEach(viewModel.workoutManager.activeProfile.pages) { page in
-                        ScrollView {
-                            VStack(spacing: 32) {
-                                if viewModel.workoutManager.recorderA.hasAnySensor {
-                                    sensorSetSection(title: "SET A", color: Color.blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
-                                }
-                                
-                                if viewModel.workoutManager.recorderA.hasAnySensor && viewModel.workoutManager.recorderB.hasAnySensor {
-                                    Divider().padding(.horizontal)
-                                }
-                                
-                                if viewModel.workoutManager.recorderB.hasAnySensor {
-                                    sensorSetSection(title: "SET B", color: Color.purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
-                                }
-                            }
-                            .padding(.vertical)
-                        }
+                        dashboardPage(page: page)
                     }
                     LapsHistoryView(workoutManager: viewModel.workoutManager, settings: viewModel.settings)
                 }
-                #if os(iOS)
                 .tabViewStyle(.page(indexDisplayMode: .always))
                 #endif
             }
+        }
+    }
+
+    #if os(macOS)
+    @State private var dashboardSelection = 0
+    @State private var dashboardHovering = false
+
+    private var macOSCustomPaging: some View {
+        let totalPages = viewModel.workoutManager.activeProfile.pages.count + 1 // +1 for LapsHistoryView
+        return VStack(spacing: 0) {
+            ZStack {
+                if dashboardSelection < viewModel.workoutManager.activeProfile.pages.count {
+                    dashboardPage(page: viewModel.workoutManager.activeProfile.pages[dashboardSelection])
+                        .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
+                        .id(dashboardSelection)
+                } else {
+                    LapsHistoryView(workoutManager: viewModel.workoutManager, settings: viewModel.settings)
+                        .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
+                        .id(dashboardSelection)
+                }
+
+                if totalPages > 1 && dashboardHovering {
+                    HStack {
+                        if dashboardSelection > 0 {
+                            Button {
+                                withAnimation(.easeInOut) { dashboardSelection -= 1 }
+                            } label: {
+                                Image(systemName: "chevron.left.circle.fill")
+                                    .font(.largeTitle)
+                                    .foregroundStyle(.secondary)
+                                    .background(Circle().fill(.background))
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.leading, 16)
+                        }
+
+                        Spacer()
+
+                        if dashboardSelection < totalPages - 1 {
+                            Button {
+                                withAnimation(.easeInOut) { dashboardSelection += 1 }
+                            } label: {
+                                Image(systemName: "chevron.right.circle.fill")
+                                    .font(.largeTitle)
+                                    .foregroundStyle(.secondary)
+                                    .background(Circle().fill(.background))
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.trailing, 16)
+                        }
+                    }
+                }
+            }
+            .onHover { dashboardHovering = $0 }
+
+            HStack(spacing: 8) {
+                ForEach(0..<totalPages, id: \.self) { index in
+                    Circle()
+                        .fill(index == dashboardSelection ? Color.primary : Color.secondary.opacity(0.3))
+                        .frame(width: 6, height: 6)
+                        .onTapGesture {
+                            withAnimation { dashboardSelection = index }
+                        }
+                }
+            }
+            .padding(.vertical, 12)
+        }
+    }
+    #endif
+
+    @ViewBuilder
+    private func dashboardPage(page: DataPage) -> some View {
+        ScrollView {
+            VStack(spacing: 32) {
+                if viewModel.workoutManager.recorderA.hasAnySensor {
+                    sensorSetSection(title: "SET A", color: Color.blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
+                }
+                
+                if viewModel.workoutManager.recorderA.hasAnySensor && viewModel.workoutManager.recorderB.hasAnySensor {
+                    Divider().padding(.horizontal)
+                }
+                
+                if viewModel.workoutManager.recorderB.hasAnySensor {
+                    sensorSetSection(title: "SET B", color: Color.purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
+                }
+            }
+            .padding(.vertical)
         }
     }
     

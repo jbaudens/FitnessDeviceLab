@@ -8,28 +8,37 @@ struct InteractionCockpit: View {
     private var isRegular: Bool { horizontalSizeClass == .regular }
     
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 16) {
-                // 1. Mode Selection
-                modePicker
-                
-                Divider().frame(height: 32)
-                
-                // 2. Incremental Adjustments (Restored +/- 1 and +/- 5/10)
-                adjustmentGroup
-                
-                Spacer()
-                
-                Divider().frame(height: 32)
-                
-                // 3. Primary Session Controls (Consistent Circular Style)
-                sessionControls
-            }
+        HStack(spacing: 16) {
+            // 1. Mode Selection
+            modePicker
+            
+            Divider().frame(height: 32)
+            
+            // 2. Incremental Adjustments
+            adjustmentGroup
+            
+            Spacer()
+            
+            Divider().frame(height: 32)
+            
+            // 3. Primary Session Controls
+            sessionControls
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color.secondary.opacity(0.1))
-        .cornerRadius(16)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.secondary.opacity(0.1))
+                #if os(macOS)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
+                )
+                #endif
+        )
+        #if os(macOS)
+        .padding(.bottom, 8)
+        #endif
         .foregroundColor(.blue)
     }
     
@@ -43,6 +52,7 @@ struct InteractionCockpit: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 180)
+            .labelsHidden()
         } else {
             Picker("Mode", selection: $workoutManager.ergModeEnabled) {
                 Text("RES").tag(false)
@@ -51,6 +61,7 @@ struct InteractionCockpit: View {
             .pickerStyle(.segmented)
             .disabled(!workoutManager.canEnableErgMode)
             .frame(width: 120)
+            .labelsHidden()
         }
     }
     
@@ -65,12 +76,14 @@ struct InteractionCockpit: View {
                     .font(.title3)
                     .foregroundColor(.secondary.opacity(0.7))
             }
+            .buttonStyle(.plain)
             
             // Fine Down
             Button(action: { workoutManager.adjustManualTarget(amount: -1) }) {
                 Image(systemName: "minus.circle.fill")
                     .font(.title2)
             }
+            .buttonStyle(.plain)
             
             // Value
             VStack(spacing: 0) {
@@ -88,6 +101,7 @@ struct InteractionCockpit: View {
                 Image(systemName: "plus.circle.fill")
                     .font(.title2)
             }
+            .buttonStyle(.plain)
             
             // Coarse Up
             Button(action: { workoutManager.adjustManualTarget(amount: coarseAmount) }) {
@@ -95,6 +109,7 @@ struct InteractionCockpit: View {
                     .font(.title3)
                     .foregroundColor(.secondary.opacity(0.7))
             }
+            .buttonStyle(.plain)
         }
     }
     
@@ -109,8 +124,9 @@ struct InteractionCockpit: View {
                 }) {
                     circularControl(icon: "xmark", color: .gray)
                 }
+                .buttonStyle(.plain)
                 
-                // Start (The only one with a label for extra clarity)
+                // Start
                 Button(action: {
                     workoutManager.startRecording()
                 }) {
@@ -124,12 +140,14 @@ struct InteractionCockpit: View {
                     .foregroundColor(.white)
                     .cornerRadius(20)
                 }
+                .buttonStyle(.plain)
             } else {
                 // Lap
                 Button(action: { workoutManager.manualLap() }) {
                     circularControl(icon: "circle.circle.fill", color: .blue)
                 }
                 .disabled(workoutManager.isPaused)
+                .buttonStyle(.plain)
                 
                 // Pause/Resume
                 Button(action: {
@@ -145,11 +163,13 @@ struct InteractionCockpit: View {
                         size: 44
                     )
                 }
+                .buttonStyle(.plain)
                 
                 // Stop
                 Button(action: { onStop?() }) {
                     circularControl(icon: "stop.fill", color: .red)
                 }
+                .buttonStyle(.plain)
             }
         }
     }
