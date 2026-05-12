@@ -48,6 +48,7 @@ struct FitnessDeviceLabApp: App {
                 settingsManager: settingsManager
             )
             .environment(errorManager)
+            .environment(\.locale, settingsManager.appLanguage.locale)
         }
     }
 }

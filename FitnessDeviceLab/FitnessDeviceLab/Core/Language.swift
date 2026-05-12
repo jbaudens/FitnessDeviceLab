@@ -15,8 +15,11 @@ public enum AppLanguage: String, Codable, CaseIterable, Identifiable {
         }
     }
     
-    public var locale: Locale? {
-        guard self != .system else { return nil }
-        return Locale(identifier: self.rawValue)
+    public var locale: Locale {
+        switch self {
+        case .system: return .current
+        case .english: return Locale(identifier: "en")
+        case .french: return Locale(identifier: "fr")
+        }
     }
 }

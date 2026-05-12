@@ -11,6 +11,7 @@ struct SettingsView: View {
     
     var body: some View {
         @Bindable var vm = viewModel
+        @Bindable var settings = viewModel.settings
         
         Group {
             if horizontalSizeClass == .regular {
@@ -20,6 +21,7 @@ struct SettingsView: View {
                         VStack(spacing: 24) {
                             profileSection(vm: viewModel)
                             environmentSection(vm: viewModel)
+                            languageSection(vm: viewModel)
                             
                             Button(role: .destructive) {
                                 showingResetConfirmation = true
@@ -62,6 +64,16 @@ struct SettingsView: View {
                         environmentRows(vm: viewModel)
                     } header: {
                         Text("Environmental Conditions")
+                    }
+                    
+                    Section {
+                        Picker("Language", selection: $settings.appLanguage) {
+                            ForEach(AppLanguage.allCases) { lang in
+                                Text(lang.displayName).tag(lang)
+                            }
+                        }
+                    } header: {
+                        Text("App Settings")
                     }
                     
                     Section {
@@ -137,6 +149,27 @@ struct SettingsView: View {
             headerLabel("Environment", icon: "mountain.2.fill")
             VStack(spacing: 12) {
                 environmentRows(vm: vm)
+            }
+            .padding()
+            .background(Color.secondary.opacity(0.05))
+            .cornerRadius(12)
+        }
+    }
+    
+    @ViewBuilder
+    private func languageSection(vm: SettingsViewModel) -> some View {
+        @Bindable var settings = vm.settings
+        VStack(alignment: .leading, spacing: 16) {
+            headerLabel("Language", icon: "globe")
+            VStack(spacing: 12) {
+                Picker("App Language", selection: $settings.appLanguage) {
+                    ForEach(AppLanguage.allCases) { lang in
+                        Text(lang.displayName).tag(lang)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding()
             .background(Color.secondary.opacity(0.05))

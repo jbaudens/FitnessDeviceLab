@@ -9,6 +9,7 @@ public protocol SettingsProvider: AnyObject, Observation.Observable {
     var altitudeOverride: Double? { get }
     var userWeight: Double { get }
     var ftpAltitude: Double { get }
+    var appLanguage: AppLanguage { get }
     var metricsSettings: MetricsSettings { get }
 }
 
@@ -45,6 +46,10 @@ public class SettingsManager: SettingsProvider {
     public var ftpAltitude: Double {
         didSet { defaults.set(ftpAltitude, forKey: "ftpAltitude") }
     }
+    
+    public var appLanguage: AppLanguage {
+        didSet { defaults.set(appLanguage.rawValue, forKey: "appLanguage") }
+    }
 
     public var metricsSettings: MetricsSettings {
         MetricsSettings(userFTP: userFTP, userWeight: userWeight, ftpAltitude: ftpAltitude)
@@ -58,6 +63,7 @@ public class SettingsManager: SettingsProvider {
     public func setAltitudeOverride(_ value: Double?) { altitudeOverride = value }
     public func setUserWeight(_ value: Double) { userWeight = value }
     public func setFTPAltitude(_ value: Double) { ftpAltitude = value }
+    public func setAppLanguage(_ value: AppLanguage) { appLanguage = value }
 
     public init() {
         let savedFTP = defaults.double(forKey: "userFTP")
@@ -77,5 +83,11 @@ public class SettingsManager: SettingsProvider {
         
         let savedFTPAlt = defaults.double(forKey: "ftpAltitude")
         self.ftpAltitude = savedFTPAlt // Can be 0
+        
+        if let savedLang = defaults.string(forKey: "appLanguage"), let lang = AppLanguage(rawValue: savedLang) {
+            self.appLanguage = lang
+        } else {
+            self.appLanguage = .system
+        }
     }
 }
