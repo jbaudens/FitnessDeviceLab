@@ -683,32 +683,95 @@ struct SwipeableGraphContainer: View {
     let settings: any SettingsProvider
     
     @State private var selection = 0
+    @State private var isHovering = false
     
     var body: some View {
         VStack(spacing: 4) {
-            TabView(selection: $selection) {
-                ForEach(0..<graphs.count, id: \.self) { index in
-                    GraphFactoryView(
-                        type: graphs[index],
-                        recorder: recorder,
-                        workoutManager: workoutManager,
-                        settings: settings
-                    )
-                    .tag(index)
+            ZStack {
+                #if os(iOS)
+                TabView(selection: $selection) {
+                    ForEach(0..<graphs.count, id: \.self) { index in
+                        graphContent(at: index)
+                            .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                #else
+                graphContent(at: selection)
+                    .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
+                    .id(selection)
+                
+                if graphs.count > 1 && isHovering {
+                    HStack {
+                        if selection > 0 {
+                            Button {
+                                withAnimation(.easeInOut) { selection -= 1 }
+                            } label: {
+                                Image(systemName: "chevron.left.circle.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(.secondary)
+                                    .background(Circle().fill(.background))
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.leading, 8)
+                        }
+                        
+                        Spacer()
+                        
+                        if selection < graphs.count - 1 {
+                            Button {
+                                withAnimation(.easeInOut) { selection += 1 }
+                            } label: {
+                                Image(systemName: "chevron.right.circle.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(.secondary)
+                                    .background(Circle().fill(.background))
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.trailing, 8)
+                        }
+                    }
+                }
+                #endif
+            }
+            .onHover { isHovering = $0 }
+            
+            HStack(spacing: 6) {
+                if graphs.count > 1 {
+                    ForEach(0..<graphs.count, id: \.self) { index in
+                        Circle()
+                            .fill(index == selection ? Color.primary : Color.secondary.opacity(0.3))
+                            .frame(width: 4, height: 4)
+                            .onTapGesture {
+                                withAnimation { selection = index }
+                            }
+                    }
+                    
+                    Spacer()
+                }
+                
+                if selection < graphs.count {
+                    Text(graphs[selection].title)
+                        .font(.system(size: 8, weight: .black))
+                        .foregroundColor(.secondary)
                 }
             }
-            #if os(iOS)
-            .tabViewStyle(.page(indexDisplayMode: .always))
-            #endif
-            
-            if selection < graphs.count {
-                Text(graphs[selection].title)
-                    .font(.system(size: 8, weight: .black))
-                    .foregroundColor(.secondary)
-                    .padding(.bottom, 4)
-            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 6)
         }
         .background(Color.secondary.opacity(0.05))
         .cornerRadius(16)
+    }
+
+    @ViewBuilder
+    private func graphContent(at index: Int) -> some View {
+        if index < graphs.count {
+            GraphFactoryView(
+                type: graphs[index],
+                recorder: recorder,
+                workoutManager: workoutManager,
+                settings: settings
+            )
+        }
     }
 }
