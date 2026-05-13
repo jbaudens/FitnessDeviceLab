@@ -34,8 +34,31 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
         )
         
         let contents = mapHistory(history)
-        let response = try await model.generateContent(contents)
-        return try response.toAIChatMessage()
+        
+        do {
+            let response = try await model.generateContent(contents)
+            return try response.toAIChatMessage()
+        } catch {
+            throw mapError(error)
+        }
+    }
+    
+    private func mapError(_ error: Error) -> Error {
+        if let genError = error as? GenerateContentError {
+            switch genError {
+            case .internalError(let underlying):
+                return AssistantDisplayError("Gemini Internal Error: \(underlying.localizedDescription). Please check your internet connection and verify that your API key is valid.")
+            case .promptBlocked(let response):
+                let reason = response.promptFeedback?.blockReason?.rawValue ?? "Unknown"
+                return AssistantDisplayError("Prompt Blocked: The request was blocked by safety filters (Reason: \(reason)).")
+            case .responseStopped(let response):
+                let reason = response.candidates.first?.finishReason?.rawValue ?? "Unknown"
+                return AssistantDisplayError("Response Stopped: The AI stopped generating (Reason: \(reason)).")
+            default:
+                return AssistantDisplayError("Gemini Error: \(error.localizedDescription)")
+            }
+        }
+        return error
     }
     
     private func mapHistory(_ history: [AIChatMessage]) -> [ModelContent] {
@@ -98,6 +121,12 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
         }
         return json.mapValues { JSONValue.fromAny($0) }
     }
+}
+
+struct AssistantDisplayError: Error, LocalizedError {
+    let message: String
+    init(_ message: String) { self.message = message }
+    var errorDescription: String? { message }
 }
 
 // MARK: - Mapping Helpers

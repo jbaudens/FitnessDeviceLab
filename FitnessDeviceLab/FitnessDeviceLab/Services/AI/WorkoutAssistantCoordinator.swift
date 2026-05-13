@@ -44,34 +44,38 @@ public final class WorkoutAssistantCoordinator {
         errorMessage = nil
         
         do {
-            // Append a silent "state update" message before sending to AI
-            // This ensures the AI always has the latest workout state and user settings
+            // 1. Validate environment
+            guard !KeychainHelper.readString(service: "com.fitnessdevicelab.gemini", account: "api_key").isNilOrEmpty else {
+                throw AssistantError.missingApiKey
+            }
+
+            // 2. Prepare context
             let stateSnapshot = createStateSnapshot()
             let stateMessage = AIChatMessage(role: .system, content: "CURRENT_STATE: \(stateSnapshot)")
             
             var history = messages
             history.append(stateMessage)
             
+            // 3. Request generation
             let response = try await provider.sendMessage(history: history, tools: WorkoutToolRegistry.tools)
             messages.append(response)
             
+            // 4. Handle tool execution
             if let toolCalls = response.toolCalls {
                 for call in toolCalls {
                     try await executeToolCall(call)
                 }
-                
-                // After executing tools, if the AI didn't provide text, add a small confirmation
-                if response.content.isEmpty {
-                    // Optional: could ask AI for a follow-up summary or just let the UI show the change
-                }
             }
+        } catch let error as AssistantError {
+            errorMessage = error.description
         } catch {
-            errorMessage = "Assistant error: \(error.localizedDescription)"
+            errorMessage = "Coach Error: \(error.localizedDescription)"
+            print("Assistant execution failed: \(error)")
         }
         
         isGenerating = false
     }
-    
+
     private func createStateSnapshot() -> String {
         let workout = viewModel.draftWorkout
         let snapshot: [String: Any] = [
@@ -192,6 +196,16 @@ public final class WorkoutAssistantCoordinator {
             targetCadence: dict["targetCadence"] as? Int
         )
     }
+
+    private enum AssistantError: Error {
+        case missingApiKey
+        
+        var description: String {
+            switch self {
+            case .missingApiKey: return "API Key missing. Please tap the key icon at the top to setup your Gemini API key."
+            }
+        }
+    }
 }
 
 public struct CoachingProfile {
@@ -215,4 +229,10 @@ public struct CoachingProfile {
     - Never mention JSON or internal IDs to the user.
     - Focus on the coaching benefit of the workout structure.
     """
+}
+
+extension Optional where Wrapped == String {
+    var isNilOrEmpty: Bool {
+        return self?.isEmpty ?? true
+    }
 }
