@@ -22,7 +22,8 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
         let systemMessages = history.filter { $0.role == .system }
         var systemInstruction: ModelContent? = nil
         if !systemMessages.isEmpty {
-            systemInstruction = ModelContent(role: "system", parts: systemMessages.map { ModelContent.Part.text($0.content) })
+            let systemParts = systemMessages.map { ModelContent.Part.text($0.content) }
+            systemInstruction = ModelContent(role: "system", parts: systemParts)
         }
         
         let model = GenerativeModel(
