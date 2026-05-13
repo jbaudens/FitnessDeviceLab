@@ -58,8 +58,12 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
                 
                 if let toolCalls = message.toolCalls, !toolCalls.isEmpty {
                     for call in toolCalls {
-                        let args = call.arguments.mapValues { $0.toJSONValue() }
-                        parts.append(.functionCall(FunctionCall(name: call.functionName, args: args)))
+                        let args = call.arguments.mapValues { $0.value }
+                        let json: [String: Any] = ["name": call.functionName, "args": args]
+                        if let data = try? JSONSerialization.data(withJSONObject: json),
+                           let functionCall = try? JSONDecoder().decode(FunctionCall.self, from: data) {
+                            parts.append(.functionCall(functionCall))
+                        }
                     }
                 }
                 
