@@ -23,7 +23,7 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
         var systemInstruction: ModelContent? = nil
         if !systemMessages.isEmpty {
             let systemParts = systemMessages.map { ModelContent.Part.text($0.content) }
-            systemInstruction = ModelContent(role: "system", parts: systemParts)
+            systemInstruction = try? ModelContent(role: "system", systemParts)
         }
         
         let model = GenerativeModel(
@@ -52,7 +52,9 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
                 let jsonResponse: JSONObject = parseToolContent(message.content)
                 
                 let part = ModelContent.Part.functionResponse(FunctionResponse(name: functionName, response: jsonResponse))
-                contents.append(ModelContent(role: "function", parts: [part]))
+                if let content = try? ModelContent(role: "function", [part]) {
+                    contents.append(content)
+                }
             } else {
                 let role = message.role == .user ? "user" : "model"
                 var parts: [ModelContent.Part] = []
@@ -68,8 +70,8 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
                     }
                 }
                 
-                if !parts.isEmpty {
-                    contents.append(ModelContent(role: role, parts: parts))
+                if !parts.isEmpty, let content = try? ModelContent(role: role, parts) {
+                    contents.append(content)
                 }
             }
         }
