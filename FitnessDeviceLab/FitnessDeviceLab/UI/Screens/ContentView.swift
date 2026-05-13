@@ -147,7 +147,7 @@ struct ContentView: View {
                     )
                 case .editor(let workoutID):
                     let workout = workoutID.flatMap { id in WorkoutRepository.shared.allWorkouts.first(where: { $0.id == id }) }
-                    WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout))
+                    WorkoutEditorView(viewModel: WorkoutEditorViewModel(workout: workout), settings: settingsManager)
                 }
             }
         }

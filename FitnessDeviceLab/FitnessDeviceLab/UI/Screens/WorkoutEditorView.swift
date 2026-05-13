@@ -4,66 +4,85 @@ struct WorkoutEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     var viewModel: WorkoutEditorViewModel
+    let settings: SettingsProvider
+    
+    @State private var showingAssistant = false
     
     var body: some View {
         @Bindable var vm = viewModel
         
-        VStack(spacing: 0) {
-            // Header (Summary Metrics)
-            WorkoutSummaryHeader(
-                duration: vm.totalDuration,
-                tss: vm.tss,
-                intensityFactor: vm.intensityFactor
-            )
-            .padding()
-            .background(Color.secondary.opacity(0.05))
-            
-            ScrollView {
-                VStack(spacing: 16) {
-                    // Collapsible Basic Info
-                    CollapsibleWorkoutInfo(
-                        name: $vm.name,
-                        description: $vm.description,
-                        isNewWorkout: vm.isNewWorkout,
-                        onDelete: {
-                            vm.deleteWorkout()
-                            dismiss()
-                        }
-                    )
-                    .padding(.horizontal)
-                    .padding(.top, 16)
-                    
-                    // Visual Timeline
-                    WorkoutTimelineCanvas(
-                        steps: $vm.steps,
-                        selectedStepID: $vm.selectedStepID,
-                        selectedStepIDs: $vm.selectedStepIDs
-                    )
-                    .frame(height: 180)
-                    .background(Color.black.opacity(0.05))
-                    .cornerRadius(12)
-                    .padding(.horizontal)
-                    
-                    // The Horizon Bar (Adaptive Layout)
-                    Group {
-                        if horizontalSizeClass == .regular {
-                            HStack(alignment: .top, spacing: 16) {
-                                StepPalette(viewModel: vm)
-                                    .frame(width: 300)
-                                
-                                inspectorSection
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                // Header (Summary Metrics)
+                WorkoutSummaryHeader(
+                    duration: vm.totalDuration,
+                    tss: vm.tss,
+                    intensityFactor: vm.intensityFactor
+                )
+                .padding()
+                .background(Color.secondary.opacity(0.05))
+                
+                ScrollView {
+                    VStack(spacing: 16) {
+                        // Collapsible Basic Info
+                        CollapsibleWorkoutInfo(
+                            name: $vm.name,
+                            description: $vm.description,
+                            isNewWorkout: vm.isNewWorkout,
+                            onDelete: {
+                                vm.deleteWorkout()
+                                dismiss()
                             }
-                        } else {
-                            VStack(spacing: 16) {
-                                StepPalette(viewModel: vm)
-                                inspectorSection
+                        )
+                        .padding(.horizontal)
+                        .padding(.top, 16)
+                        
+                        // Visual Timeline
+                        WorkoutTimelineCanvas(
+                            steps: $vm.steps,
+                            selectedStepID: $vm.selectedStepID,
+                            selectedStepIDs: $vm.selectedStepIDs
+                        )
+                        .frame(height: 180)
+                        .background(Color.black.opacity(0.05))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+                        
+                        // The Horizon Bar (Adaptive Layout)
+                        Group {
+                            if horizontalSizeClass == .regular {
+                                HStack(alignment: .top, spacing: 16) {
+                                    StepPalette(viewModel: vm)
+                                        .frame(width: 300)
+                                    
+                                    inspectorSection
+                                }
+                            } else {
+                                VStack(spacing: 16) {
+                                    StepPalette(viewModel: vm)
+                                    inspectorSection
+                                }
                             }
                         }
+                        .padding(.horizontal)
+                        .padding(.bottom, 32)
                     }
-                    .padding(.horizontal)
-                    .padding(.bottom, 32)
                 }
             }
+            
+            #if os(macOS)
+            if showingAssistant {
+                Divider()
+                if let coordinator = vm.assistant {
+                    AssistantSidebarView(coordinator: coordinator, settings: settings)
+                        .frame(width: 320)
+                        .transition(.move(edge: .trailing))
+                } else {
+                    assistantSetupPlaceholder
+                        .frame(width: 320)
+                }
+            }
+            #endif
         }
         .navigationTitle(vm.isNewWorkout ? "New Workout" : "Edit Workout")
         .inlineNavigationBarTitle()
@@ -75,6 +94,27 @@ struct WorkoutEditorView: View {
                 }
                 .fontWeight(.bold)
                 .disabled(!vm.canSave)
+            }
+            
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    withAnimation {
+                        showingAssistant.toggle()
+                        if showingAssistant && vm.assistant == nil {
+                            setupAssistant()
+                        }
+                    }
+                } label: {
+                    Label("Assistant", systemImage: "sparkles")
+                        .symbolEffect(.bounce, value: showingAssistant)
+                }
+            }
+        }
+        .sheet(isPresented: .init(get: { showingAssistant && horizontalSizeClass == .compact }, set: { showingAssistant = $0 })) {
+            if let coordinator = vm.assistant {
+                AssistantSidebarView(coordinator: coordinator, settings: settings)
+            } else {
+                assistantSetupPlaceholder
             }
         }
     }
@@ -117,6 +157,35 @@ struct WorkoutEditorView: View {
             .frame(maxWidth: .infinity, minHeight: 100)
             .background(Color.secondary.opacity(0.05))
             .cornerRadius(12)
+        }
+    }
+
+    private var assistantSetupPlaceholder: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 48))
+                .foregroundColor(.blue)
+            Text("AI Workout Coach")
+                .font(.headline)
+            Text("Enable the assistant to help you design intervals, optimize recovery, and build your training plan.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            
+            Button("Setup Assistant") {
+                setupAssistant()
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding()
+    }
+    
+    private func setupAssistant() {
+        if let key = KeychainHelper.readString(service: "com.fitnessdevicelab.gemini", account: "api_key") {
+            viewModel.enableAssistant(settings: settings, apiKey: key)
+        } else {
+            viewModel.enableAssistant(settings: settings, apiKey: "")
         }
     }
 }
@@ -173,5 +242,5 @@ struct WorkoutSummaryHeader: View {
 }
 
 #Preview {
-    WorkoutEditorView(viewModel: WorkoutEditorViewModel())
+    WorkoutEditorView(viewModel: WorkoutEditorViewModel(), settings: SettingsManager())
 }
