@@ -18,10 +18,19 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
     public func sendMessage(history: [AIChatMessage], tools: [AITool]) async throws -> AIChatMessage {
         let generativeTools = tools.isEmpty ? nil : [GoogleGenerativeAI.Tool(functionDeclarations: tools.compactMap { $0.toFunctionDeclaration() })]
         
+        // Extract system instructions. Gemini 1.5 prefers them separately.
+        let systemMessages = history.filter { $0.role == .system }
+        var systemInstruction: ModelContent? = nil
+        if !systemMessages.isEmpty {
+            let systemText = systemMessages.map { $0.content }.joined(separator: "\n")
+            systemInstruction = ModelContent(role: "system", parts: [.text(systemText)])
+        }
+        
         let model = GenerativeModel(
             name: modelName,
             apiKey: apiKey,
-            tools: generativeTools
+            tools: generativeTools,
+            systemInstruction: systemInstruction
         )
         
         let contents = mapHistory(history)
