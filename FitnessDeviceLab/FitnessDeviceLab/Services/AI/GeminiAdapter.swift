@@ -51,25 +51,27 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
                 let functionName = findFunctionName(forToolMessageAt: index, in: history)
                 let jsonResponse: JSONObject = parseToolContent(message.content)
                 
-                let part = ModelContent.Part.functionResponse(FunctionResponse(name: functionName, response: jsonResponse))
-                contents.append(ModelContent(role: "function", parts: [part]))
+                let responsePart = ModelContent.Part.functionResponse(FunctionResponse(name: functionName, response: jsonResponse))
+                let toolContent = ModelContent(role: "function", parts: [responsePart])
+                contents.append(toolContent)
             } else {
-                let role = message.role == .user ? "user" : "model"
-                var parts: [ModelContent.Part] = []
+                let modelRole = message.role == .user ? "user" : "model"
+                var messageParts: [ModelContent.Part] = []
                 
                 if !message.content.isEmpty {
-                    parts.append(.text(message.content))
+                    messageParts.append(.text(message.content))
                 }
                 
                 if let toolCalls = message.toolCalls, !toolCalls.isEmpty {
                     for call in toolCalls {
                         let args = call.arguments.mapValues { $0.toJSONValue() }
-                        parts.append(.functionCall(FunctionCall(name: call.functionName, args: args)))
+                        messageParts.append(.functionCall(FunctionCall(name: call.functionName, args: args)))
                     }
                 }
                 
-                if !parts.isEmpty {
-                    contents.append(ModelContent(role: role, parts: parts))
+                if !messageParts.isEmpty {
+                    let mc = ModelContent(role: modelRole, parts: messageParts)
+                    contents.append(mc)
                 }
             }
         }
