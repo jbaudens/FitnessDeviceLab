@@ -16,69 +16,25 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
     }
     
     public func sendMessage(history: [AIChatMessage], tools: [AITool]) async throws -> AIChatMessage {
-        let generativeTools = tools.isEmpty ? nil : [Tool(functionDeclarations: tools.compactMap { $0.toFunctionDeclaration() })]
-        
-        // Extract system instructions. Gemini 1.5 prefers them separately.
-        let systemMessages = history.filter { $0.role == .system }
-        var systemInstruction: ModelContent? = nil
-        if !systemMessages.isEmpty {
-            let systemParts = systemMessages.map { ModelContent.Part.text($0.content) }
-            systemInstruction = try? ModelContent(role: "system", systemParts)
-        }
+        let generativeTools = tools.isEmpty ? nil : [GoogleGenerativeAI.Tool(functionDeclarations: tools.compactMap { $0.toFunctionDeclaration() })]
         
         let model = GenerativeModel(
             name: modelName,
             apiKey: apiKey,
-            tools: generativeTools,
-            systemInstruction: systemInstruction
+            tools: generativeTools
         )
         
-        // Map history to Gemini content, excluding system messages already handled.
         let contents = mapHistory(history)
-        
         let response = try await model.generateContent(contents)
-        
         return try response.toAIChatMessage()
     }
     
     private func mapHistory(_ history: [AIChatMessage]) -> [ModelContent] {
-        var contents: [ModelContent] = []
-        
-        for (index, message) in history.enumerated() {
-            if message.role == .system { continue }
-            
-            if message.role == .tool {
-                let functionName = findFunctionName(forToolMessageAt: index, in: history)
-                let jsonResponse: JSONObject = parseToolContent(message.content)
-                
-                let responsePart = ModelContent.Part.functionResponse(FunctionResponse(name: functionName, response: jsonResponse))
-                if let toolContent = try? ModelContent(role: "function", [responsePart]) {
-                    contents.append(toolContent)
-                }
-            } else {
-                let modelRole = message.role == .user ? "user" : "model"
-                var messageParts: [ModelContent.Part] = []
-                
-                if !message.content.isEmpty {
-                    messageParts.append(.text(message.content))
-                }
-                
-                if let toolCalls = message.toolCalls, !toolCalls.isEmpty {
-                    for call in toolCalls {
-                        let args = call.arguments.mapValues { $0.toJSONValue() }
-                        messageParts.append(.functionCall(FunctionCall(name: call.functionName, args: args)))
-                    }
-                }
-                
-                if !messageParts.isEmpty {
-                    if let mc = try? ModelContent(role: modelRole, messageParts) {
-                        contents.append(mc)
-                    }
-                }
-            }
+        return history.compactMap { message in
+            if message.role == .system { return nil }
+            let role = message.role == .user ? "user" : "model"
+            return ModelContent(role: role, parts: [.text(message.content)])
         }
-        
-        return contents
     }
     
     private func findFunctionName(forToolMessageAt index: Int, in history: [AIChatMessage]) -> String {
