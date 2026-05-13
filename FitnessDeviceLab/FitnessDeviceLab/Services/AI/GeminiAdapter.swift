@@ -41,12 +41,38 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
     private func mapHistory(_ history: [AIChatMessage]) -> [ModelContent] {
         return history.compactMap { message in
             if message.role == .system { return nil }
-            let role = message.role == .user ? "user" : "model"
-            return ModelContent(role: role, parts: [.text(message.content)])
+            
+            if message.role == .tool {
+                let functionName = findFunctionName(forToolMessage: message, in: history)
+                let jsonResponse: JSONObject = parseToolContent(message.content)
+                
+                let part = ModelContent.Part.functionResponse(FunctionResponse(name: functionName, response: jsonResponse))
+                return ModelContent(role: "function", parts: [part])
+            } else {
+                let role = message.role == .user ? "user" : "model"
+                var parts: [ModelContent.Part] = []
+                
+                if !message.content.isEmpty {
+                    parts.append(.text(message.content))
+                }
+                
+                if let toolCalls = message.toolCalls, !toolCalls.isEmpty {
+                    for call in toolCalls {
+                        let args = call.arguments.mapValues { $0.toJSONValue() }
+                        parts.append(.functionCall(FunctionCall(name: call.functionName, args: args)))
+                    }
+                }
+                
+                guard !parts.isEmpty else { return nil }
+                return ModelContent(role: role, parts: parts)
+            }
         }
     }
     
-    private func findFunctionName(forToolMessageAt index: Int, in history: [AIChatMessage]) -> String {
+    private func findFunctionName(forToolMessage message: AIChatMessage, in history: [AIChatMessage]) -> String {
+        // Find the index of the tool message
+        guard let index = history.firstIndex(where: { $0.id == message.id }) else { return "unknown_function" }
+        
         var toolMessageCount = 0
         for i in (0..<index).reversed() {
             if history[i].role == .tool {
