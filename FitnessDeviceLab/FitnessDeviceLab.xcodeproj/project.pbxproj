@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C8536BF62FB3FD8900BD8B65 /* GoogleGenerativeAI in Frameworks */ = {isa = PBXBuildFile; productRef = C8536B3D2FB3FCF400BD8B65 /* GoogleGenerativeAI */; };
 		C8AE1F342F6373C600A6641D /* FITSwiftSDK in Frameworks */ = {isa = PBXBuildFile; productRef = C8AE1F332F6373C600A6641D /* FITSwiftSDK */; };
 /* End PBXBuildFile section */
 
@@ -56,6 +57,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C8536BF62FB3FD8900BD8B65 /* GoogleGenerativeAI in Frameworks */,
 				C8AE1F342F6373C600A6641D /* FITSwiftSDK in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
