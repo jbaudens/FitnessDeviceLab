@@ -20,7 +20,7 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
         
         // Extract system instructions. Gemini 1.5 prefers them separately.
         let systemMessages = history.filter { $0.role == .system }
-        let systemInstruction = systemMessages.isEmpty ? nil : ModelContent(role: "system", parts: systemMessages.map { .text($0.content) })
+        let systemInstruction = systemMessages.isEmpty ? nil : ModelContent(role: "system", parts: systemMessages.map { ModelContent.Part.text($0.content) })
         
         let model = GenerativeModel(
             name: modelName,
