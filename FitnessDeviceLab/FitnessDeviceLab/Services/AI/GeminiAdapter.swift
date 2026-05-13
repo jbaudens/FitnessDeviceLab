@@ -20,7 +20,7 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
         
         // Extract system instructions. Gemini 1.5 prefers them separately.
         let systemMessages = history.filter { $0.role == .system }
-        let systemInstruction = systemMessages.isEmpty ? nil : ModelContent(role: "system", parts: systemMessages.map { ModelContent.Part.text($0.content) })
+        let systemInstruction = systemMessages.isEmpty ? nil : try? ModelContent(role: "system", systemMessages.map { ModelContent.Part.text($0.content) })
         
         let model = GenerativeModel(
             name: modelName,
@@ -47,9 +47,11 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
                 let functionName = findFunctionName(forToolMessageAt: index, in: history)
                 let jsonResponse: JSONObject = parseToolContent(message.content)
                 
-                contents.append(ModelContent(role: "function", parts: [
+                if let content = try? ModelContent(role: "function", [
                     .functionResponse(FunctionResponse(name: functionName, response: jsonResponse))
-                ]))
+                ]) {
+                    contents.append(content)
+                }
             } else {
                 let role = message.role == .user ? "user" : "model"
                 var parts: [ModelContent.Part] = []
@@ -64,8 +66,8 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
                     }
                 }
                 
-                if !parts.isEmpty {
-                    contents.append(ModelContent(role: role, parts: parts))
+                if !parts.isEmpty, let content = try? ModelContent(role: role, parts) {
+                    contents.append(content)
                 }
             }
         }
