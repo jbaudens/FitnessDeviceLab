@@ -20,7 +20,10 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
         
         // Extract system instructions. Gemini 1.5 prefers them separately.
         let systemMessages = history.filter { $0.role == .system }
-        let systemInstruction = systemMessages.isEmpty ? nil : ModelContent(role: "system", parts: systemMessages.map { ModelContent.Part.text($0.content) })
+        var systemInstruction: ModelContent? = nil
+        if !systemMessages.isEmpty {
+            systemInstruction = ModelContent(role: "system", parts: systemMessages.map { ModelContent.Part.text($0.content) })
+        }
         
         let model = GenerativeModel(
             name: modelName,
@@ -47,9 +50,8 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
                 let functionName = findFunctionName(forToolMessageAt: index, in: history)
                 let jsonResponse: JSONObject = parseToolContent(message.content)
                 
-                contents.append(ModelContent(role: "function", parts: [
-                    .functionResponse(FunctionResponse(name: functionName, response: jsonResponse))
-                ]))
+                let part = ModelContent.Part.functionResponse(FunctionResponse(name: functionName, response: jsonResponse))
+                contents.append(ModelContent(role: "function", parts: [part]))
             } else {
                 let role = message.role == .user ? "user" : "model"
                 var parts: [ModelContent.Part] = []
@@ -60,7 +62,8 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
                 
                 if let toolCalls = message.toolCalls, !toolCalls.isEmpty {
                     for call in toolCalls {
-                        parts.append(.functionCall(FunctionCall(name: call.functionName, args: call.arguments.mapValues { $0.toJSONValue() })))
+                        let args = call.arguments.mapValues { $0.toJSONValue() }
+                        parts.append(.functionCall(FunctionCall(name: call.functionName, args: args)))
                     }
                 }
                 
