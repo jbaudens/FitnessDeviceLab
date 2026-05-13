@@ -39,7 +39,7 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
     }
     
     private func mapHistory(_ history: [AIChatMessage]) -> [ModelContent] {
-        return history.compactMap { message in
+        return history.compactMap { (message: AIChatMessage) -> ModelContent? in
             if message.role == .system { return nil }
             
             if message.role == .tool {
