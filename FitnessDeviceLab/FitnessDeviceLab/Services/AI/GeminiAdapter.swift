@@ -9,8 +9,8 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
     /// Initializes a new Gemini adapter.
     /// - Parameters:
     ///   - apiKey: The Google AI API key.
-    ///   - modelName: The model to use (default is "gemini-1.5-flash").
-    public init(apiKey: String, modelName: String = "gemini-1.5-flash") {
+    ///   - modelName: The model to use (default is "gemini-2.5-flash").
+    public init(apiKey: String, modelName: String = "gemini-2.5-flash") {
         self.apiKey = apiKey
         self.modelName = modelName
     }
@@ -23,7 +23,8 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
         var systemInstruction: ModelContent? = nil
         if !systemMessages.isEmpty {
             let systemText = systemMessages.map { $0.content }.joined(separator: "\n")
-            systemInstruction = ModelContent(role: "system", parts: [.text(systemText)])
+            // Note: The role for systemInstruction should typically be nil in the Swift SDK
+            systemInstruction = ModelContent(parts: [.text(systemText)])
         }
         
         let model = GenerativeModel(
@@ -34,6 +35,10 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
         )
         
         let contents = mapHistory(history)
+        
+        print("Sending request to Gemini model: \(modelName)")
+        print("- Contents count: \(contents.count)")
+        print("- Tools provided: \(generativeTools != nil)")
         
         do {
             let response = try await model.generateContent(contents)
@@ -47,13 +52,21 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
         if let genError = error as? GenerateContentError {
             switch genError {
             case .internalError(let underlying):
-                return AssistantDisplayError("Gemini Internal Error: \(underlying.localizedDescription). Please check your internet connection and verify that your API key is valid.")
+                let detail = String(describing: underlying)
+                print("Gemini Internal Error detected: \(underlying.localizedDescription)\nDetails: \(detail)")
+                
+                let userMessage = "Gemini encountered an internal error. This often happens if the service is overloaded or if there's a configuration issue."
+                return AssistantDisplayError("\(userMessage)\n\(detail)")
+                
             case .promptBlocked(let response):
                 let reason = response.promptFeedback?.blockReason?.rawValue ?? "Unknown"
                 return AssistantDisplayError("Prompt Blocked: The request was blocked by safety filters (Reason: \(reason)).")
-            case .responseStopped(let response):
-                let reason = response.candidates.first?.finishReason?.rawValue ?? "Unknown"
-                return AssistantDisplayError("Response Stopped: The AI stopped generating (Reason: \(reason)).")
+            case .responseStoppedEarly(let reason, _):
+                return AssistantDisplayError("Response Stopped: The AI stopped generating early (Reason: \(reason.rawValue)).")
+            case .invalidAPIKey(let message):
+                return AssistantDisplayError("Invalid API Key: \(message)")
+            case .unsupportedUserLocation:
+                return AssistantDisplayError("Unsupported Region: Gemini API is not yet available in your current location/region.")
             default:
                 return AssistantDisplayError("Gemini Error: \(error.localizedDescription)")
             }
@@ -86,6 +99,8 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
                         if let data = try? JSONSerialization.data(withJSONObject: json),
                            let functionCall = try? JSONDecoder().decode(FunctionCall.self, from: data) {
                             parts.append(.functionCall(functionCall))
+                        } else {
+                            print("Warning: Failed to decode FunctionCall for \(call.functionName)")
                         }
                     }
                 }

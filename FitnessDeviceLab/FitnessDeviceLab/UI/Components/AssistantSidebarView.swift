@@ -65,6 +65,13 @@ struct AssistantSidebarView: View {
                                 .padding()
                                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.red.opacity(0.1)))
                                 .padding(.horizontal)
+                                .contextMenu {
+                                    Button {
+                                        copyToClipboard(error)
+                                    } label: {
+                                        Label("Copy Error", systemImage: "doc.on.doc")
+                                    }
+                                }
                         }
                     }
                     .padding(.vertical)
@@ -121,6 +128,16 @@ struct AssistantSidebarView: View {
     }
 }
 
+fileprivate func copyToClipboard(_ text: String) {
+    #if os(iOS)
+    UIPasteboard.general.string = text
+    #elseif os(macOS)
+    let pasteboard = NSPasteboard.general
+    pasteboard.declareTypes([.string], owner: nil)
+    pasteboard.setString(text, forType: .string)
+    #endif
+}
+
 struct MessageBubble: View {
     let message: AIChatMessage
     
@@ -145,6 +162,13 @@ struct MessageBubble: View {
                                 .fill(message.role == .user ? Color.blue : Color.secondary.opacity(0.1))
                         )
                         .foregroundColor(message.role == .user ? .white : .primary)
+                        .contextMenu {
+                            Button {
+                                copyToClipboard(message.content)
+                            } label: {
+                                Label("Copy", systemImage: "doc.on.doc")
+                            }
+                        }
                 }
             }
             
