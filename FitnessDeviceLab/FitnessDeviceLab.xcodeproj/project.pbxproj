@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C8536BF62FB3FD8900BD8B65 /* GoogleGenerativeAI in Frameworks */ = {isa = PBXBuildFile; productRef = C8536B3D2FB3FCF400BD8B65 /* GoogleGenerativeAI */; };
 		C8AE1F342F6373C600A6641D /* FITSwiftSDK in Frameworks */ = {isa = PBXBuildFile; productRef = C8AE1F332F6373C600A6641D /* FITSwiftSDK */; };
 /* End PBXBuildFile section */
 
@@ -56,6 +57,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C8536BF62FB3FD8900BD8B65 /* GoogleGenerativeAI in Frameworks */,
 				C8AE1F342F6373C600A6641D /* FITSwiftSDK in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -125,6 +127,7 @@
 			);
 			name = FitnessDeviceLab;
 			packageProductDependencies = (
+				C8536B3D2FB3FCF400BD8B65 /* GoogleGenerativeAI */,
 				C8AE1F332F6373C600A6641D /* FITSwiftSDK */,
 			);
 			productName = FitnessDeviceLab;
@@ -211,6 +214,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				C8AE1F312F6372F500A6641D /* XCRemoteSwiftPackageReference "fit-swift-sdk" */,
+				C8536B3C2FB3FCF400BD8B65 /* XCRemoteSwiftPackageReference "generative-ai-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C83F0D7E2F523CEB00D8104E /* Products */;
@@ -414,7 +418,7 @@
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
-				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
 				ENABLE_RESOURCE_ACCESS_BLUETOOTH = YES;
@@ -473,7 +477,7 @@
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
-				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
 				ENABLE_RESOURCE_ACCESS_BLUETOOTH = YES;
@@ -664,6 +668,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		C8536B3C2FB3FCF400BD8B65 /* XCRemoteSwiftPackageReference "generative-ai-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/generative-ai-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.5.6;
+			};
+		};
 		C8AE1F312F6372F500A6641D /* XCRemoteSwiftPackageReference "fit-swift-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/garmin/fit-swift-sdk.git";
@@ -675,6 +687,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		C8536B3D2FB3FCF400BD8B65 /* GoogleGenerativeAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C8536B3C2FB3FCF400BD8B65 /* XCRemoteSwiftPackageReference "generative-ai-swift" */;
+			productName = GoogleGenerativeAI;
+		};
 		C8AE1F332F6373C600A6641D /* FITSwiftSDK */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C8AE1F312F6372F500A6641D /* XCRemoteSwiftPackageReference "fit-swift-sdk" */;

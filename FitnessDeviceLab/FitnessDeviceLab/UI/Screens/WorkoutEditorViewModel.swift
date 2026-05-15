@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import SwiftUI
+import GoogleGenerativeAI
 
 @Observable
 public class WorkoutEditorViewModel {
@@ -10,6 +11,8 @@ public class WorkoutEditorViewModel {
     public var selectedStepID: UUID?
     public var selectedStepIDs: Set<UUID> = []
     public let id: UUID
+    
+    public var assistant: WorkoutAssistantCoordinator?
     
     private let repository: WorkoutRepository
     public let isNewWorkout: Bool
@@ -30,6 +33,11 @@ public class WorkoutEditorViewModel {
             self.isNewWorkout = true
         }
         self.selectedStepID = nil
+    }
+    
+    public func enableAssistant(settings: SettingsProvider, apiKey: String) {
+        let adapter = GeminiAdapter(apiKey: apiKey)
+        self.assistant = WorkoutAssistantCoordinator(viewModel: self, settings: settings, provider: adapter)
     }
     
     public var draftWorkout: StructuredWorkout {
