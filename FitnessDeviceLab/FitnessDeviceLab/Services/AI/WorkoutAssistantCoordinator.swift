@@ -49,12 +49,18 @@ public final class WorkoutAssistantCoordinator {
                 throw AssistantError.missingApiKey
             }
 
-            // 2. Prepare context
+            // 2. Prepare context with FRESH snapshot
             let stateSnapshot = createStateSnapshot()
-            let stateMessage = AIChatMessage(role: .system, content: "CURRENT_STATE: \(stateSnapshot)")
+            let stateMessage = AIChatMessage(role: .system, content: "CRITICAL: The current workout in the editor is EXACTLY as follows. Use this as the source of truth for all modifications: \(stateSnapshot)")
             
+            // Insert the state message before the last user message to ensure the model sees the latest state 
+            // before trying to act on the user's latest request.
             var history = messages
-            history.append(stateMessage)
+            if history.count >= 1 {
+                history.insert(stateMessage, at: history.count - 1)
+            } else {
+                history.append(stateMessage)
+            }
             
             // 3. Request generation
             let response = try await provider.sendMessage(history: history, tools: WorkoutToolRegistry.tools)
@@ -67,10 +73,10 @@ public final class WorkoutAssistantCoordinator {
                 }
                 
                 // 5. Trigger a follow-up turn to get a verbal explanation
-                // We add a hidden instruction to tell the coach to explain the changes
+                // We add a hidden instruction to tell the coach to explain the changes briefly.
                 let followUpInstruction = AIChatMessage(
                     role: .user, 
-                    content: "The changes have been applied to the workout. Please explain what you did and why it benefits my training."
+                    content: "The changes have been applied. Briefly confirm what you did in 1-2 sentences. Avoid being overly verbose."
                 )
                 
                 // We don't want to show this internal instruction in the UI
@@ -115,6 +121,7 @@ public final class WorkoutAssistantCoordinator {
         
         if let data = try? JSONSerialization.data(withJSONObject: snapshot, options: [.sortedKeys]),
            let json = String(data: data, encoding: .utf8) {
+            print("Assistant State Snapshot: \(json)")
             return json
         }
         return "{}"
@@ -122,6 +129,7 @@ public final class WorkoutAssistantCoordinator {
     
     @MainActor
     private func executeToolCall(_ call: AIToolCall) async throws {
+        print("Assistant executing tool: \(call.functionName) with args: \(call.arguments.mapValues { $0.value })")
         let args = call.arguments.mapValues { $0.value }
         
         switch call.functionName {
