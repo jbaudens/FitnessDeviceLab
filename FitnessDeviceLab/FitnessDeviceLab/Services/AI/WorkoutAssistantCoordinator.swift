@@ -65,6 +65,20 @@ public final class WorkoutAssistantCoordinator {
                 for call in toolCalls {
                     try await executeToolCall(call)
                 }
+                
+                // 5. Trigger a follow-up turn to get a verbal explanation
+                // We add a hidden instruction to tell the coach to explain the changes
+                let followUpInstruction = AIChatMessage(
+                    role: .user, 
+                    content: "The changes have been applied to the workout. Please explain what you did and why it benefits my training."
+                )
+                
+                // We don't want to show this internal instruction in the UI
+                var followUpHistory = messages
+                followUpHistory.append(followUpInstruction)
+                
+                let explanation = try await provider.sendMessage(history: followUpHistory, tools: [])
+                messages.append(explanation)
             }
         } catch let error as AssistantError {
             errorMessage = error.description

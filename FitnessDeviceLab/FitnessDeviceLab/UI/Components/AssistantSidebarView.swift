@@ -41,8 +41,10 @@ struct AssistantSidebarView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(coordinator.messages.filter { $0.role != .system }) { message in
-                            MessageBubble(message: message)
-                                .id(message.id)
+                            if !message.content.isEmpty || message.role == .tool || message.toolCalls != nil {
+                                MessageBubble(message: message)
+                                    .id(message.id)
+                            }
                         }
                         
                         if coordinator.isGenerating {
@@ -153,7 +155,7 @@ struct MessageBubble: View {
                     }
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.secondary)
-                } else {
+                } else if !message.content.isEmpty {
                     Text(message.content)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
