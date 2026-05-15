@@ -138,43 +138,62 @@ public final class WorkoutAssistantCoordinator {
             if let desc = args["description"] as? String { viewModel.description = desc }
             if let stepsData = args["steps"] as? [[String: Any]] {
                 viewModel.steps = stepsData.compactMap { parseStep($0) }
+            } else {
+                print("Error: reset_workout missing steps or wrong format")
             }
             
         case "add_steps":
             if let stepsData = args["steps"] as? [[String: Any]] {
                 let newSteps = stepsData.compactMap { parseStep($0) }
                 viewModel.steps.append(contentsOf: newSteps)
+            } else {
+                print("Error: add_steps missing steps or wrong format")
             }
             
         case "update_steps":
-            if let indices = args["indices"] as? [Int], let changes = args["changes"] as? [String: Any] {
+            let rawIndices = args["indices"] as? [Any] ?? []
+            let indices = rawIndices.compactMap { asInt($0) }
+            
+            if let changes = args["changes"] as? [String: Any], !indices.isEmpty {
                 for index in indices {
                     guard index < viewModel.steps.count else { continue }
                     var step = viewModel.steps[index]
-                    if let dur = changes["duration"] as? Double { step.duration = dur }
-                    if let pwr = changes["targetPowerPercent"] as? Double { step.targetPowerPercent = pwr }
-                    if let hr = changes["targetHeartRatePercent"] as? Double { step.targetHeartRatePercent = hr }
-                    if let cad = changes["targetCadence"] as? Int { step.targetCadence = cad }
+                    if let dur = asDouble(changes["duration"]) { step.duration = dur }
+                    if let pwr = asDouble(changes["targetPowerPercent"]) { step.targetPowerPercent = pwr }
+                    if let hr = asDouble(changes["targetHeartRatePercent"]) { step.targetHeartRatePercent = hr }
+                    if let cad = asInt(changes["targetCadence"]) { step.targetCadence = cad }
                     if let typeStr = changes["type"] as? String, let type = WorkoutStepType(rawValue: typeStr) {
                         step.type = type
                     }
                     viewModel.steps[index] = step
                 }
+            } else {
+                print("Error: update_steps invalid indices or changes. Indices: \(indices)")
             }
             
         case "remove_steps":
-            if let indices = args["indices"] as? [Int] {
+            let rawIndices = args["indices"] as? [Any] ?? []
+            let indices = rawIndices.compactMap { asInt($0) }
+            
+            if !indices.isEmpty {
                 let sortedIndices = indices.sorted(by: >)
                 for index in sortedIndices {
                     if index < viewModel.steps.count {
                         viewModel.steps.remove(at: index)
                     }
                 }
+            } else {
+                print("Error: remove_steps missing indices")
             }
             
         case "duplicate_block":
-            if let start = args["start"] as? Int, let end = args["end"] as? Int, let repeats = args["repeats"] as? Int {
-                guard start >= 0, end < viewModel.steps.count, start <= end else { return }
+            if let start = asInt(args["start"]), 
+               let end = asInt(args["end"]), 
+               let repeats = asInt(args["repeats"]) {
+                guard start >= 0, end < viewModel.steps.count, start <= end else { 
+                    print("Error: duplicate_block indices out of range: \(start)-\(end) (count: \(viewModel.steps.count))")
+                    return 
+                }
                 let block = Array(viewModel.steps[start...end])
                 for _ in 0..<repeats {
                     let copies = block.map { original in
@@ -189,6 +208,8 @@ public final class WorkoutAssistantCoordinator {
                     }
                     viewModel.steps.append(contentsOf: copies)
                 }
+            } else {
+                print("Error: duplicate_block missing start/end/repeats")
             }
             
         case "set_metadata":
@@ -203,8 +224,22 @@ public final class WorkoutAssistantCoordinator {
         messages.append(AIChatMessage(role: .tool, content: "OK"))
     }
     
+    private func asInt(_ value: Any?) -> Int? {
+        if let i = value as? Int { return i }
+        if let d = value as? Double { return Int(d) }
+        if let s = value as? String { return Int(s) }
+        return nil
+    }
+    
+    private func asDouble(_ value: Any?) -> Double? {
+        if let d = value as? Double { return d }
+        if let i = value as? Int { return Double(i) }
+        if let s = value as? String { return Double(s) }
+        return nil
+    }
+    
     private func parseStep(_ dict: [String: Any]) -> WorkoutStep? {
-        guard let duration = dict["duration"] as? Double,
+        guard let duration = asDouble(dict["duration"]),
               let typeStr = dict["type"] as? String,
               let type = WorkoutStepType(rawValue: typeStr.capitalized) ?? WorkoutStepType(rawValue: typeStr) else {
             return nil
@@ -212,10 +247,10 @@ public final class WorkoutAssistantCoordinator {
         
         return WorkoutStep(
             duration: duration,
-            targetPowerPercent: dict["targetPowerPercent"] as? Double,
-            targetHeartRatePercent: dict["targetHeartRatePercent"] as? Double,
+            targetPowerPercent: asDouble(dict["targetPowerPercent"]),
+            targetHeartRatePercent: asDouble(dict["targetHeartRatePercent"]),
             type: type,
-            targetCadence: dict["targetCadence"] as? Int
+            targetCadence: asInt(dict["targetCadence"])
         )
     }
 
