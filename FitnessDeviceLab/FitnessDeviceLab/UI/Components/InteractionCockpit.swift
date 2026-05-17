@@ -46,7 +46,7 @@ struct InteractionCockpit: View {
     private var modePicker: some View {
         if workoutManager.selectedWorkout == nil {
             Picker("Mode", selection: $workoutManager.freeRideControlMode) {
-                ForEach(WorkoutSessionManager.FreeRideControlMode.allCases) { mode in
+                ForEach(FreeRideControlMode.allCases) { mode in
                     Text(mode.rawValue).tag(mode)
                 }
             }

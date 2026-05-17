@@ -222,4 +222,24 @@ struct WorkoutSessionManagerTests {
         #expect(sut.currentTargetPower != nil)
         #expect(sut.currentTargetPower! > 100, "Should have adjusted power based on HR from Recorder B")
     }
+
+    @Test func testStopWorkoutAndSavingState() async throws {
+        let (sut, _, _, _) = makeSUT()
+        sut.startWorkout(recA: sut.recorderA, recB: sut.recorderB, control: nil)
+        sut.startRecording()
+        
+        #expect(sut.isRecording == true)
+        
+        sut.stopWorkout()
+        
+        #expect(sut.isRecording == false)
+        #expect(sut.isLoaded == false)
+        #expect(sut.isSaving == true)
+        
+        // Wait for the Task in stopWorkout to complete
+        // Since it's a @MainActor Task, it should run on the next runloop cycle
+        await Task.yield()
+        
+        #expect(sut.isSaving == false)
+    }
 }

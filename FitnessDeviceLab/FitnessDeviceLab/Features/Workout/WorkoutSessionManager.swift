@@ -12,16 +12,12 @@ public class WorkoutSessionManager {
     public let trainerController = TrainerController()
     private let setpointCalculator = TrainerSetpointCalculator()
     private let sessionTimer: SessionTimer
+    private let stateMachine = WorkoutStateMachine()
+    private let hardwareOrchestrator: HardwareOrchestrator
     
     // MARK: - Workout State
-    public enum FreeRideControlMode: String, Codable, CaseIterable, Identifiable {
-        case resistance = "Resistance"
-        case power = "Power (ERG)"
-        case heartRate = "Heart Rate (ERG)"
-        public var id: String { rawValue }
-    }
-    
     public var freeRideControlMode: FreeRideControlMode = .resistance
+
     public var manualTargetPower: Int = 100
     public var manualTargetHR: Int = 130
     
@@ -71,6 +67,12 @@ public class WorkoutSessionManager {
         self.recorderB = recorderB
         self.errorManager = errorManager
         
+        self.hardwareOrchestrator = HardwareOrchestrator(
+            trainerController: trainerController,
+            setpointCalculator: setpointCalculator,
+            settings: settings
+        )
+        
         // Default manual targets to user-specific values
         self.manualTargetPower = Int(settings.userFTP * 0.6)
         self.manualTargetHR = settings.userLTHR - 20
@@ -94,6 +96,7 @@ public class WorkoutSessionManager {
         setpointCalculator.reset()
         trainerController.reset()
         lapManager.reset()
+        stateMachine.reset()
         
         sessionTimer.reset()
         currentStepIndex = 0
@@ -222,104 +225,39 @@ public class WorkoutSessionManager {
             lapManager.recordTick()
         }
         
-        let totalElapsed = workoutElapsedTime
-        let currentHR = primaryHRSource?.heartRate
+        let output = stateMachine.update(elapsedTime: workoutElapsedTime, workout: selectedWorkout)
+        currentStepIndex = output.stepIndex
+        timeInStep = output.timeInStep
         
-        if let workout = selectedWorkout {
-            var accumulated: TimeInterval = 0
-            var foundStep = false
-            for (index, step) in workout.steps.enumerated() {
-                if totalElapsed < accumulated + step.duration {
-                    if isRecording && !isPaused && currentStepIndex != index {
-                        currentStepIndex = index
-                        lapManager.startNewLap(type: step.type)
-                    } else if !isRecording || isPaused {
-                        currentStepIndex = index
-                    }
-                    timeInStep = totalElapsed - accumulated
-                    foundStep = true
-                    break
-                }
-                accumulated += step.duration
-            }
-            
-            if !foundStep && !workout.steps.isEmpty {
-                if isRecording {
-                    stopWorkout()
-                }
-                return
-            }
-            
-            if let step = currentWorkoutStep {
-                let isFinished = currentStepIndex >= workout.steps.count - 1 && timeInStep >= workout.steps.last?.duration ?? 0
-                
-                // 1. Determine the "Goal" for UI
-                let ftp = settings.userFTP
-                let lthr = Double(settings.userLTHR)
-                if let hrPercent = step.targetHeartRatePercent {
-                    currentTargetHR = Int(round(hrPercent * workoutDifficultyScale * lthr))
-                    currentTargetPower = nil
-                } else {
-                    currentTargetPower = Int(round((step.powerAt(time: timeInStep) ?? 0) * workoutDifficultyScale * ftp))
-                    currentTargetHR = nil
-                }
-                
-                // 2. Determine the "Setpoint" for Hardware (Only in ERG mode)
-                if ergModeEnabled {
-                    let nextStep: WorkoutStep? = (currentStepIndex < workout.steps.count - 1) ? workout.steps[currentStepIndex + 1] : nil
-                    
-                    let input = TrainerSetpointCalculator.Input(
-                        currentStep: step,
-                        nextStep: nextStep,
-                        timeInStep: timeInStep,
-                        isFinished: isFinished,
-                        ftp: ftp,
-                        lthr: lthr,
-                        difficultyScale: workoutDifficultyScale,
-                        currentHR: currentHR
-                    )
-                    
-                    if let targetWatts = setpointCalculator.calculate(input: input) {
-                        trainerController.setTargetPower(targetWatts)
-                        
-                        // If we are in HR mode, we still want to track the commanded power for the UI
-                        if step.targetHeartRatePercent != nil {
-                            currentTargetPower = targetWatts
-                        }
-                    }
-                } else {
-                    // Resistance Mode: Send manual resistance level
-                    trainerController.setResistanceLevel(resistanceLevel)
-                }
-            } else {
-                currentTargetPower = nil
-                currentTargetHR = nil
-            }
-        } else {
-            // No workout loaded: Manual Control
-            let ftp = settings.userFTP
-            
-            switch freeRideControlMode {
-            case .resistance:
-                trainerController.setResistanceLevel(resistanceLevel)
-                currentTargetPower = nil
-                currentTargetHR = nil
-            case .power:
-                trainerController.setTargetPower(manualTargetPower)
-                currentTargetPower = manualTargetPower
-                currentTargetHR = nil
-            case .heartRate:
-                if let targetWatts = setpointCalculator.calculateManualHR(
-                    targetHR: Double(manualTargetHR),
-                    currentHR: currentHR,
-                    ftp: ftp
-                ) {
-                    trainerController.setTargetPower(targetWatts)
-                    currentTargetPower = targetWatts
-                }
-                currentTargetHR = manualTargetHR
-            }
+        if output.didTransitionStep && isRecording && !isPaused {
+            lapManager.startNewLap(type: output.currentStep?.type ?? .work)
         }
+        
+        if output.isFinished {
+            if isRecording {
+                stopWorkout()
+            }
+            return
+        }
+        
+        let currentHR = primaryHRSource?.heartRate
+        let hOutput = hardwareOrchestrator.update(
+            selectedWorkout: selectedWorkout,
+            freeRideMode: freeRideControlMode,
+            manualTargetPower: manualTargetPower,
+            manualTargetHR: manualTargetHR,
+            resistanceLevel: resistanceLevel,
+            ergModeEnabled: ergModeEnabled,
+            workoutStep: output.currentStep,
+            nextStep: output.nextStep,
+            timeInStep: output.timeInStep,
+            isFinished: output.isFinished,
+            difficultyScale: workoutDifficultyScale,
+            currentHR: currentHR
+        )
+        
+        currentTargetPower = hOutput.power
+        currentTargetHR = hOutput.hr
     }
     
     public func stopWorkout() {
