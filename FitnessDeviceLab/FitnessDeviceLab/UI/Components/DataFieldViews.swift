@@ -289,27 +289,31 @@ struct DataFieldGrid: View {
     }
 }
 
-struct DataFieldTile: View {
-    let type: DataFieldType
-    var engine: DataFieldEngine
-    let settings: SettingsProvider
+/// A value-stable view for displaying a single data field metric.
+/// This view depends only on stable value types (String, Color) to optimize
+/// SwiftUI redraws by avoiding direct dependencies on large observable engines.
+struct DataFieldDisplayView: View {
+    let label: String
+    let value: String
+    let unit: String
+    let color: Color
     
     var body: some View {
         HStack(alignment: .lastTextBaseline, spacing: 4) {
             VStack(alignment: .leading, spacing: 0) {
-                Text(type.rawValue)
+                Text(label)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.secondary)
                     .textCase(.uppercase)
                     .lineLimit(1)
                 
                 HStack(alignment: .lastTextBaseline, spacing: 2) {
-                    Text(valueText)
+                    Text(value)
                         .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundColor(type.color)
+                        .foregroundColor(color)
                         .lineLimit(1)
                     
-                    Text(type.unit)
+                    Text(unit)
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
@@ -319,15 +323,30 @@ struct DataFieldTile: View {
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 10)
-        .background(type.color.opacity(0.08))
+        .background(color.opacity(0.08))
         .cornerRadius(8)
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(type.color.opacity(0.15), lineWidth: 0.5)
+                .stroke(color.opacity(0.15), lineWidth: 0.5)
+        )
+    }
+}
+
+struct DataFieldTile: View {
+    let type: DataFieldType
+    var engine: DataFieldEngine
+    let settings: SettingsProvider
+    
+    var body: some View {
+        DataFieldDisplayView(
+            label: type.rawValue,
+            value: valueText,
+            unit: type.unit,
+            color: type.color
         )
     }
     
-    var valueText: String {
+    private var valueText: String {
         guard let val = type.value(for: engine, settings: settings) else { return "--" }
         return type.format(val)
     }

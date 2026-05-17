@@ -58,7 +58,7 @@ struct WorkoutDetailView: View {
                                     .cornerRadius(6)
                             }
                             
-                            WorkoutGraphView(workout: workout, userFTP: userFTP, userLTHR: userLTHR)
+                            WorkoutGraphView(workout: workout, userFTP: userFTP, userLTHR: userLTHR, chartPoints: [])
                                 .frame(height: 200)
                                 .padding()
                                 .background(Color.secondary.opacity(0.05))

@@ -13,16 +13,72 @@ public class WorkoutPlayerViewModel {
     public var recorderB: SessionRecorder
     public var controlSource: ControllableTrainer?
     
+    public var chartPointsA: [Trackpoint] = []
+    public var chartPointsB: [Trackpoint] = []
+    
     public var showingStopConfirmation = false
     public var showingDiscardConfirmation = false
     public var showingComparison = false
     
+    private var lastDownsampleTime: Date = .distantPast
+    private let downsampleThreshold: TimeInterval = 1.0
+    private let targetPointCount = 500
+
     public init(workoutManager: WorkoutSessionManager, bluetoothManager: BluetoothManager, settings: SettingsProvider) {
         self.workoutManager = workoutManager
         self.bluetoothManager = bluetoothManager
         self.settings = settings
         self.recorderA = SessionRecorder(settings: settings)
         self.recorderB = SessionRecorder(settings: settings)
+        
+        setupDownsampling()
+    }
+    
+    // MARK: - Downsampling Logic
+    
+    private func setupDownsampling() {
+        withObservationTracking {
+            _ = recorderA.trackpoints.count
+            _ = recorderB.trackpoints.count
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.throttledDownsample()
+                self.setupDownsampling()
+            }
+        }
+    }
+    
+    private func throttledDownsample() {
+        let now = Date()
+        guard now.timeIntervalSince(lastDownsampleTime) >= downsampleThreshold else { return }
+        
+        chartPointsA = downsample(recorderA.trackpoints, targetCount: targetPointCount)
+        chartPointsB = downsample(recorderB.trackpoints, targetCount: targetPointCount)
+        
+        lastDownsampleTime = now
+    }
+    
+    private func downsample(_ points: [Trackpoint], targetCount: Int) -> [Trackpoint] {
+        guard points.count > targetCount else { return points }
+        
+        let strideValue = Double(points.count) / Double(targetCount)
+        var result: [Trackpoint] = []
+        result.reserveCapacity(targetCount)
+        
+        for i in 0..<targetCount {
+            let index = Int(Double(i) * strideValue)
+            if index < points.count {
+                result.append(points[index])
+            }
+        }
+        
+        // Always include the last point to keep the chart "live"
+        if let last = points.last, result.last?.id != last.id {
+            result.append(last)
+        }
+        
+        return result
     }
     
     // MARK: - Role-Specific Adaptor Lists for UI Pickers (Connected Only)

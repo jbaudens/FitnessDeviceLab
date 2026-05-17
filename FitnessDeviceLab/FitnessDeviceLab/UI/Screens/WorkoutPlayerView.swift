@@ -498,6 +498,7 @@ struct WorkoutPlayerContentView: View {
                 userFTP: viewModel.settings.userFTP,
                 userLTHR: Double(viewModel.settings.userLTHR),
                 showAxis: false,
+                chartPoints: viewModel.chartPointsA,
                 scale: viewModel.workoutManager.workoutDifficultyScale
             )
                 .frame(height: 60)
