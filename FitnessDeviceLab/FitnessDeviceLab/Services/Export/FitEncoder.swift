@@ -27,13 +27,13 @@ class FitEncoder {
     }
     
     func encode(trackpoints: [Trackpoint], laps: [Lap], hrSource: (any HeartRateProviding)?, powerSource: (any PowerProviding)?, userFTP: Double, userWeight: Double) throws -> Data {
-        guard !trackpoints.isEmpty else {
+        guard !trackpoints.isEmpty, 
+              let startTime = trackpoints.first?.time,
+              let endTime = trackpoints.last?.time else {
             throw AppError.export(.noDataToExport)
         }
         
         let encoder = Encoder()
-        let startTime = trackpoints.first!.time
-        let endTime = trackpoints.last!.time
         let totalWeight = userWeight + Constants.Physics.defaultBikeWeight // User + UCI limit bike
         
         // 1. File ID Message (Required first message)
