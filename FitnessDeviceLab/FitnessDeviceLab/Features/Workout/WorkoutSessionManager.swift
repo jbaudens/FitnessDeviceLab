@@ -12,16 +12,11 @@ public class WorkoutSessionManager {
     public let trainerController = TrainerController()
     private let setpointCalculator = TrainerSetpointCalculator()
     private let sessionTimer: SessionTimer
+    private let stateMachine = WorkoutStateMachine()
     
     // MARK: - Workout State
-    public enum FreeRideControlMode: String, Codable, CaseIterable, Identifiable {
-        case resistance = "Resistance"
-        case power = "Power (ERG)"
-        case heartRate = "Heart Rate (ERG)"
-        public var id: String { rawValue }
-    }
-    
     public var freeRideControlMode: FreeRideControlMode = .resistance
+
     public var manualTargetPower: Int = 100
     public var manualTargetHR: Int = 130
     
@@ -94,6 +89,7 @@ public class WorkoutSessionManager {
         setpointCalculator.reset()
         trainerController.reset()
         lapManager.reset()
+        stateMachine.reset()
         
         sessionTimer.reset()
         currentStepIndex = 0
@@ -226,33 +222,22 @@ public class WorkoutSessionManager {
         let currentHR = primaryHRSource?.heartRate
         
         if let workout = selectedWorkout {
-            var accumulated: TimeInterval = 0
-            var foundStep = false
-            for (index, step) in workout.steps.enumerated() {
-                if totalElapsed < accumulated + step.duration {
-                    if isRecording && !isPaused && currentStepIndex != index {
-                        currentStepIndex = index
-                        lapManager.startNewLap(type: step.type)
-                    } else if !isRecording || isPaused {
-                        currentStepIndex = index
-                    }
-                    timeInStep = totalElapsed - accumulated
-                    foundStep = true
-                    break
-                }
-                accumulated += step.duration
+            let output = stateMachine.update(elapsedTime: totalElapsed, workout: workout)
+            currentStepIndex = output.stepIndex
+            timeInStep = output.timeInStep
+            
+            if output.didTransitionStep && isRecording && !isPaused {
+                lapManager.startNewLap(type: output.currentStep?.type ?? .work)
             }
             
-            if !foundStep && !workout.steps.isEmpty {
+            if output.isFinished {
                 if isRecording {
                     stopWorkout()
                 }
                 return
             }
             
-            if let step = currentWorkoutStep {
-                let isFinished = currentStepIndex >= workout.steps.count - 1 && timeInStep >= workout.steps.last?.duration ?? 0
-                
+            if let step = output.currentStep {
                 // 1. Determine the "Goal" for UI
                 let ftp = settings.userFTP
                 let lthr = Double(settings.userLTHR)
@@ -266,13 +251,13 @@ public class WorkoutSessionManager {
                 
                 // 2. Determine the "Setpoint" for Hardware (Only in ERG mode)
                 if ergModeEnabled {
-                    let nextStep: WorkoutStep? = (currentStepIndex < workout.steps.count - 1) ? workout.steps[currentStepIndex + 1] : nil
+                    let nextStep = output.nextStep
                     
                     let input = TrainerSetpointCalculator.Input(
                         currentStep: step,
                         nextStep: nextStep,
                         timeInStep: timeInStep,
-                        isFinished: isFinished,
+                        isFinished: output.isFinished,
                         ftp: ftp,
                         lthr: lthr,
                         difficultyScale: workoutDifficultyScale,

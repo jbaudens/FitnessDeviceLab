@@ -57,3 +57,10 @@ public struct ExportMetadata: Sendable {
         self.hrmName = hrmName
     }
 }
+
+public enum FreeRideControlMode: String, Codable, CaseIterable, Identifiable {
+    case resistance = "Resistance"
+    case power = "Power (ERG)"
+    case heartRate = "Heart Rate (ERG)"
+    public var id: String { rawValue }
+}
