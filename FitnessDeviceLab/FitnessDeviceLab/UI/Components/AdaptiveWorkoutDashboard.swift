@@ -20,7 +20,17 @@ struct AdaptiveWorkoutDashboard: View {
                             ForEach(viewModel.workoutManager.activeProfile.pages) { page in
                                 VStack(spacing: 32) {
                                     if viewModel.workoutManager.recorderA.hasAnySensor {
-                                        sensorSetStackedSection(title: "SET A", color: .blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
+                                        SensorSetStackedSectionView(
+                                            title: "SET A",
+                                            color: .blue,
+                                            recorder: viewModel.workoutManager.recorderA,
+                                            fields: page.fields,
+                                            chartPoints: viewModel.chartPointsA,
+                                            deviceNames: viewModel.deviceNames(recorder: viewModel.workoutManager.recorderA),
+                                            activeGraphs: viewModel.workoutManager.activeProfile.graphs,
+                                            workoutManager: viewModel.workoutManager,
+                                            settings: viewModel.settings
+                                        )
                                     }
                                     
                                     if viewModel.workoutManager.recorderA.hasAnySensor && viewModel.workoutManager.recorderB.hasAnySensor {
@@ -28,7 +38,17 @@ struct AdaptiveWorkoutDashboard: View {
                                     }
                                     
                                     if viewModel.workoutManager.recorderB.hasAnySensor {
-                                        sensorSetStackedSection(title: "SET B", color: .purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
+                                        SensorSetStackedSectionView(
+                                            title: "SET B",
+                                            color: .purple,
+                                            recorder: viewModel.workoutManager.recorderB,
+                                            fields: page.fields,
+                                            chartPoints: viewModel.chartPointsB,
+                                            deviceNames: viewModel.deviceNames(recorder: viewModel.workoutManager.recorderB),
+                                            activeGraphs: viewModel.workoutManager.activeProfile.graphs,
+                                            workoutManager: viewModel.workoutManager,
+                                            settings: viewModel.settings
+                                        )
                                     }
                                 }
                                 
@@ -139,7 +159,17 @@ struct AdaptiveWorkoutDashboard: View {
         ScrollView {
             VStack(spacing: 32) {
                 if viewModel.workoutManager.recorderA.hasAnySensor {
-                    sensorSetSection(title: "SET A", color: Color.blue, recorder: viewModel.workoutManager.recorderA, fields: page.fields)
+                    SensorSetSectionView(
+                        title: "SET A",
+                        color: Color.blue,
+                        recorder: viewModel.workoutManager.recorderA,
+                        fields: page.fields,
+                        chartPoints: viewModel.chartPointsA,
+                        deviceNames: viewModel.deviceNames(recorder: viewModel.workoutManager.recorderA),
+                        activeGraphs: viewModel.workoutManager.activeProfile.graphs,
+                        workoutManager: viewModel.workoutManager,
+                        settings: viewModel.settings
+                    )
                 }
                 
                 if viewModel.workoutManager.recorderA.hasAnySensor && viewModel.workoutManager.recorderB.hasAnySensor {
@@ -147,7 +177,17 @@ struct AdaptiveWorkoutDashboard: View {
                 }
                 
                 if viewModel.workoutManager.recorderB.hasAnySensor {
-                    sensorSetSection(title: "SET B", color: Color.purple, recorder: viewModel.workoutManager.recorderB, fields: page.fields)
+                    SensorSetSectionView(
+                        title: "SET B",
+                        color: Color.purple,
+                        recorder: viewModel.workoutManager.recorderB,
+                        fields: page.fields,
+                        chartPoints: viewModel.chartPointsB,
+                        deviceNames: viewModel.deviceNames(recorder: viewModel.workoutManager.recorderB),
+                        activeGraphs: viewModel.workoutManager.activeProfile.graphs,
+                        workoutManager: viewModel.workoutManager,
+                        settings: viewModel.settings
+                    )
                 }
             }
             .padding(.vertical)
@@ -201,8 +241,22 @@ struct AdaptiveWorkoutDashboard: View {
         if absDelta < 6.0 { return .orange }
         return .red
     }
+}
 
-    private func sensorSetStackedSection(title: String, color: Color, recorder: SessionRecorder, fields: [DataFieldType]) -> some View {
+// MARK: - Sub-views for Performance
+
+struct SensorSetStackedSectionView: View {
+    let title: String
+    let color: Color
+    let recorder: SessionRecorder
+    let fields: [DataFieldType]
+    let chartPoints: [Trackpoint]
+    let deviceNames: String
+    let activeGraphs: [GraphType]
+    let workoutManager: WorkoutSessionManager
+    let settings: any SettingsProvider
+    
+    var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Header Row: Info + Primary Metrics
             HStack(alignment: .center) {
@@ -210,7 +264,7 @@ struct AdaptiveWorkoutDashboard: View {
                     Label(title, systemImage: title == "SET A" ? "1.circle.fill" : "2.circle.fill")
                         .font(.caption.weight(.black))
                         .foregroundColor(color)
-                    Text(viewModel.deviceNames(recorder: recorder))
+                    Text(deviceNames)
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
                         .foregroundColor(.secondary)
                 }
@@ -219,20 +273,20 @@ struct AdaptiveWorkoutDashboard: View {
                 
                 // Primary Quick-Glance Data
                 HStack(spacing: 24) {
-                    quickMetric(label: "PWR", value: "\(recorder.powerSource?.cyclingPower ?? 0)", unit: "W", color: .yellow)
-                    quickMetric(label: "HR", value: "\(recorder.hrSource?.heartRate ?? 0)", unit: "BPM", color: .red)
-                    quickMetric(label: "CAD", value: "\(recorder.cadenceSource?.cadence ?? 0)", unit: "RPM", color: .blue)
+                    QuickMetricView(label: "PWR", value: "\(recorder.powerSource?.cyclingPower ?? 0)", unit: "W", color: .yellow)
+                    QuickMetricView(label: "HR", value: "\(recorder.hrSource?.heartRate ?? 0)", unit: "BPM", color: .red)
+                    QuickMetricView(label: "CAD", value: "\(recorder.cadenceSource?.cadence ?? 0)", unit: "RPM", color: .blue)
                 }
             }
             .padding(.horizontal)
             
             // Full Width Graph
             SwipeableGraphContainer(
-                graphs: viewModel.workoutManager.activeProfile.graphs,
+                graphs: activeGraphs,
                 recorder: recorder,
-                chartPoints: title == "SET A" ? viewModel.chartPointsA : viewModel.chartPointsB,
-                workoutManager: viewModel.workoutManager,
-                settings: viewModel.settings
+                chartPoints: chartPoints,
+                workoutManager: workoutManager,
+                settings: settings
             )
             .frame(height: 180)
             .padding(.horizontal)
@@ -241,18 +295,30 @@ struct AdaptiveWorkoutDashboard: View {
             DataFieldGrid(
                 engine: recorder.engine,
                 fields: fields,
-                settings: viewModel.settings
+                settings: settings
             )
             .padding(.horizontal)
         }
     }
+}
 
-    private func sensorSetSection(title: String, color: Color, recorder: SessionRecorder, fields: [DataFieldType]) -> some View {
+struct SensorSetSectionView: View {
+    let title: String
+    let color: Color
+    let recorder: SessionRecorder
+    let fields: [DataFieldType]
+    let chartPoints: [Trackpoint]
+    let deviceNames: String
+    let activeGraphs: [GraphType]
+    let workoutManager: WorkoutSessionManager
+    let settings: any SettingsProvider
+    
+    var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Label(title, systemImage: title == "SET A" ? "1.circle.fill" : "2.circle.fill")
                 Spacer()
-                Text(viewModel.deviceNames(recorder: recorder))
+                Text(deviceNames)
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
             }
             .font(.caption)
@@ -261,11 +327,11 @@ struct AdaptiveWorkoutDashboard: View {
             .padding(.horizontal)
             
             SwipeableGraphContainer(
-                graphs: viewModel.workoutManager.activeProfile.graphs,
+                graphs: activeGraphs,
                 recorder: recorder,
-                chartPoints: title == "SET A" ? viewModel.chartPointsA : viewModel.chartPointsB,
-                workoutManager: viewModel.workoutManager,
-                settings: viewModel.settings
+                chartPoints: chartPoints,
+                workoutManager: workoutManager,
+                settings: settings
             )
             .frame(height: 180)
             .padding(.horizontal)
@@ -273,13 +339,20 @@ struct AdaptiveWorkoutDashboard: View {
             DataFieldGrid(
                 engine: recorder.engine,
                 fields: fields,
-                settings: viewModel.settings
+                settings: settings
             )
             .padding(.horizontal)
         }
     }
+}
+
+struct QuickMetricView: View {
+    let label: String
+    let value: String
+    let unit: String
+    let color: Color
     
-    private func quickMetric(label: String, value: String, unit: String, color: Color) -> some View {
+    var body: some View {
         VStack(alignment: .trailing, spacing: 0) {
             Text(label).font(.system(size: 8, weight: .black)).foregroundColor(.secondary)
             HStack(alignment: .firstTextBaseline, spacing: 2) {
