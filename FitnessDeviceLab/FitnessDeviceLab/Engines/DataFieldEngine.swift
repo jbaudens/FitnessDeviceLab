@@ -3,28 +3,28 @@ import Observation
 
 // MARK: - Sub-Metric Structs
 
-nonisolated public struct HeartRateMetrics {
+nonisolated public struct HeartRateMetrics: Sendable {
     public var avg: Double?
     public var max: Int?
     public var min: Int?
     public init() {}
 }
 
-nonisolated public struct SpeedMetrics {
+nonisolated public struct SpeedMetrics: Sendable {
     public var avg: Double?
     public var max: Double?
     public var distance: Double? // m
     public init() {}
 }
 
-nonisolated public struct CadenceMetrics {
+nonisolated public struct CadenceMetrics: Sendable {
     public var avg: Double?
     public var max: Int?
     public var min: Int?
     public init() {}
 }
 
-nonisolated public struct PowerMetrics {
+nonisolated public struct PowerMetrics: Sendable {
     public var avgPower: Double?
     public var maxPower: Int?
     public var minPower: Int?
@@ -35,7 +35,7 @@ nonisolated public struct PowerMetrics {
     public init() {}
 }
 
-nonisolated public struct LivePowerMetrics {
+nonisolated public struct LivePowerMetrics: Sendable {
     public var instant: Int?
     public var power3s: Int?
     public var power10s: Int?
@@ -44,7 +44,7 @@ nonisolated public struct LivePowerMetrics {
     public init() {}
 }
 
-nonisolated public struct LiveMetrics {
+nonisolated public struct LiveMetrics: Sendable {
     public var standard = LivePowerMetrics()
     public var seaLevel = LivePowerMetrics()
     public var home = LivePowerMetrics()
@@ -53,7 +53,7 @@ nonisolated public struct LiveMetrics {
 
 // MARK: - Main Metric Containers
 
-nonisolated public struct AggregatedMetrics {
+nonisolated public struct AggregatedMetrics: Sendable {
     public var hr = HeartRateMetrics()
     public var cadence = CadenceMetrics()
     public var speed = SpeedMetrics()
