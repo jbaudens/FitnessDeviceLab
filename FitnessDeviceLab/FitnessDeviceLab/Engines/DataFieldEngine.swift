@@ -171,6 +171,7 @@ public class DataFieldEngine {
     
     private let settings: SettingsProvider
     private var calculationTask: Task<Void, Never>?
+    private let computationActor = ComputationActor()
     
     public init(settings: SettingsProvider) {
         self.settings = settings
@@ -352,39 +353,25 @@ public class DataFieldEngine {
         
         let metricsSettings = settings.metricsSettings
         // Provide enough history for time-based windowing (e.g., last 600 trackpoints for 10 min buffer)
-        let relevantPoints = trackpoints.suffix(600)
-        let beats = relevantPoints.flatMap { pt in
-            pt.rrIntervals.map { rr in Beat(time: pt.time, rr: rr) }
-        }
+        let relevantPoints = Array(trackpoints.suffix(600))
         
-        calculationTask = Task.detached(priority: .userInitiated) {
-            if Task.isCancelled { return }
+        calculationTask = Task {
+            // Task inherits MainActor context, so await here frees the UI thread
+            // while the background actor crunches the numbers.
+            let result = await computationActor.calculateMetrics(
+                trackpoints: trackpoints,
+                relevantPoints: relevantPoints,
+                lapStartTime: lapStartTime,
+                metricsSettings: metricsSettings
+            )
             
-            // Session Complex
-            let (sessionComplex, _) = Self.calculate(from: trackpoints, settings: metricsSettings, includeComplex: true)
+            // Check cancellation after returning to MainActor
+            guard !Task.isCancelled, let newMetrics = result else { return }
             
-            // Lap Complex
-            let lapComplex: AggregatedMetrics = {
-                if let start = lapStartTime {
-                    // Filter in background
-                    let lapPoints = trackpoints.filter { $0.time >= start }
-                    let (m, _) = Self.calculate(from: lapPoints, settings: metricsSettings, includeComplex: true)
-                    return m
-                }
-                return AggregatedMetrics()
-            }()
-            
-            // HRV
-            let newHRV = HRVEngine.calculateMetrics(beats: beats)
-            
-            if Task.isCancelled { return }
-            
-            await MainActor.run {
-                // Update Complex (NP/TSS)
-                self.calculatedMetrics.updateComplex(from: sessionComplex)
-                self.currentLapMetrics.updateComplex(from: lapComplex)
-                self.hrvMetrics = newHRV
-            }
+            // Apply metrics back to the UI (we are already on MainActor)
+            self.calculatedMetrics.updateComplex(from: newMetrics.sessionComplex)
+            self.currentLapMetrics.updateComplex(from: newMetrics.lapComplex)
+            self.hrvMetrics = newMetrics.hrv
         }
     }
     
