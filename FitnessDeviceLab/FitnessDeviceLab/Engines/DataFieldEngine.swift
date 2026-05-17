@@ -458,29 +458,31 @@ public class DataFieldEngine {
                 live.home.power30s = live.seaLevel.power30s.map { Int(round(Double($0) * homeRatio)) }
                 
                 if powerSamples.count >= 30 {
-                    let duration = trackpoints.last!.time.timeIntervalSince(trackpoints.first!.time)
-                    let stdNP = PowerMath.calculateNP(fromSamples: powerSamples.map { Double($0) })
-                    m.standard.normalizedPower = stdNP
-                    if let np = stdNP {
-                        let ifVal = PowerMath.calculateIF(np: np, ftp: localFTP)
-                        m.standard.intensityFactor = ifVal
-                        m.standard.tss = PowerMath.calculateTSS(durationSeconds: duration, np: np, ifValue: ifVal, ftp: localFTP)
-                    }
-                    
-                    let slNP = (stdNP ?? 0) / currentRatio
-                    m.seaLevel.normalizedPower = slNP
-                    if slNP > 0 {
-                        let ifVal = PowerMath.calculateIF(np: slNP, ftp: slFTPValue)
-                        m.seaLevel.intensityFactor = ifVal
-                        m.seaLevel.tss = PowerMath.calculateTSS(durationSeconds: duration, np: slNP, ifValue: ifVal, ftp: slFTPValue)
-                    }
-                    
-                    let homeNP = slNP * homeRatio
-                    m.home.normalizedPower = homeNP
-                    if homeNP > 0 {
-                        let ifVal = PowerMath.calculateIF(np: homeNP, ftp: userFTP)
-                        m.home.intensityFactor = ifVal
-                        m.home.tss = PowerMath.calculateTSS(durationSeconds: duration, np: homeNP, ifValue: ifVal, ftp: userFTP)
+                    if let firstTime = trackpoints.first?.time, let lastTime = trackpoints.last?.time {
+                        let duration = lastTime.timeIntervalSince(firstTime)
+                        let stdNP = PowerMath.calculateNP(fromSamples: powerSamples.map { Double($0) })
+                        m.standard.normalizedPower = stdNP
+                        if let np = stdNP {
+                            let ifVal = PowerMath.calculateIF(np: np, ftp: localFTP)
+                            m.standard.intensityFactor = ifVal
+                            m.standard.tss = PowerMath.calculateTSS(durationSeconds: duration, np: np, ifValue: ifVal, ftp: localFTP)
+                        }
+                        
+                        let slNP = (stdNP ?? 0) / currentRatio
+                        m.seaLevel.normalizedPower = slNP
+                        if slNP > 0 {
+                            let ifVal = PowerMath.calculateIF(np: slNP, ftp: slFTPValue)
+                            m.seaLevel.intensityFactor = ifVal
+                            m.seaLevel.tss = PowerMath.calculateTSS(durationSeconds: duration, np: slNP, ifValue: ifVal, ftp: slFTPValue)
+                        }
+                        
+                        let homeNP = slNP * homeRatio
+                        m.home.normalizedPower = homeNP
+                        if homeNP > 0 {
+                            let ifVal = PowerMath.calculateIF(np: homeNP, ftp: userFTP)
+                            m.home.intensityFactor = ifVal
+                            m.home.tss = PowerMath.calculateTSS(durationSeconds: duration, np: homeNP, ifValue: ifVal, ftp: userFTP)
+                        }
                     }
                 }
             }

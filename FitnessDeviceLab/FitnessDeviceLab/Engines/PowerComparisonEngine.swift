@@ -69,8 +69,12 @@ public class PowerComparisonEngine {
     }
     
     public static func summarize(points: [ComparisonPoint]) -> ComparisonSummary {
-        let validPoints = points.filter { $0.powerA != nil && $0.powerB != nil }
-        guard !validPoints.isEmpty else {
+        let validPairs = points.compactMap { pt -> (a: Int, b: Int, delta: Int, percentDelta: Double)? in
+            guard let a = pt.powerA, let b = pt.powerB, let d = pt.delta else { return nil }
+            return (a: a, b: b, delta: d, percentDelta: pt.percentDelta ?? 0)
+        }
+        
+        guard !validPairs.isEmpty else {
             return ComparisonSummary(
                 avgPowerA: 0, avgPowerB: 0, maxPowerA: 0, maxPowerB: 0, 
                 avgDelta: 0, maxDelta: 0, totalPoints: 0, divergencePoints: 0, 
@@ -78,16 +82,16 @@ public class PowerComparisonEngine {
             )
         }
         
-        let avgA = validPoints.compactMap { Double($0.powerA!) }.reduce(0, +) / Double(validPoints.count)
-        let avgB = validPoints.compactMap { Double($0.powerB!) }.reduce(0, +) / Double(validPoints.count)
-        let maxA = validPoints.compactMap { $0.powerA! }.max() ?? 0
-        let maxB = validPoints.compactMap { $0.powerB! }.max() ?? 0
+        let count = Double(validPairs.count)
+        let avgA = validPairs.map { Double($0.a) }.reduce(0, +) / count
+        let avgB = validPairs.map { Double($0.b) }.reduce(0, +) / count
+        let maxA = validPairs.map { $0.a }.max() ?? 0
+        let maxB = validPairs.map { $0.b }.max() ?? 0
         
-        let deltas = validPoints.compactMap { Double(abs($0.delta!)) }
-        let avgDelta = deltas.reduce(0, +) / Double(deltas.count)
-        let maxDelta = validPoints.compactMap { abs($0.delta!) }.max() ?? 0
+        let avgDelta = validPairs.map { Double(abs($0.delta)) }.reduce(0, +) / count
+        let maxDelta = validPairs.map { abs($0.delta) }.max() ?? 0
         
-        let divergenceCount = validPoints.filter { abs($0.percentDelta ?? 0) > 5.0 }.count
+        let divergenceCount = validPairs.filter { abs($0.percentDelta) > 5.0 }.count
         
         let intervals = detectIntervals(in: points)
         
@@ -98,7 +102,7 @@ public class PowerComparisonEngine {
             maxPowerB: maxB,
             avgDelta: avgDelta,
             maxDelta: maxDelta,
-            totalPoints: validPoints.count,
+            totalPoints: validPairs.count,
             divergencePoints: divergenceCount,
             detectedIntervals: intervals
         )
