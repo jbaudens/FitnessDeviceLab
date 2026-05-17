@@ -27,7 +27,7 @@ nonisolated public struct HRVConfig {
     )
 }
 
-nonisolated public struct HRVMetrics {
+nonisolated public struct HRVMetrics: Sendable {
     public var avnn: Double?
     public var sdnn: Double?
     public var rmssd: Double?
