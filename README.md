@@ -22,7 +22,7 @@ A professional-grade iOS and macOS lab for cycling performance analysis and work
 2. **Profile:** Set your **FTP** (Functional Threshold Power) and **LTHR** (Lactate Threshold Heart Rate) in the **Settings** tab to ensure all calculations and workout targets are personalized.
 
 ### Starting a Session
-- **Free Ride:** Simply connect your sensors and hit the "Start" button on the dashboard for a free-ride session.
+- **Free Ride:** Connect your sensors and tap the "Start" button on the dashboard.
 - **Structured Workouts:** Select a workout from the **Library**, review the steps, and tap "Start Workout". The app will automatically control your trainer to match the targets.
 
 ## 🛠 Development
@@ -31,7 +31,13 @@ A professional-grade iOS and macOS lab for cycling performance analysis and work
 - **Language:** Swift 6+ (Strict concurrency & `async/await`)
 - **UI Framework:** SwiftUI with the `@Observable` framework
 - **Architecture:** Clean MVVM (Model-View-ViewModel)
-- **Dependency Injection:** Strictly constructor-based (no hidden singletons)
+- **Dependency Management:** Swift Package Manager (SPM)
+
+### Code Quality & Standards
+We maintain strict coding standards. Please review our `CODE_REVIEW_RESULTS.md` for areas of active improvement.
+- **Safety First:** Avoid force unwrapping (`!`). Use safe unwrapping to prevent runtime crashes.
+- **Concurrency:** Prefer structured concurrency (`async/let`, `TaskGroup`) and Actors over unstructured `Task.detached`.
+- **Testing:** All new logic and ViewModels must include unit tests.
 
 ### Getting Started
 1. Open `FitnessDeviceLab.xcodeproj` in **Xcode 16+**.
@@ -46,7 +52,7 @@ If you don't have hardware sensors nearby, the app includes a robust simulation 
 
 ### Testing & Verification
 We maintain high standards for logic and physics calculations:
-- **Unit Tests:** Run `⌘U` to execute the `FitnessDeviceLabTests` suite. This covers all core engines, parsing logic, and setpoint calculations.
+- **Unit Tests:** Run `⌘U` to execute the `FitnessDeviceLabTests` suite.
 - **UI Tests:** The `FitnessDeviceLabUITests` suite verifies critical user flows and view transitions.
 
 ---
