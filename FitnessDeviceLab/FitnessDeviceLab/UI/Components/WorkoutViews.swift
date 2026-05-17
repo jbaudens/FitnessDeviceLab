@@ -8,16 +8,18 @@ struct WorkoutGraphView: View {
     var showAxis: Bool = true
     var elapsedTime: TimeInterval? = nil
     var recorder: SessionRecorder? = nil
+    var chartPoints: [Trackpoint] = []
     var sessionStartTime: Date? = nil
     var scale: Double = 1.0
     
-    init(workout: StructuredWorkout, userFTP: Double, userLTHR: Double, showAxis: Bool = true, elapsedTime: TimeInterval? = nil, recorder: SessionRecorder? = nil, sessionStartTime: Date? = nil, scale: Double = 1.0) {
+    init(workout: StructuredWorkout, userFTP: Double, userLTHR: Double, showAxis: Bool = true, elapsedTime: TimeInterval? = nil, recorder: SessionRecorder? = nil, chartPoints: [Trackpoint] = [], sessionStartTime: Date? = nil, scale: Double = 1.0) {
         self.workout = workout
         self.userFTP = userFTP
         self.userLTHR = userLTHR
         self.showAxis = showAxis
         self.elapsedTime = elapsedTime
         self.recorder = recorder
+        self.chartPoints = chartPoints
         self.sessionStartTime = sessionStartTime
         self.scale = scale
     }
@@ -49,8 +51,9 @@ struct WorkoutGraphView: View {
                     }
                 }.max() ?? ftp
                 
-                let maxActualPower = recorder?.trackpoints.compactMap { $0.power }.map { Double($0) }.max() ?? 0.0
-                let maxActualHR = recorder?.trackpoints.compactMap { $0.hr }.map { Double($0) }.max() ?? 0.0
+                // PERFORMANCE OPTIMIZATION: Use pre-calculated engine metrics instead of scanning trackpoints
+                let maxActualPower = Double(recorder?.engine.calculatedMetrics.standard.maxPower ?? 0)
+                let maxActualHR = Double(recorder?.engine.calculatedMetrics.hr.max ?? 0)
                 
                 // Final domain max (capped power scaling at 1.5 * FTP if no high target exists)
                 let maxPossiblePower = max(maxActualPower, ftp * 1.5)
@@ -126,6 +129,7 @@ struct WorkoutGraphView: View {
                     if let recorder = recorder {
                         PerformanceChart(
                             recorder: recorder,
+                            chartPoints: chartPoints,
                             totalDuration: totalDuration,
                             maxPower: maxValue,
                             startTime: sessionStartTime
@@ -178,6 +182,7 @@ struct RampShape: Shape {
 
 struct SessionGraphView: View {
     @Bindable var recorder: SessionRecorder
+    let chartPoints: [Trackpoint]
     let userFTP: Double
     let userLTHR: Double
     var showAxis: Bool = true
@@ -200,8 +205,9 @@ struct SessionGraphView: View {
                 let totalDuration = max(300, recordedPoints * 1.1)
                 let ftp = userFTP
 
-                let maxActualPower = recorder.trackpoints.compactMap { $0.power }.map { Double($0) }.max() ?? 0.0
-                let maxActualHR = recorder.trackpoints.compactMap { $0.hr }.map { Double($0) }.max() ?? 0.0
+                // PERFORMANCE OPTIMIZATION: Use pre-calculated engine metrics
+                let maxActualPower = Double(recorder.engine.calculatedMetrics.standard.maxPower ?? 0)
+                let maxActualHR = Double(recorder.engine.calculatedMetrics.hr.max ?? 0)
                 
                 let maxValue = max(ftp * 1.5, max(maxActualPower, maxActualHR)) * 1.1
                 
@@ -238,6 +244,7 @@ struct SessionGraphView: View {
                     
                     GrowingPerformanceChart(
                         recorder: recorder,
+                        chartPoints: chartPoints,
                         totalDuration: totalDuration,
                         maxPower: maxValue
                     )
@@ -250,30 +257,16 @@ struct SessionGraphView: View {
 
 struct GrowingPerformanceChart: View {
     @Bindable var recorder: SessionRecorder
+    let chartPoints: [Trackpoint]
     let totalDuration: TimeInterval
     let maxPower: Double
     
-    private var downsampledTrackpoints: [Trackpoint] {
-        let maxPoints = 500
-        let totalPoints = recorder.trackpoints.count
-        guard totalPoints > maxPoints else { return recorder.trackpoints }
-        
-        let strideValue = totalPoints / maxPoints
-        var result: [Trackpoint] = []
-        for i in Swift.stride(from: 0, to: totalPoints, by: strideValue) {
-            result.append(recorder.trackpoints[i])
-        }
-        if let last = recorder.trackpoints.last, result.last?.id != last.id {
-            result.append(last)
-        }
-        return result
-    }
-    
     var body: some View {
+        let startTime = recorder.trackpoints.first?.time
+        
         Chart {
-            ForEach(downsampledTrackpoints) { pt in
-                let index = recorder.trackpoints.firstIndex(where: { $0.id == pt.id }) ?? 0
-                let timeOffset = Double(index)
+            ForEach(chartPoints) { pt in
+                let timeOffset = pt.time.timeIntervalSince(startTime ?? pt.time)
                 
                 if let pwr = pt.power {
                     LineMark(
@@ -313,31 +306,17 @@ struct GrowingPerformanceChart: View {
 
 struct PerformanceChart: View {
     @Bindable var recorder: SessionRecorder
+    let chartPoints: [Trackpoint]
     let totalDuration: TimeInterval
     let maxPower: Double
     let startTime: Date?
     
-    private var downsampledTrackpoints: [Trackpoint] {
-        let maxPoints = 500
-        let totalPoints = recorder.trackpoints.count
-        guard totalPoints > maxPoints else { return recorder.trackpoints }
-        
-        let strideValue = totalPoints / maxPoints
-        var result: [Trackpoint] = []
-        for i in Swift.stride(from: 0, to: totalPoints, by: strideValue) {
-            result.append(recorder.trackpoints[i])
-        }
-        if let last = recorder.trackpoints.last, result.last?.id != last.id {
-            result.append(last)
-        }
-        return result
-    }
-    
     var body: some View {
+        let referenceStartTime = startTime ?? recorder.trackpoints.first?.time
+        
         Chart {
-            ForEach(downsampledTrackpoints) { pt in
-                let index = recorder.trackpoints.firstIndex(where: { $0.id == pt.id }) ?? 0
-                let timeOffset = Double(index)
+            ForEach(chartPoints) { pt in
+                let timeOffset = pt.time.timeIntervalSince(referenceStartTime ?? pt.time)
                 
                 if let pwr = pt.power {
                     LineMark(
@@ -425,7 +404,7 @@ struct WorkoutRowView: View {
                     .foregroundColor(.secondary)
             }
             
-            WorkoutGraphView(workout: workout, userFTP: userFTP, userLTHR: userLTHR, showAxis: false)
+            WorkoutGraphView(workout: workout, userFTP: userFTP, userLTHR: userLTHR, showAxis: false, chartPoints: [])
                 .frame(height: 50)
         }
         .padding(.vertical, 8)
@@ -436,18 +415,7 @@ struct WorkoutRowView: View {
 
 struct DFAAlpha1ChartView: View {
     @Bindable var recorder: SessionRecorder
-    
-    private var downsampledPoints: [Trackpoint] {
-        let maxPoints = 300
-        let points = recorder.trackpoints
-        guard points.count > maxPoints else { return points }
-        let stride = points.count / maxPoints
-        var result: [Trackpoint] = []
-        for i in Swift.stride(from: 0, to: points.count, by: stride) {
-            result.append(points[i])
-        }
-        return result
-    }
+    let chartPoints: [Trackpoint]
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -471,7 +439,7 @@ struct DFAAlpha1ChartView: View {
                             .foregroundColor(.red)
                     }
                 
-                ForEach(downsampledPoints) { pt in
+                ForEach(chartPoints) { pt in
                     if let dfa = pt.dfaAlpha1 {
                         LineMark(
                             x: .value("Time", pt.time),
@@ -550,7 +518,7 @@ struct LegendItem: View {
     
     VStack(alignment: .leading) {
         Text("Free Ride Graph").font(.headline)
-        SessionGraphView(recorder: recorder, userFTP: 200, userLTHR: 170)
+        SessionGraphView(recorder: recorder, chartPoints: recorder.trackpoints, userFTP: 200, userLTHR: 170)
             .frame(height: 140)
             .padding(8)
             .background(Color.secondary.opacity(0.05))
@@ -572,7 +540,7 @@ struct LegendItem: View {
     
     VStack(alignment: .leading) {
         Text("Structured Workout Graph").font(.headline)
-        WorkoutGraphView(workout: workout, userFTP: 250, userLTHR: 170)
+        WorkoutGraphView(workout: workout, userFTP: 250, userLTHR: 170, chartPoints: [])
             .frame(height: 140)
             .padding(8)
             .background(Color.secondary.opacity(0.05))
@@ -600,12 +568,13 @@ struct LegendItem: View {
 struct GenericMetricGraphView: View {
     let field: DataFieldType
     @Bindable var recorder: SessionRecorder
+    let chartPoints: [Trackpoint]
     let userFTP: Double
     let userLTHR: Double
     
     var body: some View {
         Chart {
-            ForEach(recorder.trackpoints) { pt in
+            ForEach(chartPoints) { pt in
                 if let value = valueForField(pt) {
                     LineMark(
                         x: .value("Time", pt.time),
@@ -638,6 +607,7 @@ struct GenericMetricGraphView: View {
 struct GraphFactoryView: View {
     let type: GraphType
     @Bindable var recorder: SessionRecorder
+    let chartPoints: [Trackpoint]
     let workoutManager: WorkoutSessionManager
     let settings: any SettingsProvider
     
@@ -652,21 +622,24 @@ struct GraphFactoryView: View {
                         userLTHR: Double(settings.userLTHR),
                         elapsedTime: workoutManager.workoutElapsedTime,
                         recorder: recorder,
+                        chartPoints: chartPoints,
                         scale: workoutManager.workoutDifficultyScale
                     )
                 } else {
                     SessionGraphView(
                         recorder: recorder,
+                        chartPoints: chartPoints,
                         userFTP: settings.userFTP,
                         userLTHR: Double(settings.userLTHR)
                     )
                 }
             case .dfaAlpha1:
-                DFAAlpha1ChartView(recorder: recorder)
+                DFAAlpha1ChartView(recorder: recorder, chartPoints: chartPoints)
             case .metric(let field):
                 GenericMetricGraphView(
                     field: field,
                     recorder: recorder,
+                    chartPoints: chartPoints,
                     userFTP: settings.userFTP,
                     userLTHR: Double(settings.userLTHR)
                 )
@@ -679,6 +652,7 @@ struct GraphFactoryView: View {
 struct SwipeableGraphContainer: View {
     let graphs: [GraphType]
     @Bindable var recorder: SessionRecorder
+    let chartPoints: [Trackpoint]
     let workoutManager: WorkoutSessionManager
     let settings: any SettingsProvider
     
@@ -769,6 +743,7 @@ struct SwipeableGraphContainer: View {
             GraphFactoryView(
                 type: graphs[index],
                 recorder: recorder,
+                chartPoints: chartPoints,
                 workoutManager: workoutManager,
                 settings: settings
             )

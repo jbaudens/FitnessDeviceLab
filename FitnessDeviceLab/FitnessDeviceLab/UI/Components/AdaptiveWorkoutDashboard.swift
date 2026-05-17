@@ -230,6 +230,7 @@ struct AdaptiveWorkoutDashboard: View {
             SwipeableGraphContainer(
                 graphs: viewModel.workoutManager.activeProfile.graphs,
                 recorder: recorder,
+                chartPoints: title == "SET A" ? viewModel.chartPointsA : viewModel.chartPointsB,
                 workoutManager: viewModel.workoutManager,
                 settings: viewModel.settings
             )
@@ -262,6 +263,7 @@ struct AdaptiveWorkoutDashboard: View {
             SwipeableGraphContainer(
                 graphs: viewModel.workoutManager.activeProfile.graphs,
                 recorder: recorder,
+                chartPoints: title == "SET A" ? viewModel.chartPointsA : viewModel.chartPointsB,
                 workoutManager: viewModel.workoutManager,
                 settings: viewModel.settings
             )
