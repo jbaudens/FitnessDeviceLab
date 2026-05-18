@@ -15,14 +15,14 @@ nonisolated public struct HRVConfig {
     public static let hrvLoggerExercise = HRVConfig(
         windowSizeSeconds: 120, // 2 minutes
         stepSizeSeconds: 5,
-        artifactCorrectionThreshold: 0.15, // Tightened for exercise
+        artifactCorrectionThreshold: 0.05, // Tightened for exercise
         mode: .exercise
     )
     
     public static let hrvLoggerResting = HRVConfig(
         windowSizeSeconds: 300, // 5 minutes for gold standard resting
         stepSizeSeconds: 30,
-        artifactCorrectionThreshold: 0.20,
+        artifactCorrectionThreshold: 0.25,
         mode: .resting
     )
 }
