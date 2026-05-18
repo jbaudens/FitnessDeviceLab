@@ -62,18 +62,47 @@ public class WorkoutPlayerViewModel {
     private func downsample(_ points: [Trackpoint], targetCount: Int) -> [Trackpoint] {
         guard points.count > targetCount else { return points }
         
-        let strideValue = Double(points.count) / Double(targetCount)
-        var result: [Trackpoint] = []
-        result.reserveCapacity(targetCount)
+        // We use a bucket-based approach to ensure stability.
+        // Instead of stride over indices (which shift as count grows),
+        // we divide the data into fixed buckets and pick representative points.
         
-        for i in 0..<targetCount {
-            let index = Int(Double(i) * strideValue)
-            if index < points.count {
-                result.append(points[index])
+        let bucketSize = points.count / targetCount
+        var result: [Trackpoint] = []
+        result.reserveCapacity(targetCount + 1)
+        
+        // Always include the first point
+        if let first = points.first {
+            result.append(first)
+        }
+        
+        // Process internal buckets
+        // For each bucket, we pick the point with the highest power/value to preserve visual peaks
+        for bucketIndex in 0..<targetCount {
+            let start = bucketIndex * bucketSize
+            let end = min(start + bucketSize, points.count)
+            
+            if start < end {
+                // Find point with highest "signal" (power or hr) in this bucket
+                // This preserves peaks better than simple striding
+                var bestPoint = points[start]
+                var maxVal = Double(bestPoint.power ?? bestPoint.hr ?? 0)
+                
+                for j in start..<end {
+                    let p = points[j]
+                    let val = Double(p.power ?? p.hr ?? 0)
+                    if val > maxVal {
+                        maxVal = val
+                        bestPoint = p
+                    }
+                }
+                
+                if result.last?.id != bestPoint.id {
+                    result.append(bestPoint)
+                }
             }
         }
         
-        // Always include the last point to keep the chart "live"
+        // Always include the absolute last point to keep the chart "live"
         if let last = points.last, result.last?.id != last.id {
             result.append(last)
         }
