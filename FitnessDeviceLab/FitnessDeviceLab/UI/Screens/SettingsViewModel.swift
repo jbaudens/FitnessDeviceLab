@@ -26,6 +26,7 @@ public class SettingsViewModel {
         settings.setUserLTHR(170)
         settings.setFTPAltitude(0)
         settings.setAltitudeOverride(nil)
+        settings.setGeminiApiKey(nil)
         useAltitudeOverride = false
     }
 }

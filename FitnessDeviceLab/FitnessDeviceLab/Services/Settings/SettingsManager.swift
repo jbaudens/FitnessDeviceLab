@@ -22,7 +22,7 @@ public class SettingsManager: SettingsProvider {
             if let val = geminiApiKey {
                 KeychainHelper.saveString(val, service: "com.fitnessdevicelab.gemini", account: "api_key")
             } else {
-                KeychainHelper.deleteString(service: "com.fitnessdevicelab.gemini", account: "api_key")
+                KeychainHelper.delete(service: "com.fitnessdevicelab.gemini", account: "api_key")
             }
         }
     }
