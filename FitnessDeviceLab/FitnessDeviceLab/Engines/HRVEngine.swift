@@ -15,14 +15,14 @@ nonisolated public struct HRVConfig {
     public static let hrvLoggerExercise = HRVConfig(
         windowSizeSeconds: 120, // 2 minutes
         stepSizeSeconds: 5,
-        artifactCorrectionThreshold: 0.15, // Tightened for exercise
+        artifactCorrectionThreshold: 0.05, // Tightened for exercise
         mode: .exercise
     )
     
     public static let hrvLoggerResting = HRVConfig(
         windowSizeSeconds: 300, // 5 minutes for gold standard resting
         stepSizeSeconds: 30,
-        artifactCorrectionThreshold: 0.20,
+        artifactCorrectionThreshold: 0.25,
         mode: .resting
     )
 }
@@ -108,16 +108,26 @@ public struct HRVEngine {
         
         for i in 0..<rr.count {
             let val = rr[i]
-            // Basic physiological range check (300ms to 2000ms -> 30bpm to 200bpm)
+            
+            // 1. Physiological range check (0.3s to 2.0s)
+            // (300ms to 2000ms -> 30bpm to 200bpm)
             if val < 0.3 || val > 2.0 { continue }
             
-            // Moving median check (window of 5)
-            let start = max(0, i - 2)
-            let end = min(rr.count, i + 3)
-            let neighbors = Array(rr[start..<end]).sorted()
-            let median = neighbors[neighbors.count / 2]
+            // 2. Local variance filter (window of 11)
+            let start = max(0, i - 5)
+            let end = min(rr.count, i + 6)
+            let window = Array(rr[start..<end])
             
-            if abs(val - median) / median < threshold {
+            // Calculate mean and standard deviation of the window
+            let count = Double(window.count)
+            let mean = window.reduce(0, +) / count
+            let variance = window.map { pow($0 - mean, 2) }.reduce(0, +) / count
+            let sd = sqrt(variance)
+            
+            // 3. Dynamic threshold check: 3 standard deviations
+            // We use a small floor (20ms) for tolerance to avoid over-filtering very stable data
+            let tolerance = max(0.02, 3.0 * sd)
+            if abs(val - mean) <= tolerance {
                 result.append(val)
             }
         }
