@@ -53,6 +53,10 @@ public class WorkoutPlayerViewModel {
         let now = Date()
         guard now.timeIntervalSince(lastDownsampleTime) >= downsampleThreshold else { return }
         
+        // We use a fixed time-based bucket approach for absolute stability.
+        // As the workout grows, we increase the bucket duration (2s, 5s, 10s...)
+        // but we only change it when we absolutely must to stay under targetPointCount.
+        
         chartPointsA = downsample(recorderA.trackpoints, targetCount: targetPointCount)
         chartPointsB = downsample(recorderB.trackpoints, targetCount: targetPointCount)
         
@@ -60,54 +64,66 @@ public class WorkoutPlayerViewModel {
     }
     
     private func downsample(_ points: [Trackpoint], targetCount: Int) -> [Trackpoint] {
-        guard points.count > targetCount else { return points }
+        guard points.count > targetCount, let firstTime = points.first?.time, let lastTime = points.last?.time else { return points }
         
-        // We use a bucket-based approach to ensure stability.
-        // Instead of stride over indices (which shift as count grows),
-        // we divide the data into fixed buckets and pick representative points.
+        let totalDuration = lastTime.timeIntervalSince(firstTime)
         
-        let bucketSize = points.count / targetCount
+        // Calculate a stable bucket duration (e.g. 1s, 2s, 5s, 10s, 30s, 60s)
+        // This prevents the bucket size from "jittering" on every new point.
+        let rawBucketDuration = totalDuration / Double(targetCount)
+        let stableBucketDuration: TimeInterval
+        if rawBucketDuration <= 1.0 { stableBucketDuration = 1.0 }
+        else if rawBucketDuration <= 2.0 { stableBucketDuration = 2.0 }
+        else if rawBucketDuration <= 5.0 { stableBucketDuration = 5.0 }
+        else if rawBucketDuration <= 10.0 { stableBucketDuration = 10.0 }
+        else if rawBucketDuration <= 30.0 { stableBucketDuration = 30.0 }
+        else { stableBucketDuration = 60.0 }
+
         var result: [Trackpoint] = []
-        result.reserveCapacity(targetCount + 1)
+        result.reserveCapacity(Int(totalDuration / stableBucketDuration) + 2)
         
-        // Always include the first point
-        if let first = points.first {
-            result.append(first)
-        }
+        var currentBucketStartTime = firstTime
+        var bestPointInBucket: Trackpoint?
+        var maxImportance: Double = -1.0
         
-        // Process internal buckets
-        // For each bucket, we pick the point with the highest power/value to preserve visual peaks
-        for bucketIndex in 0..<targetCount {
-            let start = bucketIndex * bucketSize
-            let end = min(start + bucketSize, points.count)
+        for p in points {
+            let offset = p.time.timeIntervalSince(currentBucketStartTime)
             
-            if start < end {
-                // Find point with highest "signal" (power or hr) in this bucket
-                // This preserves peaks better than simple striding
-                var bestPoint = points[start]
-                var maxVal = Double(bestPoint.power ?? bestPoint.hr ?? 0)
-                
-                for j in start..<end {
-                    let p = points[j]
-                    let val = Double(p.power ?? p.hr ?? 0)
-                    if val > maxVal {
-                        maxVal = val
-                        bestPoint = p
-                    }
+            if offset >= stableBucketDuration {
+                // Close current bucket
+                if let best = bestPointInBucket {
+                    result.append(best)
                 }
                 
-                if result.last?.id != bestPoint.id {
-                    result.append(bestPoint)
+                // Start new bucket
+                currentBucketStartTime += (floor(offset / stableBucketDuration) * stableBucketDuration)
+                bestPointInBucket = p
+                maxImportance = calculateImportance(p)
+            } else {
+                // Update best point in current bucket
+                let importance = calculateImportance(p)
+                if importance > maxImportance {
+                    maxImportance = importance
+                    bestPointInBucket = p
                 }
             }
         }
         
-        // Always include the absolute last point to keep the chart "live"
+        // Always include the absolute last point
         if let last = points.last, result.last?.id != last.id {
             result.append(last)
         }
         
         return result
+    }
+    
+    private func calculateImportance(_ p: Trackpoint) -> Double {
+        // Importance is a heuristic to pick the most "interesting" point in a bucket.
+        // We favor peaks in Power, but also check for HR and DFA Alpha-1 presence.
+        let pwr = Double(p.power ?? 0)
+        let hr = Double(p.hr ?? 0)
+        let dfa = p.dfaAlpha1 != nil ? 100.0 : 0.0 // Prioritize points with DFA a1 data
+        return pwr + (hr * 0.5) + dfa
     }
     
     // MARK: - Role-Specific Adaptor Lists for UI Pickers (Connected Only)
