@@ -70,19 +70,15 @@ struct WorkoutEditorView: View {
                 }
             }
             
-            #if os(macOS)
             if showingAssistant {
-                Divider()
-                if let coordinator = vm.assistant {
-                    AssistantSidebarView(coordinator: coordinator, settings: settings)
-                        .frame(width: 320)
-                        .transition(.move(edge: .trailing))
-                } else {
-                    assistantSetupPlaceholder
-                        .frame(width: 320)
+                #if os(macOS)
+                assistantSidebar
+                #else
+                if horizontalSizeClass == .regular {
+                    assistantSidebar
                 }
+                #endif
             }
-            #endif
         }
         .navigationTitle(vm.isNewWorkout ? "New Workout" : "Edit Workout")
         .inlineNavigationBarTitle()
@@ -116,6 +112,19 @@ struct WorkoutEditorView: View {
             } else {
                 assistantSetupPlaceholder
             }
+        }
+    }
+    
+    @ViewBuilder
+    private var assistantSidebar: some View {
+        Divider()
+        if let coordinator = viewModel.assistant {
+            AssistantSidebarView(coordinator: coordinator, settings: settings)
+                .frame(width: 320)
+                .transition(.move(edge: .trailing))
+        } else {
+            assistantSetupPlaceholder
+                .frame(width: 320)
         }
     }
     
