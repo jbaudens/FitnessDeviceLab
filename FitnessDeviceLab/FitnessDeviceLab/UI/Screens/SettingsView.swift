@@ -20,6 +20,7 @@ struct SettingsView: View {
                         VStack(spacing: 24) {
                             profileSection(vm: viewModel)
                             environmentSection(vm: viewModel)
+                            aiAssistantSection(vm: viewModel)
                             
                             Button(role: .destructive) {
                                 showingResetConfirmation = true
@@ -62,6 +63,12 @@ struct SettingsView: View {
                         environmentRows(vm: viewModel)
                     } header: {
                         Text("Environmental Conditions")
+                    }
+                    
+                    Section {
+                        aiAssistantRows(vm: viewModel)
+                    } header: {
+                        Text("AI Assistant")
                     }
                     
                     Section {
@@ -144,6 +151,19 @@ struct SettingsView: View {
         }
     }
     
+    @ViewBuilder
+    private func aiAssistantSection(vm: SettingsViewModel) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            headerLabel("AI Assistant", icon: "sparkles")
+            VStack(spacing: 12) {
+                aiAssistantRows(vm: vm)
+            }
+            .padding()
+            .background(Color.secondary.opacity(0.05))
+            .cornerRadius(12)
+        }
+    }
+    
     // MARK: - Row Reusable Parts
     
     @ViewBuilder
@@ -173,6 +193,27 @@ struct SettingsView: View {
         if viewModel.useAltitudeOverride {
             stepperInputRow(title: "Fixed Alt.", subtitle: "Forced elevation value", value: altitudeBinding($settings.altitudeOverride), unit: "m", range: 0...5000, step: 10)
                 .padding(.leading, 12)
+        }
+    }
+    
+    @ViewBuilder
+    private func aiAssistantRows(vm: SettingsViewModel) -> some View {
+        @Bindable var settings = vm.settings
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Gemini API Key")
+                    .font(.subheadline.weight(.medium))
+                Text("Required for AI Workout Coach")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            SecureField("API Key", text: Binding(
+                get: { settings.geminiApiKey ?? "" },
+                set: { settings.setGeminiApiKey($0.isEmpty ? nil : $0) }
+            ))
+            .textFieldStyle(.roundedBorder)
+            .frame(width: 200)
         }
     }
     

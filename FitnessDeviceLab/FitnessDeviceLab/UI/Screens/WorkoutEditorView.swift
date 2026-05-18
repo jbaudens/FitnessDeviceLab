@@ -97,18 +97,28 @@ struct WorkoutEditorView: View {
                     withAnimation {
                         showingAssistant.toggle()
                         if showingAssistant && vm.assistant == nil {
-                            setupAssistant()
+                            if let key = settings.geminiApiKey, !key.isEmpty {
+                                vm.enableAssistant(settings: settings, apiKey: key)
+                            }
                         }
                     }
                 } label: {
                     Label("Assistant", systemImage: "sparkles")
                         .symbolEffect(.bounce, value: showingAssistant)
+                        .foregroundColor(settings.geminiApiKey == nil ? .secondary : .blue)
                 }
             }
         }
         .sheet(isPresented: .init(get: { showingAssistant && horizontalSizeClass == .compact }, set: { showingAssistant = $0 })) {
-            if let coordinator = vm.assistant {
-                AssistantSidebarView(coordinator: coordinator, settings: settings)
+            if let key = settings.geminiApiKey, !key.isEmpty {
+                if let coordinator = vm.assistant {
+                    AssistantSidebarView(coordinator: coordinator, settings: settings)
+                } else {
+                    ProgressView()
+                        .onAppear {
+                            vm.enableAssistant(settings: settings, apiKey: key)
+                        }
+                }
             } else {
                 assistantSetupPlaceholder
             }
@@ -118,10 +128,18 @@ struct WorkoutEditorView: View {
     @ViewBuilder
     private var assistantSidebar: some View {
         Divider()
-        if let coordinator = viewModel.assistant {
-            AssistantSidebarView(coordinator: coordinator, settings: settings)
-                .frame(width: 320)
-                .transition(.move(edge: .trailing))
+        if let key = settings.geminiApiKey, !key.isEmpty {
+            if let coordinator = viewModel.assistant {
+                AssistantSidebarView(coordinator: coordinator, settings: settings)
+                    .frame(width: 320)
+                    .transition(.move(edge: .trailing))
+            } else {
+                ProgressView()
+                    .frame(width: 320)
+                    .onAppear {
+                        viewModel.enableAssistant(settings: settings, apiKey: key)
+                    }
+            }
         } else {
             assistantSetupPlaceholder
                 .frame(width: 320)
@@ -173,29 +191,16 @@ struct WorkoutEditorView: View {
         VStack(spacing: 20) {
             Image(systemName: "sparkles")
                 .font(.system(size: 48))
-                .foregroundColor(.blue)
+                .foregroundColor(.secondary)
             Text("AI Workout Coach")
                 .font(.headline)
-            Text("Enable the assistant to help you design intervals, optimize recovery, and build your training plan.")
+            Text("To use the AI Coach, please enter your Gemini API Key in the Settings tab.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
-            
-            Button("Setup Assistant") {
-                setupAssistant()
-            }
-            .buttonStyle(.borderedProminent)
         }
         .padding()
-    }
-    
-    private func setupAssistant() {
-        if let key = KeychainHelper.readString(service: "com.fitnessdevicelab.gemini", account: "api_key") {
-            viewModel.enableAssistant(settings: settings, apiKey: key)
-        } else {
-            viewModel.enableAssistant(settings: settings, apiKey: "")
-        }
     }
 }
 

@@ -5,8 +5,6 @@ struct AssistantSidebarView: View {
     let settings: SettingsProvider
     
     @State private var inputText: String = ""
-    @State private var showingKeySetup = false
-    @State private var apiKeyInput: String = ""
     
     var body: some View {
         VStack(spacing: 0) {
@@ -23,15 +21,6 @@ struct AssistantSidebarView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Clear Chat")
-                
-                Button {
-                    showingKeySetup = true
-                } label: {
-                    Image(systemName: "key")
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("API Key Setup")
             }
             .padding()
             .background(Color.secondary.opacity(0.05))
@@ -116,9 +105,6 @@ struct AssistantSidebarView: View {
             }
             .background(Color.secondary.opacity(0.05))
         }
-        .sheet(isPresented: $showingKeySetup) {
-            ApiKeySetupView(isPresented: $showingKeySetup)
-        }
     }
     
     private func sendMessage() {
@@ -177,43 +163,5 @@ struct MessageBubble: View {
             if message.role != .user { Spacer() }
         }
         .padding(.horizontal)
-    }
-}
-
-struct ApiKeySetupView: View {
-    @Binding var isPresented: Bool
-    @State private var key: String = ""
-    
-    var body: some View {
-        VStack(spacing: 20) {
-            Text("Gemini API Setup")
-                .font(.headline)
-            
-            Text("To use the AI Assistant, please provide your Google Gemini API Key. Your key is stored securely in the system keychain.")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-            
-            SecureField("Paste API Key here", text: $key)
-                .textFieldStyle(.roundedBorder)
-            
-            HStack {
-                Button("Cancel") {
-                    isPresented = false
-                }
-                Spacer()
-                Button("Save Key") {
-                    KeychainHelper.saveString(key, service: "com.fitnessdevicelab.gemini", account: "api_key")
-                    isPresented = false
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(key.isEmpty)
-            }
-        }
-        .padding(24)
-        .frame(width: 400)
-        .onAppear {
-            key = KeychainHelper.readString(service: "com.fitnessdevicelab.gemini", account: "api_key") ?? ""
-        }
     }
 }

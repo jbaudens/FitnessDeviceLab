@@ -9,12 +9,23 @@ public protocol SettingsProvider: AnyObject, Observation.Observable {
     var altitudeOverride: Double? { get }
     var userWeight: Double { get }
     var ftpAltitude: Double { get }
+    var geminiApiKey: String? { get }
     var metricsSettings: MetricsSettings { get }
 }
 
 @Observable
 public class SettingsManager: SettingsProvider {
     private let defaults = UserDefaults.standard
+
+    public var geminiApiKey: String? {
+        didSet {
+            if let val = geminiApiKey {
+                KeychainHelper.saveString(val, service: "com.fitnessdevicelab.gemini", account: "api_key")
+            } else {
+                KeychainHelper.delete(service: "com.fitnessdevicelab.gemini", account: "api_key")
+            }
+        }
+    }
 
     public var userFTP: Double {
         didSet { defaults.set(userFTP, forKey: "userFTP") }
@@ -58,8 +69,11 @@ public class SettingsManager: SettingsProvider {
     public func setAltitudeOverride(_ value: Double?) { altitudeOverride = value }
     public func setUserWeight(_ value: Double) { userWeight = value }
     public func setFTPAltitude(_ value: Double) { ftpAltitude = value }
+    public func setGeminiApiKey(_ value: String?) { geminiApiKey = value }
 
     public init() {
+        self.geminiApiKey = KeychainHelper.readString(service: "com.fitnessdevicelab.gemini", account: "api_key")
+
         let savedFTP = defaults.double(forKey: "userFTP")
         self.userFTP = savedFTP > 0 ? savedFTP : 250.0
         
