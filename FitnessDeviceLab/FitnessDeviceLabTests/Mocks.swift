@@ -11,6 +11,7 @@ class MockSettingsProvider: SettingsProvider {
     var altitudeOverride: Double? = nil
     var userWeight: Double = 75.0
     var ftpAltitude: Double = 0.0
+    var geminiApiKey: String? = nil
     var metricsSettings: MetricsSettings {
         MetricsSettings(userFTP: userFTP, userWeight: userWeight, ftpAltitude: ftpAltitude)
     }
@@ -22,6 +23,7 @@ class MockSettingsProvider: SettingsProvider {
     func setAltitudeOverride(_ value: Double?) { altitudeOverride = value }
     func setUserWeight(_ value: Double) { userWeight = value }
     func setFTPAltitude(_ value: Double) { ftpAltitude = value }
+    func setGeminiApiKey(_ value: String?) { geminiApiKey = value }
 }
 
 class MockLocationProvider: LocationProvider {
