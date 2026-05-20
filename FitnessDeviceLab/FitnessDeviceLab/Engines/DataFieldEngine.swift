@@ -120,7 +120,7 @@ nonisolated public struct MetricsSettings: Sendable {
 
 // MARK: - Engine
 
-@Observable
+@Observable @MainActor
 public class DataFieldEngine {
     // CATEGORY 1 & 2: Live "Now" State
     public var currentHR: Int?
