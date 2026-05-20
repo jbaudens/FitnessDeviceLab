@@ -60,7 +60,8 @@ class FTMSHandler {
                     sendStartMachine(peripheral: peripheral)
                 } else if result == 0x04 { // Operation Failed / Already Controlled
                     sendResetMachine(peripheral: peripheral)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    Task {
+                        try? await Task.sleep(for: .seconds(1.0))
                         self.requestControl(peripheral: peripheral)
                     }
                 }

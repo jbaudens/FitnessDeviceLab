@@ -82,7 +82,7 @@ public class TrainerSetpointCalculator {
         }
         
         let now = Date()
-        let dt = lastUpdate != nil ? now.timeIntervalSince(lastUpdate!) : 1.0
+        let dt = lastUpdate.map { now.timeIntervalSince($0) } ?? 1.0
         lastUpdate = now
         
         // 1. Determine the "Goal" Strategy
@@ -103,7 +103,12 @@ public class TrainerSetpointCalculator {
             }
             
             if let hrRaw = input.currentHR, hrRaw > 0 {
-                let hr = filteredHR != nil ? (Double(hrRaw) * hrEmaAlpha + filteredHR! * (1.0 - hrEmaAlpha)) : Double(hrRaw)
+                let hr: Double
+                if let filtered = filteredHR {
+                    hr = Double(hrRaw) * hrEmaAlpha + filtered * (1.0 - hrEmaAlpha)
+                } else {
+                    hr = Double(hrRaw)
+                }
                 filteredHR = hr
                 
                 let error = targetHR - hr

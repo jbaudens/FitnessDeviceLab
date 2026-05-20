@@ -10,7 +10,11 @@ public struct WorkoutPhysicsEngine {
         let powerSteps = steps.filter { $0.targetPowerPercent != nil }
         guard !powerSteps.isEmpty else { return 0 }
         
-        let totalWork = powerSteps.reduce(0.0) { $0 + ((($1.targetPowerPercent! + $1.endTargetPowerPercent!) / 2.0) * $1.duration) }
+        let totalWork = powerSteps.reduce(0.0) { sum, step in
+            let start = step.targetPowerPercent ?? 0.0
+            let end = step.endTargetPowerPercent ?? start
+            return sum + (((start + end) / 2.0) * step.duration)
+        }
         let powerDuration = powerSteps.reduce(0.0) { $0 + $1.duration }
         return totalWork / powerDuration
     }
