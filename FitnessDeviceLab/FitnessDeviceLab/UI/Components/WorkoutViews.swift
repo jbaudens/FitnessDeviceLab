@@ -201,8 +201,10 @@ struct SessionGraphView: View {
                 let width = geometry.size.width
                 let height = geometry.size.height
                 
-                let recordedPoints = Double(recorder.trackpoints.count)
-                let totalDuration = max(300, recordedPoints * 1.1)
+                let firstTime = recorder.trackpoints.first?.time ?? Date()
+                let lastTime = recorder.trackpoints.last?.time ?? firstTime
+                let duration = lastTime.timeIntervalSince(firstTime)
+                let totalDuration = max(300, duration * 1.1)
                 let ftp = userFTP
 
                 // PERFORMANCE OPTIMIZATION: Use pre-calculated engine metrics
@@ -623,6 +625,7 @@ struct GraphFactoryView: View {
                         elapsedTime: workoutManager.workoutElapsedTime,
                         recorder: recorder,
                         chartPoints: chartPoints,
+                        sessionStartTime: workoutManager.sessionStartTime,
                         scale: workoutManager.workoutDifficultyScale
                     )
                 } else {

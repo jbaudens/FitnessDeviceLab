@@ -15,6 +15,7 @@ public class SessionTimer {
     public var onTick: (() -> Void)?
     
     private var timerCancellable: AnyCancellable?
+    private var lastTickDate: Date?
     
     public init() {}
     
@@ -23,22 +24,26 @@ public class SessionTimer {
         isActive = true
         isPaused = true // Start in paused state (pulse only, no counting)
         elapsedTime = 0
+        lastTickDate = nil
         setupTimer()
     }
     
     public func pause() {
         guard isActive, !isPaused else { return }
         isPaused = true
+        lastTickDate = nil
     }
     
     public func resume() {
         guard isActive, isPaused else { return }
         isPaused = false
+        lastTickDate = Date()
     }
     
     public func stop() {
         isActive = false
         isPaused = false
+        lastTickDate = nil
         stopTimer()
     }
     
@@ -46,13 +51,17 @@ public class SessionTimer {
         isActive = false
         isPaused = false
         elapsedTime = 0
+        lastTickDate = nil
         stopTimer()
     }
     
     /// For testing purposes: manually triggers a tick
     public func advanceOneSecond() {
         guard isActive else { return }
-        tick()
+        if !isPaused {
+            elapsedTime += 1.0
+        }
+        onTick?()
     }
     
     private func setupTimer() {
@@ -66,7 +75,11 @@ public class SessionTimer {
     
     private func tick() {
         if !isPaused {
-            elapsedTime += 1.0
+            let now = Date()
+            if let last = lastTickDate {
+                elapsedTime += now.timeIntervalSince(last)
+            }
+            lastTickDate = now
         }
         onTick?()
     }

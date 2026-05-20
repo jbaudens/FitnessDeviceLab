@@ -214,10 +214,13 @@ public class WorkoutSessionManager {
         let rrIntervals = primaryHRSource?.latestRRIntervals ?? []
         primaryHRSource?.latestRRIntervals.removeAll()
         
-        // 2. Pulse both recorders (This captures data and auto-updates engines)
+        // 2. Pulse both recorders (Using a stable nominal time based on sessionStartTime to prevent drift)
+        let workoutTime = workoutElapsedTime
+        let nominalTime = sessionStartTime?.addingTimeInterval(workoutTime) ?? now
         let lapStart = lapManager.currentLap?.startTime
-        recorderA.pulse(time: now, altitude: altitude, rrIntervals: rrIntervals, lapStartTime: lapStart)
-        recorderB.pulse(time: now, altitude: altitude, rrIntervals: rrIntervals, lapStartTime: lapStart)
+        
+        recorderA.pulse(time: nominalTime, altitude: altitude, rrIntervals: rrIntervals, lapStartTime: lapStart)
+        recorderB.pulse(time: nominalTime, altitude: altitude, rrIntervals: rrIntervals, lapStartTime: lapStart)
         
         guard isLoaded else { return }
         
