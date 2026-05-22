@@ -42,7 +42,7 @@ We maintain strict coding standards. Please review our `CODE_REVIEW_RESULTS.md` 
 ### Getting Started
 1. Open `FitnessDeviceLab.xcodeproj` in **Xcode 16+**.
 2. Select the **FitnessDeviceLab** scheme.
-3. Target an **iOS 17+ Simulator** or Physical Device.
+3. Target an **iPad Simulator** or Physical Device.
 4. Build and Run (`⌘R`).
 
 ### Simulation for Testing
