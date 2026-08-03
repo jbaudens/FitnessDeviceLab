@@ -83,7 +83,7 @@ public final class GeminiAdapter: LLMProvider, @unchecked Sendable {
                 let jsonResponse: JSONObject = parseToolContent(message.content)
                 
                 let part = ModelContent.Part.functionResponse(FunctionResponse(name: functionName, response: jsonResponse))
-                return ModelContent(role: "function", parts: [part])
+                return ModelContent(role: "user", parts: [part])
             } else {
                 let role = message.role == .user ? "user" : "model"
                 var parts: [ModelContent.Part] = []
